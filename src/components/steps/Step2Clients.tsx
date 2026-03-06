@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useStore } from '../../store'
+import { uploadClientsCsv } from '../../lib/api'
 
 export function Step2Clients() {
   const { clients, setClients, addClient } = useStore()
@@ -33,6 +34,11 @@ export function Step2Clients() {
     const reader = new FileReader()
     reader.onload = (e) => parseCSV(e.target?.result as string)
     reader.readAsText(file)
+    // Also upload to backend if session exists
+    const sessionId = useStore.getState().sessionId
+    if (sessionId) {
+      uploadClientsCsv(sessionId, file).catch((err) => console.warn('CSV upload failed:', err))
+    }
   }
 
   const handleAddManual = () => {

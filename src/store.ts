@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import * as api from './lib/api'
 
 export interface TeamMember {
   name: string
@@ -59,6 +60,11 @@ interface SetupState {
   useOverflow: boolean
   joinNetwork: boolean
 
+  // API
+  sessionId: string | null
+  apiStatus: Record<number, 'idle' | 'saving' | 'saved' | 'error'>
+  apiErrors: Record<number, string>
+
   // Chat
   chatHistory: ChatMessage[]
   shownChatSteps: Set<number>
@@ -86,6 +92,12 @@ interface SetupState {
   toggleProfile: (p: string) => void
   setUseOverflow: (v: boolean) => void
   setJoinNetwork: (v: boolean) => void
+  setSessionId: (id: string | null) => void
+  setApiStatus: (step: number, status: 'idle' | 'saving' | 'saved' | 'error') => void
+  setApiError: (step: number, error: string) => void
+  clearApiError: (step: number) => void
+  initSession: () => Promise<void>
+  saveStep: (step: number) => Promise<void>
   addChatMessage: (msg: ChatMessage) => void
   markChatStepShown: (step: number) => void
   getCompletionPercentage: () => number
@@ -170,6 +182,10 @@ export const useStore = create<SetupState>((set, get) => ({
   useOverflow: false,
   joinNetwork: true,
 
+  sessionId: null,
+  apiStatus: {},
+  apiErrors: {},
+
   chatHistory: [],
   shownChatSteps: new Set(),
 
@@ -243,6 +259,75 @@ export const useStore = create<SetupState>((set, get) => ({
 
   setUseOverflow: (v) => set({ useOverflow: v }),
   setJoinNetwork: (v) => set({ joinNetwork: v }),
+
+  setSessionId: (id) => set({ sessionId: id }),
+  setApiStatus: (step, status) => set((s) => ({ apiStatus: { ...s.apiStatus, [step]: status } })),
+  setApiError: (step, error) => set((s) => ({ apiErrors: { ...s.apiErrors, [step]: error } })),
+  clearApiError: (step) => set((s) => { const e = { ...s.apiErrors }; delete e[step]; return { apiErrors: e } }),
+
+  initSession: async () => {
+    try {
+      const res = await api.createSession()
+      set({ sessionId: res.session?.id || res.id || null })
+    } catch (e) {
+      console.warn('Could not create session, running offline:', e)
+    }
+  },
+
+  saveStep: async (step) => {
+    const s = get()
+    if (!s.sessionId) { console.warn('No session, skipping save'); return }
+    set((st) => ({ apiStatus: { ...st.apiStatus, [step]: 'saving' as const }, apiErrors: { ...st.apiErrors } }))
+    try {
+      switch (step) {
+        case 0:
+          await api.saveBusinessProfile(s.sessionId, {
+            companyName: s.companyName,
+            geography: s.selectedCities,
+            verticals: s.selectedVerticals,
+            currentSystem: s.currentSystem,
+            deliveriesPerMonth: s.deliveryVolume,
+          }); break
+        case 1:
+          await api.saveTeam(s.sessionId, s.teamMembers); break
+        case 2:
+          await api.saveClients(s.sessionId, s.clients.map(c => ({
+            name: c.name, contact: c.contact, phone: c.phone, email: c.email, billing: c.billing,
+          }))); break
+        case 3:
+          await api.saveRates(s.sessionId, {
+            baseRate: parseFloat(s.rates['Base Rate']?.replace('$', '') || '0'),
+            perKmRate: parseFloat(s.rates['Per KM Rate']?.replace('$', '') || '0'),
+            minCharge: parseFloat(s.rates['Minimum Charge']?.replace('$', '') || '0'),
+            fuelSurcharge: parseFloat(s.rates['Fuel Surcharge']?.replace('%', '') || '0'),
+            waitTime: parseFloat(s.rates['Wait Time']?.replace('$', '') || '0'),
+            afterHours: parseFloat(s.rates['After Hours']?.replace('%', '') || '0'),
+            zones: s.zonePricing.map(row => ({ name: row[0], ranges: row.slice(1) })),
+            weightBreaks: [
+              { min: 0, max: 5, surcharge: 0 }, { min: 5, max: 15, surcharge: 2 },
+              { min: 15, max: 30, surcharge: 5 }, { min: 30, max: 50, surcharge: 10 },
+              { min: 50, max: 999, surcharge: 0 },
+            ],
+          }); break
+        case 4:
+          await api.saveCouriers(s.sessionId, s.couriers.map(c => ({
+            name: c.name, phone: c.phone, vehicle: c.vehicle.replace(/^[^ ]+ /, ''), zone: c.zone,
+          }))); break
+        case 5:
+          await api.saveAutomations(s.sessionId, Object.entries(s.automations).map(([key, enabled]) => ({
+            type: key.replace(/ /g, '_').toUpperCase(), enabled, name: key,
+          }))); break
+        default: return
+      }
+      set((st) => ({ apiStatus: { ...st.apiStatus, [step]: 'saved' as const } }))
+      // Clear error if any
+      set((st) => { const e = { ...st.apiErrors }; delete e[step]; return { apiErrors: e } })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Save failed'
+      console.warn(`Step ${step} save failed:`, msg)
+      set((st) => ({ apiStatus: { ...st.apiStatus, [step]: 'error' as const }, apiErrors: { ...st.apiErrors, [step]: msg } }))
+    }
+  },
 
   addChatMessage: (msg) => set((s) => ({
     chatHistory: [...s.chatHistory, msg]
