@@ -362,25 +362,71 @@ When a tenant migrates from a competitor TMS to Deliver Different, they export t
 
 ---
 
-### 5. eCourier (TMS Platform — not the UK courier service)
+### 5. e-Courier (e-courier.com)
 
-**Export method**: Admin panel → Reports → CSV
-**Note**: Less common in US market. If referring to a different system, column names need validation.
+**Company**: US-based, 25+ years. Recently acquired by the same parent company that bought CXT Software. Sibling platforms under one roof — consolidation creates migration opportunity.
+**Export method**: Admin panel → Reports → CSV/Excel export
+**Known modules**: Courier Management, Shipper Portal, 3PL solutions, dispatch, billing/invoicing
+**Key differentiator**: Strong shipper network (200+ couriers), self-service portals
+**Competitive angle**: Parent company consolidation creates uncertainty for existing users — "will my platform survive?"
 
-#### Clients
-| eCourier Column | DF Field | Transform |
-|----------------|----------|-----------|
-| AccountName | name | Direct |
-| AccountRef | code | Direct |
-| Phone | phone | Direct |
-| Email | email | Direct |
-| Status | active | Map |
+#### Clients/Shippers
+| e-Courier Column | DF Field | Transform |
+|-----------------|----------|-----------|
+| AccountName / ShipperName | name | Direct |
+| AccountNumber / AcctRef | code | Direct |
+| CompanyName | legalName | Direct |
+| Phone / MainPhone | phone | Direct |
+| Email / BillingEmail | email | Direct |
+| Status / Active | active | Map |
 | City | americanCity | Direct |
-| State | americanState | Direct |
-| Zipcode | americanZipCode | Direct |
-| Address | addressStreetName | Direct |
+| State | americanState | Normalize |
+| ZipCode / PostalCode | americanZipCode | Direct |
+| Address / StreetAddress | addressStreetName | Direct |
+| BillingType / InvoiceMethod | type | Map |
+| ContactFirst | → Contact.firstName | Direct |
+| ContactLast | → Contact.lastName | Direct |
 
-*(Similar pattern to above for Drivers, Zones, Rates)*
+#### Drivers/Couriers
+| e-Courier Column | DF Field | Transform |
+|-----------------|----------|-----------|
+| DriverName / CourierName | name | Direct |
+| DriverID / CourierCode | code | Direct |
+| FirstName | firstName | Direct |
+| LastName | surName | Direct |
+| Mobile / CellPhone | personalMobile | Direct |
+| DispatchPhone | urgentMobile | Direct |
+| DriverType / Classification | courierType | Map |
+| Status | active | Map |
+| VehicleType | → vehicle lookup | Map |
+| LicensePlate / VehicleTag | vehicleRegoNo | Direct |
+| Email / LoginEmail | email | Direct |
+
+#### Zones
+| e-Courier Column | DF Field | Transform |
+|-----------------|----------|-----------|
+| ZoneName / ServiceZone | name | Direct |
+| ZipCode | zips[].zip | Direct |
+| ZoneNumber / ZoneID | zips[].zoneNumber | Direct |
+| City / Location | zips[].location | Direct |
+
+#### Rates
+| e-Courier Column | DF Field | Transform |
+|-----------------|----------|-----------|
+| RateName / PriceSchedule | name | Direct |
+| AccountNumber | clientId | Lookup |
+| ServiceType / ServiceLevel | speedId | Map |
+| VehicleClass | vehicle | Map |
+| StartMiles / FromDist | startDistance | Direct |
+| EndMiles / ToDist | endDistance | Direct |
+| BaseRate / FlatCharge | baseCharge | Direct |
+| PerMileRate | perDistanceUnit | Direct |
+| IncludedMiles / DeadHead | distanceIncluded | Direct |
+| MinWeight | minWeight | Direct |
+| MaxWeight | maxWeight | Direct |
+| WeightRate / WeightCharge | rate | Direct |
+
+**Note**: Given CXT and e-Courier are now sibling products, their export formats may converge over time. The import engine should handle both and detect which variant based on header patterns.
 
 ---
 
