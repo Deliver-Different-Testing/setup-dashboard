@@ -14,7 +14,7 @@ import { Step6Integrations } from './components/steps/Step6Integrations'
 import { Step7AppConfig } from './components/steps/Step7AppConfig'
 import { Step8Partners } from './components/steps/Step8Partners'
 import { Step9Training } from './components/steps/Step9Training'
-import { HelpPanel } from './components/HelpPanel'
+// HelpPanel removed — Auto-Mate IS the help system
 
 const STEP_COMPONENTS = [
   Step0Business, Step1Team, Step2Clients, Step3Rates, Step4Couriers,
@@ -99,7 +99,7 @@ function App() {
           </div>
         </main>
       </div>
-      <HelpPanel />
+      {/* HelpPanel removed */}
     </div>
   )
 }
