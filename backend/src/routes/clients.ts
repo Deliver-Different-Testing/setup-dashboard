@@ -3,6 +3,7 @@ import { z } from 'zod';
 import multer from 'multer';
 import { getApiClient } from '../index.js';
 import { getSession, completeStep } from '../services/setup-orchestrator.js';
+import { trackEntities } from '../services/database.js';
 import { parseClientCsv, createClients, ClientInput } from '../services/client-import.js';
 import { ApiError } from '../middleware/error-handler.js';
 
@@ -35,7 +36,7 @@ router.post('/setup/clients', async (req, res, next) => {
     const result = await createClients(client, input.clients);
 
     const createdIds = result.results.filter(r => r.success && r.id).map(r => r.id!);
-    session.entityIds.clients.push(...createdIds);
+    trackEntities(session.id, createdIds.map(id => ({ entityType: 'client', entityId: id, entityName: undefined, stepNumber: 2 })));
     completeStep(session.id, 2);
 
     res.json({
@@ -76,7 +77,7 @@ router.post('/setup/clients/import', upload.single('file'), async (req, res, nex
     const result = await createClients(apiClient, clients);
 
     const createdIds = result.results.filter(r => r.success && r.id).map(r => r.id!);
-    session.entityIds.clients.push(...createdIds);
+    trackEntities(session.id, createdIds.map(id => ({ entityType: 'client', entityId: id, entityName: undefined, stepNumber: 2 })));
     completeStep(session.id, 2);
 
     res.json({

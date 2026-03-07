@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { createSession, getSession } from '../services/setup-orchestrator.js';
+import { listSessions, getSessionEntities } from '../services/database.js';
 import { listEnvironments, ENVIRONMENTS } from '../types/api.js';
 import { ApiError } from '../middleware/error-handler.js';
 import { getApiClient } from '../index.js';
@@ -87,6 +88,20 @@ router.get('/setup/test-auth', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// List all sessions
+router.get('/setup/sessions', (req, res) => {
+  const status = req.query.status as string | undefined;
+  const sessions = listSessions(status);
+  res.json({ success: true, sessions });
+});
+
+// List entities for a session
+router.get('/setup/sessions/:id/entities', (req, res) => {
+  const entityType = req.query.entityType as string | undefined;
+  const entities = getSessionEntities(req.params.id, entityType);
+  res.json({ success: true, entities });
 });
 
 // Mount all step routes

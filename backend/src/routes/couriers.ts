@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getApiClient } from '../index.js';
 import { getSession, completeStep } from '../services/setup-orchestrator.js';
+import { trackEntities } from '../services/database.js';
 import { setupCouriers } from '../services/courier-setup.js';
 import { ApiError } from '../middleware/error-handler.js';
 
@@ -27,8 +28,9 @@ router.post('/setup/couriers', async (req, res, next) => {
     const client = getApiClient();
     const result = await setupCouriers(client, input.couriers);
 
-    session.entityIds.couriers = result.couriers.filter(c => c.courierId).map(c => c.courierId!);
-    session.entityIds.agents = result.couriers.filter(c => c.agentId).map(c => c.agentId!);
+    const courierEntities = result.couriers.filter(c => c.courierId).map(c => ({ entityType: 'courier', entityId: c.courierId!, entityName: c.name, stepNumber: 4 }));
+    const agentEntities = result.couriers.filter(c => c.agentId).map(c => ({ entityType: 'agent', entityId: c.agentId!, entityName: c.name, stepNumber: 4 }));
+    trackEntities(session.id, [...courierEntities, ...agentEntities]);
     completeStep(session.id, 4);
 
     res.json({

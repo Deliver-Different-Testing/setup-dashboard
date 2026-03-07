@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getApiClient } from '../index.js';
 import { getSession, completeStep } from '../services/setup-orchestrator.js';
+import { trackEntities } from '../services/database.js';
 import { ApiError } from '../middleware/error-handler.js';
 
 const router = Router();
@@ -64,7 +65,7 @@ router.post('/setup/automations', async (req, res, next) => {
       }
     }
 
-    session.entityIds.automationRuleIds = createdIds;
+    trackEntities(session.id, createdIds.map(id => ({ entityType: 'automation_rule', entityId: id, stepNumber: 5 })));
     completeStep(session.id, 5);
 
     res.json({

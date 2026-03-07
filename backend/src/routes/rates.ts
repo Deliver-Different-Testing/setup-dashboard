@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getApiClient } from '../index.js';
 import { getSession, completeStep } from '../services/setup-orchestrator.js';
+import { trackEntity, trackEntities } from '../services/database.js';
 import { setupZones, ZoneInput } from '../services/zone-setup.js';
 import { setupRates, RateInput } from '../services/rate-setup.js';
 import { ApiError } from '../middleware/error-handler.js';
@@ -38,19 +39,19 @@ router.post('/setup/rates', async (req, res, next) => {
 
     // Step 1-3: Create zones
     const zoneResult = await setupZones(client, `${companyName} Zones`, input.zones);
-    session.entityIds.zoneGroupId = zoneResult.zoneGroupId;
-    session.entityIds.zoneIds = zoneResult.zones.map(z => z.id);
+    trackEntity(session.id, { entityType: 'zone_group', entityId: zoneResult.zoneGroupId, entityName: `${companyName} Zones`, stepNumber: 3 });
+    trackEntities(session.id, zoneResult.zones.map((z: any) => ({ entityType: 'zone', entityId: z.id, entityName: z.name, stepNumber: 3 })));
 
     // Step 4-8: Create rates, breaks, zone rates, fuel
     const rateResult = await setupRates(client, {
       ...input,
-      zones: zoneResult.zones.map(z => ({ name: z.name, id: z.id })),
+      zones: zoneResult.zones.map((z: any) => ({ name: z.name, id: z.id })),
       zoneGroupId: zoneResult.zoneGroupId
     }, `${companyName} Rate Card`);
 
-    session.entityIds.rateCardId = rateResult.rateCardId;
-    session.entityIds.breakGroupIds = rateResult.breakGroupIds;
-    session.entityIds.fuelSurchargeId = rateResult.fuelSurchargeId;
+    trackEntity(session.id, { entityType: 'rate_card', entityId: rateResult.rateCardId, entityName: `${companyName} Rate Card`, stepNumber: 3 });
+    trackEntities(session.id, rateResult.breakGroupIds.map((id: number) => ({ entityType: 'break_group', entityId: id, stepNumber: 3 })));
+    if (rateResult.fuelSurchargeId) trackEntity(session.id, { entityType: 'fuel_surcharge', entityId: rateResult.fuelSurchargeId, stepNumber: 3 });
     completeStep(session.id, 3);
 
     res.json({

@@ -11,6 +11,7 @@ import cors from 'cors';
 import { DfrntApiClient, DfrntBearerClient, DfrntDualClient, IApiClient } from './api-client.js';
 import routes from './routes/index.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { initDatabase } from './services/database.js';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const ENV_KEY = process.env.DFRNT_ENVIRONMENT || 'medical-staging';
@@ -56,6 +57,10 @@ app.use('/api', routes);
 
 // Error handler (must be last)
 app.use(errorHandler);
+
+// Initialize SQLite database
+initDatabase();
+console.log('[server] SQLite database initialized');
 
 app.listen(PORT, () => {
   console.log(`[server] Setup Dashboard backend running on port ${PORT}`);

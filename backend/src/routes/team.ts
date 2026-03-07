@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getApiClient } from '../index.js';
 import { getSession, completeStep } from '../services/setup-orchestrator.js';
+import { trackEntities } from '../services/database.js';
 import { ApiError } from '../middleware/error-handler.js';
 import { extractArray } from '../types/api.js';
 
@@ -44,7 +45,7 @@ router.post('/setup/team', async (req, res, next) => {
       }
     }
 
-    session.entityIds.teamUserIds = createdIds;
+    trackEntities(session.id, createdIds.map(id => ({ entityType: 'user', entityId: id, stepNumber: 1 })));
     completeStep(session.id, 1);
 
     res.json({
