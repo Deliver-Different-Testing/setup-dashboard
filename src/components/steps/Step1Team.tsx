@@ -1,9 +1,32 @@
+import { useState, useCallback, useRef } from 'react'
 import { useStore } from '../../store'
+import { ValidationIndicator } from '../ValidationIndicator'
+import type { ValidationStatus } from '../../hooks/useValidation'
+import * as api from '../../lib/api'
 
 const ROLES = ['Admin', 'Dispatcher', 'Accounts', 'Driver Manager']
 
 export function Step1Team() {
   const { teamMembers, addTeamMember, updateTeamMember } = useStore()
+  const [validationStatus, setValidationStatus] = useState<Record<number, ValidationStatus>>({})
+  const timersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
+
+  const validateEmail = useCallback((index: number, email: string) => {
+    if (timersRef.current[index]) clearTimeout(timersRef.current[index])
+    if (!email || email.length < 3) {
+      setValidationStatus(prev => ({ ...prev, [index]: 'idle' }))
+      return
+    }
+    setValidationStatus(prev => ({ ...prev, [index]: 'checking' }))
+    timersRef.current[index] = setTimeout(async () => {
+      try {
+        const res = await api.validateUsername(email)
+        setValidationStatus(prev => ({ ...prev, [index]: res.unchecked ? 'idle' : res.available ? 'available' : 'taken' }))
+      } catch {
+        setValidationStatus(prev => ({ ...prev, [index]: 'error' }))
+      }
+    }, 300)
+  }, [])
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -18,7 +41,10 @@ export function Step1Team() {
               </div>
               <div className="flex-1">
                 <input value={m.name} onChange={(e) => updateTeamMember(i, 'name', e.target.value)} className="block w-full text-sm font-semibold text-navy focus:outline-none" placeholder="Name" />
-                <input value={m.email} onChange={(e) => updateTeamMember(i, 'email', e.target.value)} className="block w-full text-xs text-gray-400 focus:outline-none mt-0.5" placeholder="Email" />
+                <div className="flex items-center">
+                  <input value={m.email} onChange={(e) => { updateTeamMember(i, 'email', e.target.value); validateEmail(i, e.target.value) }} className="block flex-1 text-xs text-gray-400 focus:outline-none mt-0.5" placeholder="Email" />
+                  <ValidationIndicator status={validationStatus[i] || 'idle'} />
+                </div>
               </div>
             </div>
             <div className="flex items-center justify-between">

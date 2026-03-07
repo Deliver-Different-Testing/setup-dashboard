@@ -90,6 +90,9 @@ interface SetupState {
   billingAddress: { street: string; city: string; state: string; zip: string }
   primaryContact: { name: string; email: string; phone: string; title: string }
 
+  // Environment
+  selectedEnvironment: string
+
   // Step 9: Training
   trainingProgress: Record<string, {
     xp: number
@@ -139,6 +142,7 @@ interface SetupState {
   toggleProfile: (p: string) => void
   setUseOverflow: (v: boolean) => void
   setJoinNetwork: (v: boolean) => void
+  setSelectedEnvironment: (env: string) => void
   initTraining: () => void
   completeChallenge: (email: string, challengeId: string) => void
   setSessionId: (id: string | null) => void
@@ -265,6 +269,7 @@ export const useStore = create<SetupState>((set, get) => ({
   billingAddress: { street: '', city: '', state: '', zip: '' },
   primaryContact: { name: '', email: '', phone: '', title: '' },
 
+  selectedEnvironment: 'medical-staging',
   trainingProgress: {},
 
   helpPanelOpen: false,
@@ -351,32 +356,71 @@ export const useStore = create<SetupState>((set, get) => ({
   setUseOverflow: (v) => set({ useOverflow: v }),
   setJoinNetwork: (v) => set({ joinNetwork: v }),
 
-  initTraining: () => set((s) => {
-    const progress: Record<string, { xp: number; completedChallenges: string[]; currentStreak: number; lastActive: string; role: string }> = {}
-    s.teamMembers.forEach(m => {
-      if (m.name === 'Sarah Chen') {
-        progress[m.email] = {
-          xp: 350, completedChallenges: ['add-client', 'rate-card', 'zone-setup', 'automation-rule', 'kb-article', 'import-clients'],
-          currentStreak: 5, lastActive: new Date().toISOString(), role: m.role,
-        }
-      } else if (m.name === 'Mike Torres') {
-        progress[m.email] = {
-          xp: 175, completedChallenges: ['first-job', 'speed-10', 'reassign'],
-          currentStreak: 2, lastActive: new Date().toISOString(), role: m.role,
-        }
-      } else {
-        progress[m.email] = {
-          xp: 0, completedChallenges: [], currentStreak: 0, lastActive: new Date().toISOString(), role: m.role,
-        }
-      }
-    })
-    return { trainingProgress: progress }
-  }),
+  setSelectedEnvironment: (env) => set({ selectedEnvironment: env }),
 
-  completeChallenge: (email, challengeId) => set((s) => {
+  initTraining: () => {
+    const s = get()
+    // Try loading from backend first
+    if (s.sessionId) {
+      api.getTrainingProgress(s.sessionId).then(res => {
+        if (res.progress && res.progress.length > 0) {
+          const progress: Record<string, any> = {}
+          for (const p of res.progress) {
+            progress[p.userEmail] = {
+              xp: p.xp, completedChallenges: p.completedChallenges,
+              currentStreak: p.currentStreak, lastActive: p.lastActive, role: p.role,
+            }
+          }
+          set({ trainingProgress: progress })
+          return
+        }
+        // No backend data — init with defaults and save
+        initDefaultTraining(s)
+      }).catch(() => {
+        // Offline — init with defaults
+        initDefaultTraining(s)
+      })
+    } else {
+      initDefaultTraining(s)
+    }
+
+    function initDefaultTraining(s: any) {
+      const progress: Record<string, { xp: number; completedChallenges: string[]; currentStreak: number; lastActive: string; role: string }> = {}
+      s.teamMembers.forEach((m: TeamMember) => {
+        if (m.name === 'Sarah Chen') {
+          progress[m.email] = {
+            xp: 350, completedChallenges: ['add-client', 'rate-card', 'zone-setup', 'automation-rule', 'kb-article', 'import-clients'],
+            currentStreak: 5, lastActive: new Date().toISOString(), role: m.role,
+          }
+        } else if (m.name === 'Mike Torres') {
+          progress[m.email] = {
+            xp: 175, completedChallenges: ['first-job', 'speed-10', 'reassign'],
+            currentStreak: 2, lastActive: new Date().toISOString(), role: m.role,
+          }
+        } else {
+          progress[m.email] = {
+            xp: 0, completedChallenges: [], currentStreak: 0, lastActive: new Date().toISOString(), role: m.role,
+          }
+        }
+      })
+      set({ trainingProgress: progress })
+      // Persist to backend
+      if (s.sessionId) {
+        const members = Object.entries(progress).map(([email, data]) => ({
+          userEmail: email, userName: s.teamMembers.find((m: TeamMember) => m.email === email)?.name || email,
+          role: data.role, xp: data.xp, completedChallenges: data.completedChallenges,
+          currentStreak: data.currentStreak, lastActive: data.lastActive,
+        }))
+        api.saveTrainingProgress(s.sessionId, members).catch(() => {})
+      }
+    }
+  },
+
+  completeChallenge: (email, challengeId) => {
+    const s = get()
     const tp = { ...s.trainingProgress }
     const member = tp[email]
-    if (!member || member.completedChallenges.includes(challengeId)) return {}
+    if (!member || member.completedChallenges.includes(challengeId)) return
     const allChallenges = Object.values({
       dispatcher: [{ id: 'first-job', xp: 50 }, { id: 'speed-10', xp: 100 }, { id: 'auto-shadow', xp: 150 }, { id: 'auto-suggest', xp: 200 }, { id: 'multi-stop', xp: 125 }, { id: 'reassign', xp: 75 }, { id: 'zero-touch', xp: 200 }, { id: 'dispatch-master', xp: 500 }],
       admin: [{ id: 'add-client', xp: 50 }, { id: 'rate-card', xp: 100 }, { id: 'zone-setup', xp: 100 }, { id: 'automation-rule', xp: 125 }, { id: 'kb-article', xp: 75 }, { id: 'import-clients', xp: 150 }, { id: 'reporting', xp: 125 }, { id: 'admin-master', xp: 500 }],
@@ -390,8 +434,12 @@ export const useStore = create<SetupState>((set, get) => ({
       completedChallenges: [...member.completedChallenges, challengeId],
       lastActive: new Date().toISOString(),
     }
-    return { trainingProgress: tp }
-  }),
+    set({ trainingProgress: tp })
+    // Persist to backend
+    if (s.sessionId) {
+      api.completeTrainingChallenge(s.sessionId, email, challengeId, xpReward).catch(() => {})
+    }
+  },
 
   setSessionId: (id) => set({ sessionId: id }),
   setApiStatus: (step, status) => set((s) => ({ apiStatus: { ...s.apiStatus, [step]: status } })),

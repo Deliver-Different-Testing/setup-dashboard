@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+let BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 async function post(path: string, body: unknown) {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -73,3 +73,38 @@ export const getFullSession = (id: string) =>
 
 export const rollbackSession = (id: string) =>
   del(`/setup/session/${id}/rollback`)
+
+// Training
+export const getTrainingProgress = (sessionId: string) =>
+  get(`/setup/training/progress?sessionId=${sessionId}`)
+
+export const saveTrainingProgress = (sessionId: string, members: unknown[]) =>
+  post('/setup/training/progress', { sessionId, members })
+
+export const completeTrainingChallenge = (sessionId: string, userEmail: string, challengeId: string, xpEarned: number) =>
+  post('/setup/training/complete-challenge', { sessionId, userEmail, challengeId, xpEarned })
+
+export const getLeaderboard = (sessionId: string) =>
+  get(`/setup/training/leaderboard?sessionId=${sessionId}`)
+
+// Validation
+export const validateUsername = (username: string) =>
+  get(`/setup/validate/username?username=${encodeURIComponent(username)}`)
+
+export const validateClientCode = (code: string) =>
+  get(`/setup/validate/client-code?code=${encodeURIComponent(code)}`)
+
+export const validateCourierCode = (code: string) =>
+  get(`/setup/validate/courier-code?code=${encodeURIComponent(code)}`)
+
+// Environments
+export const getEnvironments = () =>
+  get('/setup/environments')
+
+export function setApiBaseUrl(url: string) {
+  BASE_URL = url
+}
+
+export function getApiBaseUrl() {
+  return BASE_URL
+}

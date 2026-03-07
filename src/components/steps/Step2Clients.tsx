@@ -1,7 +1,9 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useCallback } from 'react'
 import { useStore } from '../../store'
-import { uploadClientsCsv } from '../../lib/api'
+import { uploadClientsCsv, validateClientCode } from '../../lib/api'
 import { SmartImport } from '../SmartImport'
+import { ValidationIndicator } from '../ValidationIndicator'
+import type { ValidationStatus } from '../../hooks/useValidation'
 
 interface ClientContact {
   clientName: string
@@ -22,6 +24,25 @@ export function Step2Clients() {
   const [showContactImport, setShowContactImport] = useState(false)
   const [contacts, setContacts] = useState<ClientContact[]>([])
   const [activeTab, setActiveTab] = useState<'clients' | 'contacts'>('clients')
+  const [clientValidation, setClientValidation] = useState<Record<number, ValidationStatus>>({})
+  const clientTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
+
+  const validateClientName = useCallback((index: number, name: string) => {
+    if (clientTimers.current[index]) clearTimeout(clientTimers.current[index])
+    if (!name || name.length < 2) {
+      setClientValidation(prev => ({ ...prev, [index]: 'idle' }))
+      return
+    }
+    setClientValidation(prev => ({ ...prev, [index]: 'checking' }))
+    clientTimers.current[index] = setTimeout(async () => {
+      try {
+        const res = await validateClientCode(name)
+        setClientValidation(prev => ({ ...prev, [index]: res.unchecked ? 'idle' : res.available ? 'available' : 'taken' }))
+      } catch {
+        setClientValidation(prev => ({ ...prev, [index]: 'error' }))
+      }
+    }, 300)
+  }, [])
 
   const parseCSV = (text: string) => {
     const lines = text.trim().split('\n')
@@ -189,7 +210,10 @@ export function Step2Clients() {
                 )}
                 {clients.map((c, i) => (
                   <tr key={i} className="border-t border-gray-50 hover:bg-cyan/5 transition cursor-pointer">
-                    <td className="px-5 py-3 font-medium text-navy">{c.name}</td>
+                    <td className="px-5 py-3 font-medium text-navy">
+                      <span onMouseEnter={() => validateClientName(i, c.name)}>{c.name}</span>
+                      <ValidationIndicator status={clientValidation[i] || 'idle'} />
+                    </td>
                     <td className="px-5 py-3 text-gray-600">{c.contact}</td>
                     <td className="px-5 py-3 text-gray-500">{c.phone}</td>
                     <td className="px-5 py-3 text-gray-500">{c.email}</td>

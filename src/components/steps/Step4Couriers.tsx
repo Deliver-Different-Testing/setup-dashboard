@@ -1,10 +1,32 @@
 import { useStore } from '../../store'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback, useRef } from 'react'
 import { SmartImport } from '../SmartImport'
+import { ValidationIndicator } from '../ValidationIndicator'
+import type { ValidationStatus } from '../../hooks/useValidation'
+import { validateCourierCode } from '../../lib/api'
 
 export function Step4Couriers() {
   const { couriers } = useStore()
   const [showSmartImport, setShowSmartImport] = useState(false)
+  const [courierValidation, setCourierValidation] = useState<Record<number, ValidationStatus>>({})
+  const courierTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
+
+  const validateCourier = useCallback((index: number, name: string) => {
+    if (courierTimers.current[index]) clearTimeout(courierTimers.current[index])
+    if (!name || name.length < 2) {
+      setCourierValidation(prev => ({ ...prev, [index]: 'idle' }))
+      return
+    }
+    setCourierValidation(prev => ({ ...prev, [index]: 'checking' }))
+    courierTimers.current[index] = setTimeout(async () => {
+      try {
+        const res = await validateCourierCode(name)
+        setCourierValidation(prev => ({ ...prev, [index]: res.unchecked ? 'idle' : res.available ? 'available' : 'taken' }))
+      } catch {
+        setCourierValidation(prev => ({ ...prev, [index]: 'error' }))
+      }
+    }, 300)
+  }, [])
 
   const qrCells = useMemo(() => {
     const cells: boolean[] = []
@@ -55,7 +77,7 @@ export function Step4Couriers() {
         {couriers.map((d, i) => (
           <div key={i} className="bg-white rounded-2xl p-4 shadow-sm card-hover border border-gray-100 text-center">
             <div className="w-12 h-12 rounded-full bg-cyan/15 flex items-center justify-center text-xl mx-auto mb-2">{d.vehicle.split(' ')[0]}</div>
-            <div className="text-sm font-semibold text-navy">{d.name}</div>
+            <div className="text-sm font-semibold text-navy" onMouseEnter={() => validateCourier(i, d.name)}>{d.name}<ValidationIndicator status={courierValidation[i] || 'idle'} /></div>
             <div className="text-xs text-gray-400 mt-1">{d.phone}</div>
             <div className="text-xs text-gray-400">{d.vehicle}</div>
             <span className="inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-cyan/10 text-cyan">{d.zone}</span>

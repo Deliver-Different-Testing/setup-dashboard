@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import * as api from '../lib/api'
+import { EnvironmentPicker } from './EnvironmentPicker'
+import { PdfSummary } from './PdfSummary'
 
 export function Header() {
   const getCompletionPercentage = useStore((s) => s.getCompletionPercentage)
@@ -62,9 +64,11 @@ export function Header() {
         <span className="text-sm text-white/80">Let's get you onboarded</span>
       </div>
       <div className="flex items-center gap-4">
+        <EnvironmentPicker />
         <div className="text-sm font-semibold">
           <span className="text-cyan">{pct}%</span> complete
         </div>
+        <PdfSummary />
         <button
             onClick={toggleHelpPanel}
             className="text-xs px-3 py-1.5 rounded-full border border-cyan/50 text-cyan hover:bg-cyan/20 transition"

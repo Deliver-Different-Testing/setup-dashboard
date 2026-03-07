@@ -19,6 +19,8 @@ import integrationsRouter from './integrations.js';
 import appConfigRouter from './app-config.js';
 import partnersRouter from './partners.js';
 import importRouter from './import.js';
+import trainingRouter from './training.js';
+import validateRouter from './validate.js';
 
 const router = Router();
 
@@ -157,5 +159,18 @@ router.use(integrationsRouter);
 router.use(appConfigRouter);
 router.use(partnersRouter);
 router.use(importRouter);
+router.use(trainingRouter);
+router.use(validateRouter);
+
+// List available environments
+router.get('/setup/environments', (_req, res) => {
+  const envs = Object.entries(ENVIRONMENTS).map(([key, env]) => ({
+    key,
+    name: env.name,
+    description: env.description,
+    isProduction: !key.includes('staging'),
+  }));
+  res.json({ success: true, environments: envs });
+});
 
 export default router;
