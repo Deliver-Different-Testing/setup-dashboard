@@ -32,7 +32,7 @@ export function ChatSidebar() {
   return (
     <aside className="w-[340px] min-w-[340px] bg-white border-r border-gray-200 flex flex-col">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-cyan/15 flex items-center justify-center text-xl">🤖</div>
+        <img src={`${import.meta.env.BASE_URL}auto-mate-icon-light.png`} alt="Auto-Mate" className="w-10 h-10 rounded-full object-cover" />
         <div>
           <div className="font-semibold text-navy text-sm">Auto-Mate</div>
           <div className="text-[11px] text-gray-400">Your AI setup assistant</div>
@@ -42,7 +42,7 @@ export function ChatSidebar() {
       <div ref={messagesRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {chatHistory.map((m, i) => m.from === 'bot' ? (
           <div key={i} className="flex gap-2 items-end">
-            <div className="w-7 h-7 rounded-full bg-cyan/15 flex items-center justify-center text-sm shrink-0">🤖</div>
+            <img src={`${import.meta.env.BASE_URL}auto-mate-icon-light.png`} alt="Auto-Mate" className="w-7 h-7 rounded-full object-cover shrink-0" />
             <div className="chat-bot px-4 py-2.5 max-w-[240px] text-sm text-navy">{m.text}</div>
           </div>
         ) : (
