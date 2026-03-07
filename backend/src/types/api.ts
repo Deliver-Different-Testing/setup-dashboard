@@ -86,6 +86,15 @@ export const ENVIRONMENTS: Record<string, Environment> = {
     apiUrl: 'https://api.crossroadscourier.staging.deliverdifferent.com',
     description: 'Crossroads Courier staging environment'
   },
+  'urgent-staging': {
+    name: 'Urgent Staging',
+    baseUrl: 'https://adminmanager.urgent.staging.deliverdifferent.com',
+    hubUrl: 'https://hub.urgent.staging.deliverdifferent.com',
+    hubLoginUrl: 'https://hub.urgent.staging.deliverdifferent.com/Account/login',
+    dispatchUrl: 'https://despatch.urgent.staging.deliverdifferent.com',
+    apiUrl: 'https://api.urgent.staging.deliverdifferent.com',
+    description: 'Urgent Couriers staging environment'
+  },
   'dfrnt-staging': {
     name: 'DFRNT Staging',
     baseUrl: 'https://adminmanager.dfrnt.staging.deliverdifferent.com',

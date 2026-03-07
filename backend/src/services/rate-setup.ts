@@ -5,7 +5,7 @@
  * API endpoints: /api/rateCard, /api/breakGroup, /api/break, /api/zoneRate, /API/fuel
  */
 
-import { DfrntApiClient } from '../api-client.js';
+import { IApiClient } from '../api-client.js';
 import { ApiError } from '../middleware/error-handler.js';
 
 export interface RateInput {
@@ -29,7 +29,7 @@ export interface RateSetupResult {
 }
 
 export async function setupRates(
-  client: DfrntApiClient,
+  client: IApiClient,
   input: RateInput,
   rateCardName: string
 ): Promise<RateSetupResult> {

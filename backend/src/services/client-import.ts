@@ -5,7 +5,7 @@
  */
 
 import Papa from 'papaparse';
-import { DfrntApiClient } from '../api-client.js';
+import { IApiClient } from '../api-client.js';
 import { BulkResult } from '../types/api.js';
 import { ApiError } from '../middleware/error-handler.js';
 
@@ -78,7 +78,7 @@ export function parseClientCsv(csvContent: string): ClientInput[] {
 }
 
 export async function createClients(
-  client: DfrntApiClient,
+  client: IApiClient,
   clients: ClientInput[]
 ): Promise<BulkResult> {
   const items = clients.map(c => ({

@@ -5,7 +5,7 @@
  * and agent vehicles via /api/agentVehicle
  */
 
-import { DfrntApiClient } from '../api-client.js';
+import { IApiClient } from '../api-client.js';
 import { ApiError } from '../middleware/error-handler.js';
 
 export interface CourierInput {
@@ -25,7 +25,7 @@ export interface CourierSetupResult {
 }
 
 export async function setupCouriers(
-  client: DfrntApiClient,
+  client: IApiClient,
   couriers: CourierInput[]
 ): Promise<CourierSetupResult> {
   const results: CourierSetupResult['couriers'] = [];

@@ -5,7 +5,7 @@
  * API endpoints from MCP server: /api/zoneGroup, /api/zoneName, /api/zoneZip
  */
 
-import { DfrntApiClient } from '../api-client.js';
+import { IApiClient } from '../api-client.js';
 import { extractArray } from '../types/api.js';
 import { ApiError } from '../middleware/error-handler.js';
 
@@ -20,7 +20,7 @@ export interface ZoneSetupResult {
 }
 
 export async function setupZones(
-  client: DfrntApiClient,
+  client: IApiClient,
   groupName: string,
   zones: ZoneInput[]
 ): Promise<ZoneSetupResult> {

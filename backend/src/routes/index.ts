@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { createSession, getSession } from '../services/setup-orchestrator.js';
-import { listEnvironments } from '../types/api.js';
+import { listEnvironments, ENVIRONMENTS } from '../types/api.js';
 import { ApiError } from '../middleware/error-handler.js';
+import { getApiClient } from '../index.js';
+import { DfrntDualClient, DfrntBearerClient } from '../api-client.js';
 
 import healthRouter from './health.js';
 import businessRouter from './business.js';
@@ -20,7 +22,9 @@ const router = Router();
 
 // Session management
 const CreateSessionSchema = z.object({
-  environment: z.string().optional()
+  environment: z.string().optional(),
+  bearerToken: z.string().optional(),
+  apiBaseUrl: z.string().optional()
 });
 
 router.post('/setup/session', (req, res, next) => {
@@ -42,6 +46,44 @@ router.get('/setup/session/:id', (req, res, next) => {
     const session = getSession(req.params.id);
     if (!session) throw new ApiError(404, 'Session not found');
     res.json({ success: true, session });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Test both auth methods
+router.get('/setup/test-auth', async (req, res, next) => {
+  try {
+    const client = getApiClient();
+    const result: Record<string, { ok: boolean; status?: number; error?: string }> = {};
+
+    // Test cookie auth (admin manager)
+    if (client instanceof DfrntDualClient) {
+      try {
+        const cookieResp = await client.adminClient.get('/api/zoneName');
+        result.cookie = { ok: cookieResp.success, status: cookieResp.statusCode };
+      } catch (err) {
+        result.cookie = { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
+
+      try {
+        const bearerResp = await client.apiClient.get('/api/Jobs/ValidateUTAddress/test');
+        result.bearer = { ok: bearerResp.success, status: bearerResp.statusCode };
+      } catch (err) {
+        result.bearer = { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
+    } else {
+      // Cookie-only client
+      try {
+        const cookieResp = await client.get('/api/zoneName');
+        result.cookie = { ok: cookieResp.success, status: cookieResp.statusCode };
+      } catch (err) {
+        result.cookie = { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
+      result.bearer = { ok: false, error: 'Bearer token not configured' };
+    }
+
+    res.json({ success: true, auth: result });
   } catch (err) {
     next(err);
   }

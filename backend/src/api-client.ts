@@ -8,6 +8,18 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { ApiResponse, BulkResult, Environment, ENVIRONMENTS } from './types/api.js';
 
+/** Common interface for all API client types */
+export interface IApiClient {
+  get<T = unknown>(endpoint: string): Promise<ApiResponse<T>>;
+  post<T = unknown>(endpoint: string, body: unknown): Promise<ApiResponse<T>>;
+  put<T = unknown>(endpoint: string, body: unknown): Promise<ApiResponse<T>>;
+  delete<T = unknown>(endpoint: string): Promise<ApiResponse<T>>;
+  bulkCreate<T = unknown>(endpoint: string, items: unknown[], options?: BulkOptions): Promise<BulkResult>;
+  getEnvironment(): Environment;
+  getEnvKey(): string;
+  isSessionValid(): Promise<boolean>;
+}
+
 export interface BulkOptions {
   batchSize?: number;
   delayMs?: number;
@@ -284,6 +296,201 @@ export class DfrntApiClient {
 
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+
+/**
+ * Bearer token client for the External API surface.
+ * No login needed — uses pre-generated JWT token.
+ */
+export class DfrntBearerClient {
+  private client: AxiosInstance;
+  private apiBaseUrl: string;
+
+  constructor(apiBaseUrl: string, bearerToken: string) {
+    this.apiBaseUrl = apiBaseUrl;
+    this.client = axios.create({
+      baseURL: apiBaseUrl,
+      timeout: 30000,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${bearerToken}`
+      }
+    });
+  }
+
+  async get<T = unknown>(endpoint: string): Promise<ApiResponse<T>> {
+    try {
+      const response = await this.client.get(endpoint);
+      return { success: true, data: response.data as T, statusCode: response.status };
+    } catch (error) {
+      return this.handleError<T>(error);
+    }
+  }
+
+  async post<T = unknown>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+    try {
+      const response = await this.client.post(endpoint, body);
+      return { success: true, data: response.data as T, statusCode: response.status };
+    } catch (error) {
+      return this.handleError<T>(error);
+    }
+  }
+
+  async put<T = unknown>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+    try {
+      const response = await this.client.put(endpoint, body);
+      return { success: true, data: response.data as T, statusCode: response.status };
+    } catch (error) {
+      return this.handleError<T>(error);
+    }
+  }
+
+  async delete<T = unknown>(endpoint: string): Promise<ApiResponse<T>> {
+    try {
+      const response = await this.client.delete(endpoint);
+      return { success: true, data: response.data as T, statusCode: response.status };
+    } catch (error) {
+      return this.handleError<T>(error);
+    }
+  }
+
+  async bulkCreate<T = unknown>(
+    endpoint: string,
+    items: unknown[],
+    options: BulkOptions = {}
+  ): Promise<BulkResult> {
+    const { delayMs = 100, retryAttempts = 2, retryDelayMs = 500, onProgress } = options;
+    const results: BulkResult['results'] = [];
+    let successCount = 0;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      let lastError: string | undefined;
+      let success = false;
+      let responseData: unknown;
+
+      for (let attempt = 0; attempt <= retryAttempts; attempt++) {
+        try {
+          const response = await this.client.post(endpoint, item);
+          responseData = response.data;
+          success = true;
+          break;
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+          if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            if (status === 400 || status === 409) {
+              lastError = (error.response?.data as any)?.messages?.join('; ') || lastError;
+              break;
+            }
+          }
+          if (attempt < retryAttempts) await new Promise(r => setTimeout(r, retryDelayMs * (attempt + 1)));
+        }
+      }
+
+      results.push({
+        item, success,
+        id: success && responseData ? this.extractId(responseData) : undefined,
+        error: success ? undefined : lastError
+      });
+      if (success) successCount++;
+      if (onProgress) onProgress(i + 1, items.length);
+      if (i < items.length - 1 && delayMs > 0) await new Promise(r => setTimeout(r, delayMs));
+    }
+
+    return { total: items.length, success: successCount, failed: items.length - successCount, results };
+  }
+
+  getApiBaseUrl(): string {
+    return this.apiBaseUrl;
+  }
+
+  private handleError<T>(error: unknown): ApiResponse<T> {
+    if (axios.isAxiosError(error)) {
+      return {
+        success: false,
+        error: error.response?.data ? JSON.stringify(error.response.data) : error.message,
+        statusCode: error.response?.status
+      };
+    }
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+
+  private extractId(data: unknown): number | undefined {
+    if (!data || typeof data !== 'object') return undefined;
+    const obj = data as Record<string, unknown>;
+    if ('id' in obj && typeof obj.id === 'number') return obj.id;
+    if ('Id' in obj && typeof obj.Id === 'number') return obj.Id;
+    return undefined;
+  }
+}
+
+/** Endpoint path patterns that route to the External API (Bearer auth) */
+const EXTERNAL_API_PATTERNS = [
+  /^\/api\/Jobs/i,
+  /^\/api\/Rates/i,
+  /^\/api\/Webhook/i,
+  /^\/api\/JobLabel/i,
+];
+
+/**
+ * Dual-auth client that routes requests to the correct API surface:
+ * - External API endpoints → Bearer token client
+ * - Admin Manager endpoints → Cookie auth client
+ */
+export class DfrntDualClient {
+  public adminClient: DfrntApiClient;
+  public apiClient: DfrntBearerClient;
+
+  constructor(adminClient: DfrntApiClient, apiClient: DfrntBearerClient) {
+    this.adminClient = adminClient;
+    this.apiClient = apiClient;
+  }
+
+  private isExternalApi(endpoint: string): boolean {
+    return EXTERNAL_API_PATTERNS.some(p => p.test(endpoint));
+  }
+
+  private route(endpoint: string): DfrntApiClient | DfrntBearerClient {
+    return this.isExternalApi(endpoint) ? this.apiClient : this.adminClient;
+  }
+
+  async get<T = unknown>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.route(endpoint).get<T>(endpoint);
+  }
+
+  async post<T = unknown>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+    return this.route(endpoint).post<T>(endpoint, body);
+  }
+
+  async put<T = unknown>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+    return this.route(endpoint).put<T>(endpoint, body);
+  }
+
+  async delete<T = unknown>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.route(endpoint).delete<T>(endpoint);
+  }
+
+  async bulkCreate<T = unknown>(
+    endpoint: string,
+    items: unknown[],
+    options: BulkOptions = {}
+  ): Promise<BulkResult> {
+    return this.route(endpoint).bulkCreate<T>(endpoint, items, options);
+  }
+
+  getEnvironment(): Environment {
+    return this.adminClient.getEnvironment();
+  }
+
+  getEnvKey(): string {
+    return this.adminClient.getEnvKey();
+  }
+
+  async isSessionValid(): Promise<boolean> {
+    return this.adminClient.isSessionValid();
   }
 }
 

@@ -8,7 +8,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { DfrntApiClient } from './api-client.js';
+import { DfrntApiClient, DfrntBearerClient, DfrntDualClient, IApiClient } from './api-client.js';
 import routes from './routes/index.js';
 import { errorHandler } from './middleware/error-handler.js';
 
@@ -16,13 +16,23 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 const ENV_KEY = process.env.DFRNT_ENVIRONMENT || 'medical-staging';
 const USERNAME = process.env.DFRNT_USERNAME || '';
 const PASSWORD = process.env.DFRNT_PASSWORD || '';
+const BEARER_TOKEN = process.env.DFRNT_BEARER_TOKEN || '';
+const API_BASE = process.env.DFRNT_API_BASE || '';
 
-// Singleton API client
-let apiClient: DfrntApiClient;
+// Singleton API client — supports DfrntApiClient or DfrntDualClient
+let apiClient: IApiClient;
 
-export function getApiClient(): DfrntApiClient {
+export function getApiClient(): IApiClient {
   if (!apiClient) {
-    apiClient = new DfrntApiClient(ENV_KEY, USERNAME, PASSWORD);
+    const cookieClient = new DfrntApiClient(ENV_KEY, USERNAME, PASSWORD);
+
+    if (BEARER_TOKEN && API_BASE) {
+      const bearerClient = new DfrntBearerClient(API_BASE, BEARER_TOKEN);
+      apiClient = new DfrntDualClient(cookieClient, bearerClient);
+      console.log(`[server] Dual auth: Bearer (${API_BASE}) + Cookie (${ENV_KEY})`);
+    } else {
+      apiClient = cookieClient;
+    }
   }
   return apiClient;
 }
@@ -51,6 +61,7 @@ app.listen(PORT, () => {
   console.log(`[server] Setup Dashboard backend running on port ${PORT}`);
   console.log(`[server] Environment: ${ENV_KEY}`);
   console.log(`[server] Credentials: ${USERNAME ? 'configured' : '⚠️  NOT SET — add DFRNT_USERNAME and DFRNT_PASSWORD to .env'}`);
+  console.log(`[server] Bearer token: ${BEARER_TOKEN ? 'configured' : 'not set'}`);
 });
 
 export default app;
