@@ -108,6 +108,9 @@ interface SetupState {
   availableSessions: SavedSession[]
   showResumePrompt: boolean
 
+  // Help Panel
+  helpPanelOpen: boolean
+
   // Chat
   chatHistory: ChatMessage[]
   shownChatSteps: Set<number>
@@ -164,6 +167,7 @@ interface SetupState {
   resumeSession: (sessionData: any) => void
   dismissResumePrompt: () => void
 
+  toggleHelpPanel: () => void
   addChatMessage: (msg: ChatMessage) => void
   markChatStepShown: (step: number) => void
   getCompletionPercentage: () => number
@@ -262,6 +266,8 @@ export const useStore = create<SetupState>((set, get) => ({
   primaryContact: { name: '', email: '', phone: '', title: '' },
 
   trainingProgress: {},
+
+  helpPanelOpen: false,
 
   availableSessions: [],
   showResumePrompt: false,
@@ -523,6 +529,8 @@ export const useStore = create<SetupState>((set, get) => ({
   },
 
   dismissResumePrompt: () => set({ showResumePrompt: false }),
+
+  toggleHelpPanel: () => set((s) => ({ helpPanelOpen: !s.helpPanelOpen })),
 
   addChatMessage: (msg) => set((s) => ({
     chatHistory: [...s.chatHistory, msg]

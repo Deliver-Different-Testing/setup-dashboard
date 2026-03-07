@@ -6,6 +6,7 @@ export function Header() {
   const getCompletionPercentage = useStore((s) => s.getCompletionPercentage)
   const sessionId = useStore((s) => s.sessionId)
   const initSession = useStore((s) => s.initSession)
+  const toggleHelpPanel = useStore((s) => s.toggleHelpPanel)
   const pct = getCompletionPercentage()
   const [showRollback, setShowRollback] = useState(false)
   const [rolling, setRolling] = useState(false)
@@ -64,6 +65,12 @@ export function Header() {
         <div className="text-sm font-semibold">
           <span className="text-cyan">{pct}%</span> complete
         </div>
+        <button
+            onClick={toggleHelpPanel}
+            className="text-xs px-3 py-1.5 rounded-full border border-cyan/50 text-cyan hover:bg-cyan/20 transition"
+          >
+            ❓ Help
+          </button>
         {sessionId && (
           <button
             onClick={() => setShowRollback(true)}
