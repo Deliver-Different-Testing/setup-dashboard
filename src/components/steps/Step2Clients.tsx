@@ -1,11 +1,13 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useStore } from '../../store'
 import { uploadClientsCsv } from '../../lib/api'
+import { SmartImport } from '../SmartImport'
 
 export function Step2Clients() {
   const { clients, setClients, addClient } = useStore()
   const fileRef = useRef<HTMLInputElement>(null)
   const dragRef = useRef<HTMLDivElement>(null)
+  const [showSmartImport, setShowSmartImport] = useState(false)
 
   const parseCSV = (text: string) => {
     const lines = text.trim().split('\n')
@@ -50,6 +52,33 @@ export function Step2Clients() {
       <h2 className="text-2xl font-bold text-navy">📋 Your Clients</h2>
       <p className="text-gray-500 text-sm">Import your client list or add them one by one.</p>
       <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
+      {/* Smart Import Button */}
+      <button
+        onClick={() => setShowSmartImport(true)}
+        className="w-full px-5 py-3 rounded-2xl text-white text-sm font-semibold transition hover:opacity-90"
+        style={{ background: 'linear-gradient(135deg, #0d0c2c 0%, #3bc7f4 100%)' }}
+      >
+        🔄 Smart Import from Competitor TMS
+      </button>
+
+      {showSmartImport && (
+        <SmartImport
+          entityType="clients"
+          onComplete={(data) => {
+            const mapped = data.map(d => ({
+              name: d.name || '',
+              contact: d.contactFirstName ? `${d.contactFirstName} ${d.contactLastName || ''}`.trim() : '',
+              phone: d.phone || '',
+              email: d.email || '',
+              billing: d.billingType || 'Monthly',
+            }))
+            setClients([...clients, ...mapped])
+            setShowSmartImport(false)
+          }}
+          onClose={() => setShowSmartImport(false)}
+        />
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div
           ref={dragRef}

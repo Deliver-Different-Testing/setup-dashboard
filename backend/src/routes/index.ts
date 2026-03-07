@@ -14,6 +14,7 @@ import automationsRouter from './automations.js';
 import integrationsRouter from './integrations.js';
 import appConfigRouter from './app-config.js';
 import partnersRouter from './partners.js';
+import importRouter from './import.js';
 
 const router = Router();
 
@@ -57,5 +58,6 @@ router.use(automationsRouter);
 router.use(integrationsRouter);
 router.use(appConfigRouter);
 router.use(partnersRouter);
+router.use(importRouter);
 
 export default router;

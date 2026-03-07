@@ -1,8 +1,10 @@
 import { useStore } from '../../store'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { SmartImport } from '../SmartImport'
 
 export function Step4Couriers() {
   const { couriers } = useStore()
+  const [showSmartImport, setShowSmartImport] = useState(false)
 
   const qrCells = useMemo(() => {
     const cells: boolean[] = []
@@ -22,6 +24,33 @@ export function Step4Couriers() {
     <div className="max-w-4xl mx-auto space-y-6">
       <h2 className="text-2xl font-bold text-navy">🚗 Your Couriers</h2>
       <p className="text-gray-500 text-sm">Add your drivers or share the QR code for instant self-registration.</p>
+
+      {/* Smart Import Button */}
+      <button
+        onClick={() => setShowSmartImport(true)}
+        className="w-full px-5 py-3 rounded-2xl text-white text-sm font-semibold transition hover:opacity-90"
+        style={{ background: 'linear-gradient(135deg, #0d0c2c 0%, #3bc7f4 100%)' }}
+      >
+        🔄 Smart Import Drivers from Competitor TMS
+      </button>
+
+      {showSmartImport && (
+        <SmartImport
+          entityType="drivers"
+          onComplete={(data) => {
+            const store = useStore.getState()
+            const mapped = data.map(d => ({
+              name: d.name || d.firstName ? `${d.firstName || ''} ${d.surName || ''}`.trim() : '',
+              phone: d.personalMobile || '',
+              vehicle: d.courierType || 'Car',
+              zone: '',
+            }))
+            store.setCouriers([...couriers, ...mapped])
+            setShowSmartImport(false)
+          }}
+          onClose={() => setShowSmartImport(false)}
+        />
+      )}
       <div className="grid grid-cols-5 gap-4">
         {couriers.map((d, i) => (
           <div key={i} className="bg-white rounded-2xl p-4 shadow-sm card-hover border border-gray-100 text-center">

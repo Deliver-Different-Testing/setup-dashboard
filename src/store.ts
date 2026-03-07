@@ -83,6 +83,7 @@ interface SetupState {
   updateTeamMember: (index: number, field: keyof TeamMember, value: string) => void
   setClients: (clients: Client[]) => void
   addClient: (client: Client) => void
+  setCouriers: (couriers: { name: string; phone: string; vehicle: string; zone: string }[]) => void
   setRate: (key: string, value: string) => void
   setZonePrice: (row: number, col: number, value: string) => void
   setWeightBreak: (index: number, value: string) => void
@@ -227,6 +228,7 @@ export const useStore = create<SetupState>((set, get) => ({
 
   setClients: (clients) => set({ clients }),
   addClient: (client) => set((s) => ({ clients: [...s.clients, client] })),
+  setCouriers: (couriers) => set({ couriers }),
 
   setRate: (key, value) => set((s) => ({ rates: { ...s.rates, [key]: value } })),
   setZonePrice: (row, col, value) => set((s) => {
