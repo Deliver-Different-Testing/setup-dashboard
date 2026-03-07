@@ -48,6 +48,7 @@ const COMPETITOR_SIGNATURES: Record<string, { headers: string[]; entityPatterns:
     headers: ['AccountName', 'AccountCode', 'DriverCode', 'LicensePlate', 'ServiceLevel', 'RateSheet'],
     entityPatterns: {
       clients: ['AccountName', 'AccountCode', 'BillingEmail', 'BillingType'],
+      contacts: ['AccountName', 'ContactName', 'ContactEmail', 'ContactPhone', 'ContactTitle'],
       drivers: ['DriverName', 'DriverCode', 'CellPhone', 'VehicleType', 'LicensePlate'],
       rates: ['RateName', 'RateSheet', 'ServiceLevel', 'BaseRate', 'PerMileRate'],
       zones: ['ZoneName', 'ZipCode', 'ZoneNumber', 'Sector'],
@@ -57,6 +58,7 @@ const COMPETITOR_SIGNATURES: Record<string, { headers: string[]; entityPatterns:
     headers: ['Account_Name', 'Account_Number', 'Driver_Number', 'Acct_No', 'Driver_Name'],
     entityPatterns: {
       clients: ['Account_Name', 'Account_Number', 'Phone_Number', 'Email_Address', 'Billing_Type'],
+      contacts: ['Account_Name', 'Contact_First_Name', 'Contact_Last_Name', 'Contact_Email', 'Contact_Phone'],
       drivers: ['Driver_Name', 'Driver_Number', 'Cell_Phone', 'Vehicle_Type'],
       rates: ['Rate_Name', 'Base_Rate', 'Per_Mile', 'Service_Type'],
       zones: ['Zone_Name', 'Zip_Code', 'Zone_Number'],
@@ -66,6 +68,7 @@ const COMPETITOR_SIGNATURES: Record<string, { headers: string[]; entityPatterns:
     headers: ['ACCT_ID', 'CUST_NAME', 'DRV_ID', 'DRV_NAME', 'RATE_CODE'],
     entityPatterns: {
       clients: ['ACCT_ID', 'CUST_NAME', 'PHONE', 'EMAIL', 'BILL_TYPE'],
+      contacts: ['ACCT_ID', 'CONTACT_NAME', 'CONTACT_EMAIL', 'CONTACT_PHONE', 'CONTACT_ROLE'],
       drivers: ['DRV_ID', 'DRV_NAME', 'CELL', 'VEH_TYPE'],
       rates: ['RATE_CODE', 'BASE_AMT', 'MILE_RATE', 'SVC_TYPE'],
       zones: ['ZONE_ID', 'ZONE_NAME', 'ZIP'],
@@ -75,6 +78,7 @@ const COMPETITOR_SIGNATURES: Record<string, { headers: string[]; entityPatterns:
     headers: ['ClientCode', 'ClientName', 'DriverId', 'VehicleRego'],
     entityPatterns: {
       clients: ['ClientCode', 'ClientName', 'Phone', 'Email'],
+      contacts: ['ClientName', 'ContactFirstName', 'ContactLastName', 'ContactEmail', 'ContactMobile'],
       drivers: ['DriverId', 'DriverName', 'Mobile', 'VehicleRego', 'VehicleType'],
       rates: ['RateCode', 'BaseRate', 'KmRate', 'ServiceType'],
       zones: ['ZoneName', 'Postcode', 'Suburb'],
@@ -84,6 +88,7 @@ const COMPETITOR_SIGNATURES: Record<string, { headers: string[]; entityPatterns:
     headers: ['customer_id', 'customer_name', 'driver_id', 'driver_name'],
     entityPatterns: {
       clients: ['customer_id', 'customer_name', 'phone', 'email', 'billing_method'],
+      contacts: ['customer_name', 'contact_first_name', 'contact_last_name', 'contact_email', 'contact_phone'],
       drivers: ['driver_id', 'driver_name', 'cell_phone', 'vehicle_type'],
       rates: ['rate_name', 'base_charge', 'per_mile', 'service_level'],
       zones: ['zone_name', 'zip_code', 'zone_id'],
