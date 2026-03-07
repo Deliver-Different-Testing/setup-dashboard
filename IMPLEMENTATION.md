@@ -109,6 +109,8 @@ setup-dashboard/
 │   │   ├── SmartImport.tsx           # 4-step import wizard modal (336 lines)
 │   │   ├── Pill.tsx                  # Selectable pill/tag component
 │   │   ├── Toggle.tsx                # Toggle switch component
+│   │   ├── HelpPanel.tsx             # Contextual help sidebar (132 lines)
+│   │   ├── ResumeSession.tsx         # Resume existing session modal (73 lines)
 │   │   └── steps/
 │   │       ├── Step0Business.tsx     # Company profile, geography, verticals
 │   │       ├── Step1Team.tsx         # Team members with roles
@@ -121,7 +123,8 @@ setup-dashboard/
 │   │       ├── Step8Partners.tsx     # Hub launch pad (A&P Network, Overflow)
 │   │       └── Step9Training.tsx     # Gamified training (315 lines)
 │   └── data/
-│       └── chatMessages.ts           # Auto-Mate chat messages per step
+│       ├── chatMessages.ts           # Auto-Mate chat messages per step
+│       └── helpContent.ts            # Step-specific help content for HelpPanel (251 lines)
 │
 ├── backend/                          # Express API
 │   ├── .env.example                  # Environment variable template
