@@ -54,7 +54,7 @@ export function Header() {
     <header className="bg-navy text-white px-6 py-4 flex items-center justify-between relative z-50">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <img src={`${import.meta.env.BASE_URL}dfrnt-logo.jpg`} alt="DFRNT — Deliver Different" className="h-7 rounded" />
+          <img src={`${import.meta.env.BASE_URL}dfrnt-logo.png`} alt="DFRNT — Deliver Different" className="h-7" />
         </div>
         <div className="h-6 w-px bg-white/20 mx-2" />
         <span className="text-sm text-white/80">Let's get you onboarded</span>
