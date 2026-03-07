@@ -196,6 +196,19 @@ export function initDatabase(): void {
       created_at TEXT NOT NULL,
       UNIQUE(name, entity_type)
     );
+
+    CREATE TABLE IF NOT EXISTS client_contacts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL REFERENCES setup_sessions(id),
+      client_name TEXT NOT NULL,
+      first_name TEXT NOT NULL DEFAULT '',
+      last_name TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      phone TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT '',
+      is_primary INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
   `);
 }
 
@@ -269,6 +282,7 @@ export function listSessions(status?: string): SetupSession[] {
 }
 
 export function deleteSession(id: string): void {
+  db.prepare('DELETE FROM client_contacts WHERE session_id = ?').run(id);
   db.prepare('DELETE FROM session_entities WHERE session_id = ?').run(id);
   db.prepare('DELETE FROM import_history WHERE session_id = ?').run(id);
   db.prepare('DELETE FROM training_progress WHERE session_id = ?').run(id);
@@ -387,4 +401,52 @@ export function getImportTemplates(entityType?: string): ImportTemplate[] {
 
 export function deleteImportTemplate(id: number): void {
   db.prepare('DELETE FROM import_templates WHERE id = ?').run(id);
+}
+
+// ── Client Contacts ──
+
+export interface ClientContactInput {
+  clientName: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  role: string;
+  isPrimary: boolean;
+}
+
+export interface ClientContactRecord extends ClientContactInput {
+  id: number;
+  sessionId: string;
+  createdAt: string;
+}
+
+export function addClientContacts(sessionId: string, contacts: ClientContactInput[]): number {
+  const stmt = db.prepare(`
+    INSERT INTO client_contacts (session_id, client_name, first_name, last_name, email, phone, role, is_primary, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const ts = now();
+  const tx = db.transaction(() => {
+    let count = 0;
+    for (const c of contacts) {
+      stmt.run(sessionId, c.clientName, c.firstName, c.lastName, c.email, c.phone, c.role, c.isPrimary ? 1 : 0, ts);
+      count++;
+    }
+    return count;
+  });
+  return tx();
+}
+
+export function getClientContacts(sessionId: string): ClientContactRecord[] {
+  const rows = db.prepare('SELECT * FROM client_contacts WHERE session_id = ? ORDER BY client_name, last_name, first_name').all(sessionId) as any[];
+  return rows.map(r => ({
+    id: r.id, sessionId: r.session_id, clientName: r.client_name,
+    firstName: r.first_name, lastName: r.last_name, email: r.email,
+    phone: r.phone, role: r.role, isPrimary: !!r.is_primary, createdAt: r.created_at,
+  }));
+}
+
+export function deleteClientContacts(sessionId: string): void {
+  db.prepare('DELETE FROM client_contacts WHERE session_id = ?').run(sessionId);
 }
