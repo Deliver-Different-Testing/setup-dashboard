@@ -10,6 +10,7 @@ const STEPS = [
   { icon: '🔌', short: 'Integrations' },
   { icon: '📱', short: 'Driver App' },
   { icon: '🤝', short: 'Partners' },
+  { icon: '🏋️', short: 'Training' },
 ]
 
 export function ProgressBar() {

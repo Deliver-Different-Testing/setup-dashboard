@@ -12,10 +12,11 @@ import { Step5Automations } from './components/steps/Step5Automations'
 import { Step6Integrations } from './components/steps/Step6Integrations'
 import { Step7AppConfig } from './components/steps/Step7AppConfig'
 import { Step8Partners } from './components/steps/Step8Partners'
+import { Step9Training } from './components/steps/Step9Training'
 
 const STEP_COMPONENTS = [
   Step0Business, Step1Team, Step2Clients, Step3Rates, Step4Couriers,
-  Step5Automations, Step6Integrations, Step7AppConfig, Step8Partners,
+  Step5Automations, Step6Integrations, Step7AppConfig, Step8Partners, Step9Training,
 ]
 
 function StepStatus({ step }: { step: number }) {
@@ -54,7 +55,7 @@ function App() {
       setSaving(false)
     }
     completeStep(currentStep)
-    if (currentStep < 8) setCurrentStep(currentStep + 1)
+    if (currentStep < 9) setCurrentStep(currentStep + 1)
   }
 
   const isSaving = saving || apiStatus[currentStep] === 'saving'
@@ -78,7 +79,7 @@ function App() {
                   {i > 0 ? (
                     <button onClick={goBack} className="px-6 py-2.5 rounded-full border border-gray-300 text-sm font-semibold text-gray-500 hover:border-navy hover:text-navy transition">← Back</button>
                   ) : <div />}
-                  {i < 8 ? (
+                  {i < 9 ? (
                     <button onClick={goNext} disabled={isSaving} className="px-6 py-2.5 rounded-full bg-cyan text-white text-sm font-semibold hover:bg-cyan-dark transition shadow-lg shadow-cyan/20 disabled:opacity-60">
                       {isSaving ? <><span className="animate-spin inline-block mr-1">⟳</span>Saving...</> : 'Next →'}
                     </button>
