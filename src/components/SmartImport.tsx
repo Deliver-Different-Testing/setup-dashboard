@@ -21,7 +21,7 @@ interface DetectionResult {
 }
 
 interface Props {
-  entityType: 'clients' | 'drivers' | 'zones' | 'rates'
+  entityType: 'clients' | 'contacts' | 'drivers' | 'zones' | 'rates'
   onComplete: (data: Record<string, any>[]) => void
   onClose: () => void
 }

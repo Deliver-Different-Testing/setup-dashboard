@@ -25,7 +25,7 @@ export interface FieldMapping {
 export interface CompetitorDetection {
   system: string;
   confidence: number;
-  entityType: 'clients' | 'drivers' | 'zones' | 'rates';
+  entityType: 'clients' | 'contacts' | 'drivers' | 'zones' | 'rates';
   suggestedMappings: FieldMapping[];
 }
 
@@ -96,6 +96,7 @@ const COMPETITOR_SIGNATURES: Record<string, { headers: string[]; entityPatterns:
 
 const DF_FIELDS: Record<string, string[]> = {
   clients: ['name', 'code', 'legalName', 'phone', 'email', 'active', 'city', 'state', 'zipCode', 'address', 'billingType', 'contactFirstName', 'contactLastName', 'contactPhone', 'contactEmail'],
+  contacts: ['clientName', 'firstName', 'lastName', 'email', 'phone', 'role', 'isPrimary', 'title', 'department'],
   drivers: ['name', 'code', 'firstName', 'surName', 'personalMobile', 'urgentMobile', 'courierType', 'active', 'internal', 'vehicleRegoNo', 'email'],
   rates: ['name', 'clientCode', 'serviceType', 'vehicleType', 'startDistance', 'endDistance', 'baseCharge', 'perDistanceUnit', 'distanceIncluded', 'minWeight', 'maxWeight', 'weightRate'],
   zones: ['name', 'zip', 'zoneNumber', 'location'],
@@ -206,6 +207,21 @@ const COLUMN_TO_FIELD: Record<string, { field: string; entity: string; transform
   lastname: { field: 'surName', entity: 'drivers' },
   last_name: { field: 'surName', entity: 'drivers' },
   first_name: { field: 'firstName', entity: 'drivers' },
+  // Contact-specific aliases
+  contact_first_name: { field: 'firstName', entity: 'contacts' },
+  contact_last_name: { field: 'lastName', entity: 'contacts' },
+  contact_email: { field: 'email', entity: 'contacts' },
+  contact_phone: { field: 'phone', entity: 'contacts' },
+  contact_role: { field: 'role', entity: 'contacts' },
+  contact_title: { field: 'title', entity: 'contacts' },
+  company: { field: 'clientName', entity: 'contacts' },
+  company_name: { field: 'clientName', entity: 'contacts' },
+  account_name_contact: { field: 'clientName', entity: 'contacts' },
+  position: { field: 'role', entity: 'contacts' },
+  department: { field: 'department', entity: 'contacts' },
+  primary: { field: 'isPrimary', entity: 'contacts', transform: 'toBoolean' },
+  is_primary: { field: 'isPrimary', entity: 'contacts', transform: 'toBoolean' },
+  main_contact: { field: 'isPrimary', entity: 'contacts', transform: 'toBoolean' },
 };
 
 // ─── State abbreviation normalization ───────────────────────────────────────
