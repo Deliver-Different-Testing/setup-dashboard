@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useStore } from './store'
 import { Header } from './components/Header'
+import { ResumeSession } from './components/ResumeSession'
 import { ProgressBar } from './components/ProgressBar'
 import { ChatSidebar } from './components/ChatSidebar'
 import { Step0Business } from './components/steps/Step0Business'
@@ -42,10 +43,16 @@ function ErrorBanner({ step }: { step: number }) {
 }
 
 function App() {
-  const { currentStep, setCurrentStep, completeStep, initSession, saveStep, apiStatus } = useStore()
+  const { currentStep, setCurrentStep, completeStep, initSession, saveStep, apiStatus, checkForSessions } = useStore()
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => { initSession() }, [initSession])
+  useEffect(() => {
+    checkForSessions().then(() => {
+      if (!useStore.getState().showResumePrompt) {
+        initSession()
+      }
+    })
+  }, [checkForSessions, initSession])
 
   const goBack = () => { if (currentStep > 0) setCurrentStep(currentStep - 1) }
   const goNext = async () => {
@@ -62,6 +69,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-lgrey font-inter">
+      <ResumeSession />
       <Header />
       <div className="flex" style={{ height: 'calc(100vh - 64px)' }}>
         <ChatSidebar />

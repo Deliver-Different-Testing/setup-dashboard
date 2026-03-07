@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { createSession, getSession } from '../services/setup-orchestrator.js';
-import { listSessions, getSessionEntities } from '../services/database.js';
+import { listSessions, getSessionEntities, getImportHistory } from '../services/database.js';
+import { rollbackSession } from '../services/rollback.js';
 import { listEnvironments, ENVIRONMENTS } from '../types/api.js';
 import { ApiError } from '../middleware/error-handler.js';
 import { getApiClient } from '../index.js';
@@ -102,6 +103,46 @@ router.get('/setup/sessions/:id/entities', (req, res) => {
   const entityType = req.query.entityType as string | undefined;
   const entities = getSessionEntities(req.params.id, entityType);
   res.json({ success: true, entities });
+});
+
+// Full session data (for resume)
+router.get('/setup/session/:id/full', (req, res, next) => {
+  try {
+    const session = getSession(req.params.id);
+    if (!session) throw new ApiError(404, 'Session not found');
+
+    const entities = getSessionEntities(req.params.id);
+    const imports = getImportHistory(req.params.id);
+
+    // Group entities by type
+    const entitiesByType: Record<string, typeof entities> = {};
+    for (const e of entities) {
+      (entitiesByType[e.entityType] ??= []).push(e);
+    }
+
+    res.json({
+      success: true,
+      session,
+      entities: entitiesByType,
+      imports,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Rollback session
+router.delete('/setup/session/:id/rollback', async (req, res, next) => {
+  try {
+    const session = getSession(req.params.id);
+    if (!session) throw new ApiError(404, 'Session not found');
+
+    const client = getApiClient();
+    const result = await rollbackSession(req.params.id, client as any);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Mount all step routes

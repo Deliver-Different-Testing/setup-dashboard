@@ -45,3 +45,31 @@ export const saveCouriers = (sessionId: string, couriers: unknown[]) =>
 
 export const saveAutomations = (sessionId: string, rules: unknown[]) =>
   post('/setup/automations', { sessionId, rules })
+
+// Session management
+async function get(path: string) {
+  const res = await fetch(`${BASE_URL}${path}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }))
+    throw new Error(err.message || `API error ${res.status}`)
+  }
+  return res.json()
+}
+
+async function del(path: string) {
+  const res = await fetch(`${BASE_URL}${path}`, { method: 'DELETE' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }))
+    throw new Error(err.message || `API error ${res.status}`)
+  }
+  return res.json()
+}
+
+export const listSessions = (status = 'active') =>
+  get(`/setup/sessions?status=${status}`)
+
+export const getFullSession = (id: string) =>
+  get(`/setup/session/${id}/full`)
+
+export const rollbackSession = (id: string) =>
+  del(`/setup/session/${id}/rollback`)

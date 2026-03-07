@@ -20,6 +20,22 @@ export interface ChatMessage {
   text: string
 }
 
+export interface SavedSession {
+  id: string
+  environment: string
+  currentStep: number
+  completedSteps: number[]
+  businessData: Record<string, unknown> | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface UploadedDocument {
+  name: string
+  size: number
+  type: string
+}
+
 interface SetupState {
   currentStep: number
   completedSteps: Set<number>
@@ -60,6 +76,20 @@ interface SetupState {
   useOverflow: boolean
   joinNetwork: boolean
 
+  // Step 0 expanded
+  legalName: string
+  registrationNumber: string
+  countryOfRegistration: string
+  stateOfIncorporation: string
+  businessType: string
+  uploadedDocuments: UploadedDocument[]
+  cardNumber: string
+  cardExpiry: string
+  cardCvc: string
+  cardholderName: string
+  billingAddress: { street: string; city: string; state: string; zip: string }
+  primaryContact: { name: string; email: string; phone: string; title: string }
+
   // Step 9: Training
   trainingProgress: Record<string, {
     xp: number
@@ -73,6 +103,10 @@ interface SetupState {
   sessionId: string | null
   apiStatus: Record<number, 'idle' | 'saving' | 'saved' | 'error'>
   apiErrors: Record<number, string>
+
+  // Resume
+  availableSessions: SavedSession[]
+  showResumePrompt: boolean
 
   // Chat
   chatHistory: ChatMessage[]
@@ -110,6 +144,26 @@ interface SetupState {
   clearApiError: (step: number) => void
   initSession: () => Promise<void>
   saveStep: (step: number) => Promise<void>
+  // Step 0 expanded setters
+  setLegalName: (v: string) => void
+  setRegistrationNumber: (v: string) => void
+  setCountryOfRegistration: (v: string) => void
+  setStateOfIncorporation: (v: string) => void
+  setBusinessType: (v: string) => void
+  addUploadedDocument: (doc: UploadedDocument) => void
+  removeUploadedDocument: (name: string) => void
+  setCardNumber: (v: string) => void
+  setCardExpiry: (v: string) => void
+  setCardCvc: (v: string) => void
+  setCardholderName: (v: string) => void
+  setBillingAddress: (field: string, value: string) => void
+  setPrimaryContact: (field: string, value: string) => void
+
+  // Resume / rollback
+  checkForSessions: () => Promise<void>
+  resumeSession: (sessionData: any) => void
+  dismissResumePrompt: () => void
+
   addChatMessage: (msg: ChatMessage) => void
   markChatStepShown: (step: number) => void
   getCompletionPercentage: () => number
@@ -194,7 +248,23 @@ export const useStore = create<SetupState>((set, get) => ({
   useOverflow: false,
   joinNetwork: true,
 
+  legalName: '',
+  registrationNumber: '',
+  countryOfRegistration: '',
+  stateOfIncorporation: '',
+  businessType: '',
+  uploadedDocuments: [],
+  cardNumber: '',
+  cardExpiry: '',
+  cardCvc: '',
+  cardholderName: '',
+  billingAddress: { street: '', city: '', state: '', zip: '' },
+  primaryContact: { name: '', email: '', phone: '', title: '' },
+
   trainingProgress: {},
+
+  availableSessions: [],
+  showResumePrompt: false,
 
   sessionId: null,
   apiStatus: {},
@@ -344,6 +414,17 @@ export const useStore = create<SetupState>((set, get) => ({
             verticals: s.selectedVerticals,
             currentSystem: s.currentSystem,
             deliveriesPerMonth: s.deliveryVolume,
+            legalName: s.legalName || undefined,
+            registrationNumber: s.registrationNumber || undefined,
+            countryOfRegistration: s.countryOfRegistration || undefined,
+            stateOfIncorporation: s.stateOfIncorporation || undefined,
+            businessType: s.businessType || undefined,
+            cardNumber: s.cardNumber || undefined,
+            cardExpiry: s.cardExpiry || undefined,
+            cardCvc: s.cardCvc || undefined,
+            cardholderName: s.cardholderName || undefined,
+            billingAddress: s.billingAddress.street ? s.billingAddress : undefined,
+            primaryContact: s.primaryContact.name ? s.primaryContact : undefined,
           }); break
         case 1:
           await api.saveTeam(s.sessionId, s.teamMembers); break
@@ -385,6 +466,63 @@ export const useStore = create<SetupState>((set, get) => ({
       set((st) => ({ apiStatus: { ...st.apiStatus, [step]: 'error' as const }, apiErrors: { ...st.apiErrors, [step]: msg } }))
     }
   },
+
+  setLegalName: (v) => set({ legalName: v }),
+  setRegistrationNumber: (v) => set({ registrationNumber: v }),
+  setCountryOfRegistration: (v) => set({ countryOfRegistration: v }),
+  setStateOfIncorporation: (v) => set({ stateOfIncorporation: v }),
+  setBusinessType: (v) => set({ businessType: v }),
+  addUploadedDocument: (doc) => set((s) => ({ uploadedDocuments: [...s.uploadedDocuments, doc] })),
+  removeUploadedDocument: (name) => set((s) => ({ uploadedDocuments: s.uploadedDocuments.filter(d => d.name !== name) })),
+  setCardNumber: (v) => set({ cardNumber: v }),
+  setCardExpiry: (v) => set({ cardExpiry: v }),
+  setCardCvc: (v) => set({ cardCvc: v }),
+  setCardholderName: (v) => set({ cardholderName: v }),
+  setBillingAddress: (field, value) => set((s) => ({ billingAddress: { ...s.billingAddress, [field]: value } })),
+  setPrimaryContact: (field, value) => set((s) => ({ primaryContact: { ...s.primaryContact, [field]: value } })),
+
+  checkForSessions: async () => {
+    try {
+      const res = await api.listSessions()
+      const sessions = res.sessions || []
+      if (sessions.length > 0) {
+        set({ availableSessions: sessions, showResumePrompt: true })
+      }
+    } catch (e) {
+      console.warn('Could not check for sessions:', e)
+    }
+  },
+
+  resumeSession: (data: any) => {
+    const session = data.session
+    const biz = session.business || session.businessData || {}
+    set({
+      sessionId: session.id,
+      currentStep: session.currentStep || 0,
+      completedSteps: new Set(session.completedSteps || []),
+      companyName: biz.companyName || '',
+      geography: biz.geography?.[0] || '',
+      selectedCities: biz.geography || [],
+      selectedVerticals: biz.verticals || [],
+      currentSystem: biz.currentSystem || 'None',
+      deliveryVolume: biz.deliveriesPerMonth || '< 500',
+      legalName: biz.legalName || '',
+      registrationNumber: biz.registrationNumber || '',
+      countryOfRegistration: biz.countryOfRegistration || '',
+      stateOfIncorporation: biz.stateOfIncorporation || '',
+      businessType: biz.businessType || '',
+      cardNumber: biz.cardNumber || '',
+      cardExpiry: biz.cardExpiry || '',
+      cardCvc: biz.cardCvc || '',
+      cardholderName: biz.cardholderName || '',
+      billingAddress: biz.billingAddress || { street: '', city: '', state: '', zip: '' },
+      primaryContact: biz.primaryContact || { name: '', email: '', phone: '', title: '' },
+      showResumePrompt: false,
+      availableSessions: [],
+    })
+  },
+
+  dismissResumePrompt: () => set({ showResumePrompt: false }),
 
   addChatMessage: (msg) => set((s) => ({
     chatHistory: [...s.chatHistory, msg]
