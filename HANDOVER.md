@@ -71,6 +71,20 @@ All 10 steps have route handlers:
 | **External API** | Bearer JWT | Jobs, rates, webhooks, labels |
 | **Hub** | Links only (Steps 6-8) | Integrations, app config, partner network |
 
+## API Architecture Decision: DF API vs In-Project
+
+**Where should new API endpoints live?**
+
+| Build in **DF External API** | Build in **this project** |
+|------|------|
+| Writing to core TMS tables (clients, locations, contacts, speeds, fleet) | Setup wizard orchestration (session state, progress, step validation) |
+| Endpoints other apps might reuse | Import/transform logic (CSV parsing, competitor detection, column mapping) |
+| Shared business logic (rate codes, zone lookups, address validation) | Onboarding-only features (training XP, PDF summary, rollback) |
+
+**Rule of thumb:** The setup dashboard is a **thin orchestration layer** that calls the DF API for all data writes. If a bulk endpoint doesn't exist yet (e.g. bulk client import, bulk contact create), add it to the DF API — don't rebuild it here. Import engine, wizard state, and training logic stays local.
+
+Steps 0–5 write data → should go through **DF API**. Steps 6–8 are Hub links. Step 9 is local SQLite.
+
 ## What a Developer Needs to Know
 
 1. **Read `IMPLEMENTATION.md`** (638 lines) — complete architecture, schema, and API reference
