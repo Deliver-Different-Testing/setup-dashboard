@@ -1,6 +1,7 @@
 import { useStore } from '../../store'
 import { Pill } from '../Pill'
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
+import { SmartImport } from '../SmartImport'
 
 const VERTICALS = ['Medical', 'Legal', 'Food', 'Documents', 'General', 'Pharmacy', 'E-Commerce', 'Fragile']
 const SYSTEMS = ['None', 'Key Software', 'Elite EXTRA', 'Datatrac', 'OnTime', 'GetSwift', 'Track-POD', 'Other']
@@ -137,10 +138,19 @@ export function Step0Business() {
 
   const cardType = detectCardType(s.cardNumber)
 
+  const [showSmartImport, setShowSmartImport] = useState(false)
+
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       <h2 className="text-2xl font-bold text-navy">🏢 Your Business</h2>
       <p className="text-gray-500 text-sm">Tell us about your courier company so we can tailor Deliver Different for you.</p>
+
+      <button onClick={() => setShowSmartImport(true)} className="w-full px-5 py-3 rounded-2xl text-white text-sm font-semibold transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0d0c2c 0%, #3bc7f4 100%)' }}>
+        📄 Smart Import Business Profile from Competitor TMS
+      </button>
+      {showSmartImport && (
+        <SmartImport entityType="business" onComplete={() => setShowSmartImport(false)} onClose={() => setShowSmartImport(false)} />
+      )}
 
       {/* ── Company Profile ── */}
       <SectionHeader icon="🏢" title="Company Profile" />

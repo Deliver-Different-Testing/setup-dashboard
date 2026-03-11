@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../../store'
+import { SmartImport } from '../SmartImport'
 
 const CHALLENGES: Record<string, { id: string; title: string; desc: string; xp: number; prereqs: string[] }[]> = {
   dispatcher: [
@@ -147,12 +148,21 @@ export function Step9Training() {
     ? Object.values(CHALLENGES).flat().find(c => c.id === selectedChallenge)
     : null
 
+  const [showSmartImport, setShowSmartImport] = useState(false)
+
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div>
         <h2 className="text-2xl font-bold text-navy">🏋️ Training Arena</h2>
         <p className="text-gray-500 mt-1">Level up your team with gamified challenges and track progress</p>
       </div>
+
+      <button onClick={() => setShowSmartImport(true)} className="w-full px-5 py-3 rounded-2xl text-white text-sm font-semibold transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0d0c2c 0%, #3bc7f4 100%)' }}>
+        📄 Smart Import Training Roster from Competitor TMS
+      </button>
+      {showSmartImport && (
+        <SmartImport entityType="team" onComplete={() => setShowSmartImport(false)} onClose={() => setShowSmartImport(false)} />
+      )}
 
       {/* Stats Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

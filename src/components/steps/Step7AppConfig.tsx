@@ -8,10 +8,22 @@ const CONFIG_CARDS = [
   { icon: '⚙️', title: 'Feature Flags', desc: 'Enable/disable platform features for your instance', path: '/Settings/Features' },
 ]
 
+import { useState } from 'react'
+import { SmartImport } from '../SmartImport'
+
 export function Step7AppConfig() {
+  const [showSmartImport, setShowSmartImport] = useState(false)
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <h2 className="text-2xl font-bold text-navy">📱 App Configuration</h2>
+
+      <button onClick={() => setShowSmartImport(true)} className="w-full px-5 py-3 rounded-2xl text-white text-sm font-semibold transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0d0c2c 0%, #3bc7f4 100%)' }}>
+        📄 Smart Import App Settings from Competitor TMS
+      </button>
+      {showSmartImport && (
+        <SmartImport entityType="settings" onComplete={() => setShowSmartImport(false)} onClose={() => setShowSmartImport(false)} />
+      )}
 
       <div className="flex items-start gap-3 rounded-2xl p-4" style={{ backgroundColor: 'rgba(59,199,244,0.08)' }}>
         <div className="text-xl shrink-0">ℹ️</div>

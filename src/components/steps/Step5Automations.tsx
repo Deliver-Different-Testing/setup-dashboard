@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useStore } from '../../store'
 import { Toggle } from '../Toggle'
+import { SmartImport } from '../SmartImport'
 
 const AUTOMATION_META: { key: string; icon: string; desc: string }[] = [
   { key: 'SMS on Pickup', icon: '📱', desc: 'Notify clients when their package is picked up' },
@@ -15,9 +17,18 @@ const AUTOMATION_META: { key: string; icon: string; desc: string }[] = [
 export function Step5Automations() {
   const { automations, toggleAutomation } = useStore()
 
+  const [showSmartImport, setShowSmartImport] = useState(false)
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <h2 className="text-2xl font-bold text-navy">⚡ Your Automations</h2>
+
+      <button onClick={() => setShowSmartImport(true)} className="w-full px-5 py-3 rounded-2xl text-white text-sm font-semibold transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0d0c2c 0%, #3bc7f4 100%)' }}>
+        📄 Smart Import Automations from Competitor TMS
+      </button>
+      {showSmartImport && (
+        <SmartImport entityType="automations" onComplete={() => setShowSmartImport(false)} onClose={() => setShowSmartImport(false)} />
+      )}
       <p className="text-gray-500 text-sm">Save hours every day. Toggle the automations you want — you can change these anytime.</p>
       <div className="grid grid-cols-2 gap-4">
         {AUTOMATION_META.map(a => (
