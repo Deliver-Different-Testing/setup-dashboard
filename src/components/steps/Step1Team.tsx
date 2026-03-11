@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useStore } from '../../store'
 import { ValidationIndicator } from '../ValidationIndicator'
+import { SmartImport } from '../SmartImport'
 import type { ValidationStatus } from '../../hooks/useValidation'
 import * as api from '../../lib/api'
 
@@ -9,6 +10,7 @@ const ROLES = ['Admin', 'Dispatcher', 'Accounts', 'Driver Manager']
 export function Step1Team() {
   const { teamMembers, addTeamMember, updateTeamMember } = useStore()
   const [validationStatus, setValidationStatus] = useState<Record<number, ValidationStatus>>({})
+  const [showSmartImport, setShowSmartImport] = useState(false)
   const timersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
 
   const validateEmail = useCallback((index: number, email: string) => {
@@ -32,6 +34,12 @@ export function Step1Team() {
     <div className="max-w-3xl mx-auto space-y-6">
       <h2 className="text-2xl font-bold text-navy">👥 Your Team</h2>
       <p className="text-gray-500 text-sm">Add the people who'll be using Deliver Different. They'll each get a personalized invitation.</p>
+      <button onClick={() => setShowSmartImport(true)} className="px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm" style={{ backgroundColor: '#3bc7f4' }}>
+        📄 Import Team from CSV/Excel
+      </button>
+      {showSmartImport && (
+        <SmartImport entityType="contacts" onComplete={() => setShowSmartImport(false)} onClose={() => setShowSmartImport(false)} />
+      )}
       <div className="grid grid-cols-2 gap-4">
         {teamMembers.map((m, i) => (
           <div key={i} className="bg-white rounded-2xl p-5 shadow-sm card-hover border border-gray-100">

@@ -30,3 +30,5 @@ backend/.env
 -e 
 # SQLite data
 backend/data/
+backend/bin/
+backend/obj/

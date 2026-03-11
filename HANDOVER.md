@@ -1,95 +1,189 @@
-# Setup Dashboard — Handover Guide
+# Setup Dashboard — Handover for Kevin
 
-**Date:** 2026-03-07
-**Status:** ✅ Frontend complete, backend fully wired
+> **Date:** 11 March 2026
+> **From:** Steve / EasyEA
+> **To:** Kevin
 
 ---
 
-## What It Is
+## What Is This?
 
-Internal DFRNT tool for onboarding new courier company tenants. 10-step wizard that configures a TMS instance: company profile → team → clients → rates → couriers → automations → integrations → app config → partners → training.
+The Setup Dashboard is a **DF-internal tool** used by DFRNT staff when onboarding new tenants. It's NOT a tenant self-service tool — a DF person sits with the operator and walks through the wizard together.
 
-## Current State
+**10 steps:**
+0. Business Profile (company details, region, branding)
+1. Team (invite staff, assign roles) — **Smart Import**
+2. Clients (add clients + contacts) — **Smart Import**
+3. Rates (zones, rate cards, pricing) — **Smart Import**
+4. Couriers/Drivers (fleet setup) — **Smart Import**
+5. Automations (event-driven rules)
+6. Integrations (Hub link)
+7. App Config (Hub link)
+8. Partners (Hub link)
+9. Training (gamified onboarding challenges)
 
-### Frontend (React 19 + Vite 7 + Tailwind CSS 4) — ✅ COMPLETE
-- 10-step wizard with progress bar, Zustand state management
-- Auto-Mate AI chat sidebar with contextual messages per step
-- SmartImport component (4-step: Upload → Detect competitor → Map columns → Preview)
-- Help panel with step-specific content
-- Session resume capability
-- Builds clean, deployed to GitHub Pages
+Steps 6-8 are just launch pads — they link to existing Hub UI. Don't build full config forms for those.
 
-### Backend (Express 4 + TypeScript) — ✅ COMPLETE
-All 10 steps have route handlers:
+---
 
-| Step | Route File | Service | Wired to TMS? |
-|------|-----------|---------|---------------|
-| 0 - Business | `business.ts` | — | ✅ Session creation |
-| 1 - Team | `team.ts` | — | ✅ User creation via Admin Manager |
-| 2 - Clients | `clients.ts` | `client-import.ts` | ✅ Client creation via Admin Manager |
-| 3 - Rates | `rates.ts` | `rate-setup.ts` | ✅ Rate cards, breaks, fuel via Admin Manager |
-| 4 - Couriers | `couriers.ts` | `courier-setup.ts` | ✅ Courier + agent creation |
-| 5 - Automations | `automations.ts` | — | ✅ Automation rules |
-| 6 - Integrations | `integrations.ts` | — | 🔗 Hub launch pad (links only) |
-| 7 - App Config | `app-config.ts` | — | 🔗 Hub launch pad (links only) |
-| 8 - Partners | `partners.ts` | — | 🔗 Hub launch pad (links only) |
-| 9 - Training | — | `database.ts` | ✅ SQLite-tracked XP/progress |
+## Getting It Running
 
-### Smart Import Engine — ✅ COMPLETE
-- Auto-detects competitor TMS (CXT Software, Key Software, etc.) from CSV headers
-- Fuzzy column matching with confidence scores
-- Field transforms (date formats, phone normalization, NZ↔US localization)
-- Saved mapping templates for reuse
-- See `MIGRATION-MAPPING.md` for competitor column mappings
+### Frontend
+```bash
+cd setup-dashboard
+npm install
+npm run dev          # → http://localhost:5173
+```
 
-### Backend Services
-| Service | Lines | Purpose |
-|---------|-------|---------|
-| `database.ts` | 390 | SQLite schema, session CRUD, entity tracking, training progress |
-| `smart-import.ts` | 540 | Competitor detection, column matching, transforms |
-| `api-client.ts` | 497 | Dual auth: Bearer JWT (external API) + Cookie (Admin Manager) |
-| `setup-orchestrator.ts` | 110 | Session management, step orchestration |
-| `client-import.ts` | 111 | CSV parsing, bulk client creation |
-| `rate-setup.ts` | 118 | Rate card + break groups + fuel surcharge |
-| `courier-setup.ts` | 95 | Courier + agent creation |
-| `zone-setup.ts` | 86 | Zone group + zone creation |
-| `rollback.ts` | — | Entity rollback by session |
+### Backend
+```bash
+cd setup-dashboard/backend
+dotnet run           # → http://localhost:3001
+```
 
-## Known Issues / Tech Debt
+The frontend calls the backend at `http://localhost:3001/api` by default. Override with `VITE_API_URL` env var if needed.
 
-1. **Steps 6-8 are link stubs** — Intentional; these are configured in Hub UI directly
-2. **SQLite for persistence** — Fine for internal tool, but session data isn't backed up
-3. **Credentials in .env** — Backend needs real DFRNT credentials per environment
-4. **10 environments supported** — Each has different API base URLs (see `api-client.ts`)
-5. **Training arena (Step 9)** — Gamified but challenges are predefined, not dynamically generated
+### Without Backend (Offline Mode)
+The frontend has localStorage fallback — it will work without the backend running, but data won't persist across sessions or push to Admin Manager.
 
-## Integration Points
+---
 
-| System | Auth Method | What It Does |
-|--------|------------|--------------|
-| **Admin Manager** | Cookie (username/password login) | Client, courier, user, zone, rate CRUD |
-| **External API** | Bearer JWT | Jobs, rates, webhooks, labels |
-| **Hub** | Links only (Steps 6-8) | Integrations, app config, partner network |
+## Smart Uploader — The Key Feature
 
-## API Architecture Decision: DF API vs In-Project
+Every step that has tabular data (Steps 1-4) has a **"📄 Import from CSV/Excel"** button. This is the smart uploader:
 
-**Where should new API endpoints live?**
+### How It Works
+1. User uploads a CSV or Excel file (drag-drop or file picker)
+2. Backend auto-detects the source system (Key Software, Datatrac, Elite EXTRA, etc.)
+3. Columns are fuzzy-matched to our fields with confidence scores (100% exact, 95% alias, 60-94% fuzzy)
+4. User reviews the mapping and can manually adjust
+5. Data is validated (required fields, formats, duplicates)
+6. Preview shown with any warnings
+7. User confirms → data imported into the wizard step
 
-| Build in **DF External API** | Build in **this project** |
-|------|------|
-| Writing to core TMS tables (clients, locations, contacts, speeds, fleet) | Setup wizard orchestration (session state, progress, step validation) |
-| Endpoints other apps might reuse | Import/transform logic (CSV parsing, competitor detection, column mapping) |
-| Shared business logic (rate codes, zone lookups, address validation) | Onboarding-only features (training XP, PDF summary, rollback) |
+### Competitor System Detection
+The uploader recognizes CSV exports from these competitor TMS platforms:
+- **Key Software** — `KS_` prefixed columns
+- **Datatrac** — `DT_` prefixed columns
+- **Crown** — `CRW_` prefixed columns
+- **e-Courier** — `EC_` prefixed columns
+- **Elite EXTRA** — standard column names
+- **CXT** — standard column names
 
-**Rule of thumb:** The setup dashboard is a **thin orchestration layer** that calls the DF API for all data writes. If a bulk endpoint doesn't exist yet (e.g. bulk client import, bulk contact create), add it to the DF API — don't rebuild it here. Import engine, wizard state, and training logic stays local.
+When detected, column mappings are pre-configured for that system's export format. This is the migration play — operators export their own data from their old TMS, we import it cleanly.
 
-Steps 0–5 write data → should go through **DF API**. Steps 6–8 are Hub links. Step 9 is local SQLite.
+### Adding New Entity Types
+In `backend/Models/SmartUpload.cs`, each entity type defines its fields and aliases. To add a new importable type:
+1. Add a new case in `EntityFieldDefinitions` with field names, display names, required flags, and aliases
+2. Add the entity type string to the `entityType` parameter in `ImportController.cs`
+3. Add a SmartImport button to the relevant step component
 
-## What a Developer Needs to Know
+---
 
-1. **Read `IMPLEMENTATION.md`** (638 lines) — complete architecture, schema, and API reference
-2. **Two processes needed**: `npm run dev` (frontend :5173) + `cd backend && npm run dev` (backend :3001)
-3. **Backend needs `.env`** — copy `.env.example`, fill in real DFRNT credentials
-4. **Dual auth is the tricky part** — `api-client.ts` handles both Bearer and Cookie auth; Admin Manager uses session cookies
-5. **Smart Import is the star feature** — competitor CSV detection + auto-mapping
-6. **`MIGRATION-MAPPING.md`** has detailed column mappings for CXT, Key Software, etc.
+## Admin Manager API Connection
+
+The backend talks to the DFRNT Admin Manager using cookie-based auth (same pattern as Mike's MCP server).
+
+### Quickest Setup — Share MCP Sessions
+If the MCP server is already authenticated on your machine:
+```bash
+cd setup-dashboard/backend
+ln -s ../../dfrnt-mcp-server/auth auth
+```
+
+### Manual Login
+Set env vars:
+```bash
+export DFRNT_USERNAME=your-email@example.com
+export DFRNT_PASSWORD=your-password
+```
+
+The backend auto-logins to Admin Manager using the same 4-step hub flow the MCP server uses.
+
+### Auth Flow (for reference)
+1. GET hub login page → extract `__RequestVerificationToken` + anti-forgery cookie
+2. POST credentials to hub → get `.AspNet.SharedCookie`
+3. POST `/API/Login/Validate` on Admin Manager → get `hub_session` cookie
+4. GET dispatch URL → establish dispatch session
+5. Save cookies to `auth/{env}.json`
+
+---
+
+## Architecture Rule
+
+**The Setup Dashboard has NO database.** All permanent data goes to the Admin Manager API via the backend. The in-memory `SessionStore` is just a temp shopping cart while the user configures things.
+
+Future: Replace `SessionStore` with Redis or SQL if session persistence across backend restarts is needed.
+
+---
+
+## Key Files to Know
+
+| File | What It Does |
+|------|-------------|
+| `src/lib/api.ts` | Every single API call the frontend makes — start here |
+| `src/store.ts` | Zustand state store — wizard state, current step, session data |
+| `src/components/SmartImport.tsx` | The reusable smart upload modal |
+| `backend/Services/SmartUploaderService.cs` | Column matching + validation engine |
+| `backend/Services/AdminManagerClient.cs` | Cookie auth to Admin Manager |
+| `backend/Models/SmartUpload.cs` | Entity field definitions + aliases |
+| `backend/Controllers/ImportController.cs` | Upload/detect/preview/execute endpoints |
+| `backend/Controllers/SetupController.cs` | Session CRUD + step save endpoints |
+
+---
+
+## What Needs Doing
+
+### Priority 1 — Wire Admin Manager Push
+The `AdminManagerClient` has the auth pattern working. Now each step save endpoint needs to actually call the Admin Manager API to create the records. The MCP server's tool files (`dfrnt-mcp-server/src/tools/*.ts`) document every endpoint:
+
+| Step | MCP Tool File | Key Endpoints |
+|------|--------------|---------------|
+| Clients | `clients.ts` | `POST /api/client` |
+| Contacts | `contacts.ts` | `POST /API/contact`, `POST /API/clientContact` |
+| Zones | `zones.ts` | `POST /api/zoneName`, `POST /api/zoneZip` |
+| Rates | `rates.ts` | `POST /api/rateCard`, `POST /api/zoneRate` |
+| Couriers | `agents.ts` | `POST /api/agent` (couriers are "agents" in the API) |
+| Services | `services.ts` | `POST /api/service`, `POST /api/speed` |
+
+### Priority 2 — Session Persistence
+Replace in-memory `SessionStore` with database-backed storage so sessions survive backend restarts.
+
+### Priority 3 — Real Validation
+Wire the validation endpoints (`/validate/username`, `/validate/client-code`, etc.) to actually call Admin Manager and check for duplicates.
+
+---
+
+## Design
+
+DFRNT design system:
+- **Primary:** `#0d0c2c` (dark navy)
+- **Accent:** `#3bc7f4` (cyan)
+- **Background:** `#f4f2f1` (light grey)
+- **Font:** Inter / DM Sans
+
+Auto-Mate (the chat sidebar) should be light theme — not dark `#0d0c2c`. Dark mode can come later.
+
+---
+
+## Deploy
+
+```bash
+cd setup-dashboard
+npm run build
+npx gh-pages -d dist
+```
+
+Backend is not yet deployed — runs locally during DF onboarding sessions. Future: could deploy alongside Admin Manager or as a standalone service.
+
+---
+
+## Important Constraints
+
+- **No "30-minute setup guarantee"** — operators know their business is complex, don't patronise them
+- **Migration: tenant exports own data** from competitor TMS — DF never accesses competitor systems (legal safeguard)
+- **Steps 6-8 are Hub launch pads** — links to existing UI, not full config forms
+- **Auto-Mate IS the help system** — no separate help panel needed
+- **This is a separate repo from CSP** — it's a DF tool, not a tenant tool
+
+See `IMPLEMENTATION.md` for full API reference and code reuse documentation.

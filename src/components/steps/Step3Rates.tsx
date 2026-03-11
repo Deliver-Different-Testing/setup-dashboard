@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useStore } from '../../store'
+import { SmartImport } from '../SmartImport'
 
 const RATE_META: [string, string][] = [
   ['Base Rate', 'per delivery'],
@@ -14,11 +16,18 @@ const WEIGHT_LABELS = ['0–5 kg', '5–15 kg', '15–30 kg', '30–50 kg', '50+
 
 export function Step3Rates() {
   const { rates, setRate, zonePricing, setZonePrice, weightBreaks, setWeightBreak } = useStore()
+  const [showSmartImport, setShowSmartImport] = useState(false)
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <h2 className="text-2xl font-bold text-navy">💰 Your Rates</h2>
       <p className="text-gray-500 text-sm">Build your rate card. Auto-Mate has pre-populated based on your verticals — adjust as needed.</p>
+      <button onClick={() => setShowSmartImport(true)} className="px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm" style={{ backgroundColor: '#3bc7f4' }}>
+        📄 Import Rates from CSV/Excel
+      </button>
+      {showSmartImport && (
+        <SmartImport entityType="rates" onComplete={() => setShowSmartImport(false)} onClose={() => setShowSmartImport(false)} />
+      )}
       <div className="grid grid-cols-3 gap-4">
         {RATE_META.map(([name, desc]) => (
           <div key={name} className="bg-white rounded-2xl p-5 shadow-sm card-hover border border-gray-100">
