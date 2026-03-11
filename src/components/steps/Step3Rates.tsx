@@ -22,8 +22,8 @@ export function Step3Rates() {
     <div className="max-w-4xl mx-auto space-y-6">
       <h2 className="text-2xl font-bold text-navy">💰 Your Rates</h2>
       <p className="text-gray-500 text-sm">Build your rate card. Auto-Mate has pre-populated based on your verticals — adjust as needed.</p>
-      <button onClick={() => setShowSmartImport(true)} className="px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm" style={{ backgroundColor: '#3bc7f4' }}>
-        📄 Import Rates from CSV/Excel
+      <button onClick={() => setShowSmartImport(true)} className="w-full px-5 py-3 rounded-2xl text-white text-sm font-semibold transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0d0c2c 0%, #3bc7f4 100%)' }}>
+        📄 Smart Import Rates from Competitor TMS
       </button>
       {showSmartImport && (
         <SmartImport entityType="rates" onComplete={() => setShowSmartImport(false)} onClose={() => setShowSmartImport(false)} />

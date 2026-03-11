@@ -151,7 +151,7 @@ export function Step2Clients() {
             className="w-full px-5 py-3 rounded-2xl text-white text-sm font-semibold transition hover:opacity-90"
             style={{ background: 'linear-gradient(135deg, #0d0c2c 0%, #3bc7f4 100%)' }}
           >
-            🔄 Smart Import from Competitor TMS
+            📄 Smart Import Clients from Competitor TMS
           </button>
 
           {showSmartImport && (
@@ -237,7 +237,7 @@ export function Step2Clients() {
             className="w-full px-5 py-3 rounded-2xl text-white text-sm font-semibold transition hover:opacity-90"
             style={{ background: 'linear-gradient(135deg, #0d0c2c 0%, #3bc7f4 100%)' }}
           >
-            🔄 Smart Import Contacts from Competitor TMS
+            📄 Smart Import Contacts from Competitor TMS
           </button>
 
           {showContactImport && (

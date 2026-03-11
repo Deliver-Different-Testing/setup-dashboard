@@ -53,7 +53,7 @@ export function Step4Couriers() {
         className="w-full px-5 py-3 rounded-2xl text-white text-sm font-semibold transition hover:opacity-90"
         style={{ background: 'linear-gradient(135deg, #0d0c2c 0%, #3bc7f4 100%)' }}
       >
-        🔄 Smart Import Drivers from Competitor TMS
+        📄 Smart Import Drivers from Competitor TMS
       </button>
 
       {showSmartImport && (
