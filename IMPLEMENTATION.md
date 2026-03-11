@@ -237,17 +237,117 @@ Current entity types:
 
 ---
 
+## TMS API SDK (`Services/TmsApi/`)
+
+Complete C# port of Mike Moraski's MCP server — **183 methods across 15 service classes** covering the entire Admin Manager API. This is a reusable SDK, not just for the Setup Dashboard.
+
+### File Layout
+
+```
+Services/TmsApi/
+├── TmsServiceBase.cs           # Base class: HTTP helpers, JSON parsing, array extraction
+├── TmsApiServiceProvider.cs    # Factory: creates all services from an AdminManagerClient
+├── ZoneService.cs              # 20 methods — zones, zone groups, zone zips
+├── RateService.cs              # 32 methods — rate cards, break groups, breaks, zone rates, distance rates
+├── AgentService.cs             # 21 methods — agents (couriers), vehicles, cargo facilities
+├── ClientService.cs            # 16 methods — clients, couriers, staff
+├── ContactService.cs           # 12 methods — contacts, client-contact links, permissions
+├── ServiceConfigService.cs     # 11 methods — services, speeds, speed groupings
+├── SystemService.cs            # 23 methods — read-only lookups (suburbs, users, settings, etc.)
+├── ExtraChargeService.cs       # 12 methods — extra charges (accessorials)
+├── AutomationRuleService.cs    # 7 methods — automation rules
+├── HolidayService.cs           # 6 methods — holidays
+├── FuelService.cs              # 5 methods — fuel surcharge rates
+├── JobService.cs               # 10 methods — dispatch jobs (uses dispatch subdomain)
+├── LocationService.cs          # 4 methods — locations/suburbs
+└── NotificationService.cs      # 4 methods — notification templates
+
+Models/TmsApi/
+├── Common.cs                   # ApiListResponse<T>, BulkResult, PagedRequest
+├── ZoneModels.cs               # Zone, ZoneGroup, ZoneZip, ZoneZipSearchResult
+├── RateModels.cs               # RateCard, BreakGroup, Break, ZoneRate, DistanceRate
+├── AgentModels.cs              # Agent, AgentVehicle, CargoFacility, AgentLookup
+├── ClientModels.cs             # Client, Courier, Staff
+├── ContactModels.cs            # Contact, ClientContactLink
+├── ServiceModels.cs            # Service, Speed, SpeedGrouping
+├── SystemModels.cs             # SuburbLookup, User, Setting, SpeedLookup
+├── ExtraChargeModels.cs        # ExtraCharge
+├── AutomationModels.cs         # AutomationRule
+├── HolidayModels.cs            # Holiday
+├── FuelModels.cs               # FuelRate
+├── JobModels.cs                # Job, JobStatus
+└── LocationModels.cs           # Location
+```
+
+### Usage Pattern
+
+```csharp
+// In a controller or service:
+var client = _clientFactory.Create("medical-staging");
+var tms = new TmsApiServiceProvider(client);
+
+// Create a client
+var newClient = await tms.Clients.CreateAsync(new Client { Name = "Acme Corp", Code = "ACME" });
+
+// Add zone zips
+await tms.Zones.AddZipToZoneAsync(zoneId, new ZoneZip { ZipCode = "2010", Location = "Newmarket" });
+
+// Set up rate card
+var rateCard = await tms.Rates.CreateRateCardAsync(new RateCard { Name = "Standard", ServiceId = 1 });
+await tms.Rates.CreateZoneRateAsync(new ZoneRate { RateCardId = rateCard.Id, ZoneId = 1, Rate = 15.50m });
+
+// Bulk operations
+await tms.Zones.BulkAddZipsToZoneAsync(zoneId, zipCodes, batchSize: 50, delayMs: 100);
+```
+
+### MCP → C# Service Mapping
+
+| MCP Tool File | C# Service | Methods | Key Endpoints |
+|--------------|------------|---------|---------------|
+| `zones.ts` | `ZoneService` | 20 | `/api/zoneName`, `/api/zoneZip`, `/api/zoneGroup` |
+| `rates.ts` | `RateService` | 32 | `/api/rateCard`, `/api/breakGroup`, `/api/break`, `/api/zoneRate` |
+| `agents.ts` | `AgentService` | 21 | `/api/agent`, `/api/agentVehicle`, `/api/cargoFacility` |
+| `clients.ts` | `ClientService` | 16 | `/api/client`, `/api/courier`, `/api/staff` |
+| `contacts.ts` | `ContactService` | 12 | `/API/contact`, `/API/clientContact` |
+| `services.ts` | `ServiceConfigService` | 11 | `/api/service`, `/api/speed`, `/api/speedGrouping` |
+| `system.ts` | `SystemService` | 23 | `/api/speed`, `/api/suburb`, `/api/user`, `/api/setting` |
+| `extra-charges.ts` | `ExtraChargeService` | 12 | `/API/rate` (with rateType filter) |
+| `automation-rules.ts` | `AutomationRuleService` | 7 | `/api/automationRules` |
+| `holidays.ts` | `HolidayService` | 6 | `/API/holiday` |
+| `fuel.ts` | `FuelService` | 5 | `/API/fuel` |
+| `jobs.ts` | `JobService` | 10 | `despatch.*/job` |
+| `locations.ts` | `LocationService` | 4 | `/api/location` |
+| `notifications.ts` | `NotificationService` | 4 | `/api/notification` |
+| `bulk.ts` | (in TmsServiceBase) | — | Batching + delay utilities |
+
+### Known API Quirks (Ported from MCP)
+
+| Quirk | Workaround in C# SDK |
+|-------|---------------------|
+| `GET /api/zoneZip` returns `id: 0` for all records | `SearchZoneZipsAsync()` uses `POST /api/zoneZip/search` instead |
+| Zone rate API ignores `?zoneNameId=X` filter | Client-side filtering after fetching all |
+| Some endpoints use `/API/` (capital), others `/api/` | Each service method uses the correct casing |
+| `PUT /api/zoneName/{id}` returns 405 | Documented — zone names are create-only |
+| `GET /api/cargoFacility` returns 405 | Documented — cargo facility list is UI-only |
+| Speed create requires hidden `groupingId` | Defaults to 1 (Excelerator) |
+| `DELETE /api/zoneZip/{id}` silently fails | Documented as known issue |
+| Fuel API uses `start`/`end` not `validStart`/`validEnd` | Correct field names in DTOs |
+| Update operations require GET→strip→merge→POST | Built into all `UpdateAsync()` methods |
+
+---
+
 ## Code Reuse Map
 
 | Feature | Source | What was reused |
 |---------|--------|-----------------|
 | Cookie auth | `dfrnt-mcp-server/src/api-client.ts` | Full 4-step login, cookie jar, auto-retry, session file format |
+| **All 147 API tools** | `dfrnt-mcp-server/src/tools/*.ts` | **Complete port to 15 C# service classes (183 methods)** |
 | Environment config | `dfrnt-mcp-server/src/types/api.ts` | Tenant URLs, subdomain patterns |
-| API endpoints | `dfrnt-mcp-server/src/tools/*.ts` | Client/courier/zone/rate CRUD endpoint paths |
+| API quirks | `dfrnt-mcp-server/ARCHITECTURE.md` | All documented workarounds ported |
+| Bulk operations | `dfrnt-mcp-server/src/api-client.ts` | Batch + delay + mid-bulk refresh pattern |
 | Field mapping | `bulkimport/Application/Core/Utilities/FieldMappingUtility.cs` | Column detection pattern, alias approach |
-| Address handling | `bulkimport/Application/Core/Utilities/AddressUtility.cs` | NZ vs US field naming (Suburb/City, PostCode/ZipCode) |
+| Address handling | `bulkimport/Application/Core/Utilities/AddressUtility.cs` | NZ vs US field naming |
 | Upload flow | `bulkimport/Api/Controllers/BulkController.cs` | Upload → parse → validate → import pattern |
-| Validation | `bulkimport/Application/Core/Validators/` | Required field checking, duplicate detection |
 
 ---
 
@@ -265,7 +365,7 @@ Current entity types:
 
 | Feature | Priority | Notes |
 |---------|----------|-------|
-| Real Admin Manager push | **High** | `AdminManagerClient` has the auth pattern — needs endpoint wiring per entity type |
+| Admin Manager push from import flow | **High** | TMS SDK is built — wire `ImportController.Execute` to call the appropriate service |
 | Database session persistence | Medium | Replace `SessionStore` (in-memory) with SQL/Redis |
 | Google Sheets import | Low | Endpoint stub exists, needs Google API credentials |
 | WebSocket import progress | Low | Currently returns final result; large imports could use real-time progress |

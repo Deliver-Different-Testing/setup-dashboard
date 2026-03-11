@@ -194,6 +194,23 @@ public class AdminManagerClient : IDisposable
         return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
     }
 
+    public async Task<string> GetRawAsync(string endpoint)
+    {
+        await EnsureInitialized();
+        var url = endpoint.StartsWith("http") ? endpoint : $"{_environment.BaseUrl}{endpoint}";
+        var response = await _httpClient.GetAsync(url);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized ||
+            response.StatusCode == HttpStatusCode.Found)
+        {
+            _logger.LogWarning("Session expired on GET {Endpoint}", endpoint);
+            throw new UnauthorizedAccessException("Session expired");
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync();
+    }
+
     public async Task<T?> PostAsync<T>(string endpoint, object body) where T : class
     {
         await EnsureInitialized();

@@ -132,25 +132,100 @@ Future: Replace `SessionStore` with Redis or SQL if session persistence across b
 
 ---
 
+## TMS API SDK — The Big Piece
+
+The entire MCP server (Mike's 147 tools) has been ported into C# service classes at `backend/Services/TmsApi/`. This is a complete SDK for the Admin Manager API.
+
+### How to Use It
+
+```csharp
+// 1. Get a client for the environment
+var client = _clientFactory.Create("medical-staging");
+
+// 2. Create a service provider (gives you all 15 services)
+var tms = new TmsApiServiceProvider(client);
+
+// 3. Call any API
+var clients = await tms.Clients.GetAllAsync();
+var newZone = await tms.Zones.CreateAsync(new Zone { Name = "Zone 1" });
+await tms.Zones.AddZipToZoneAsync(newZone.Id, new ZoneZip { ZipCode = "2010" });
+```
+
+### Services Available
+
+| Service | What It Does | Method Count |
+|---------|-------------|-------------|
+| `ZoneService` | Zones, zone groups, zone zips | 20 |
+| `RateService` | Rate cards, breaks, zone rates, distance rates | 32 |
+| `AgentService` | Agents (couriers), vehicles, cargo facilities | 21 |
+| `ClientService` | Clients, couriers, staff | 16 |
+| `ContactService` | Contacts, client-contact links | 12 |
+| `ServiceConfigService` | Services, speeds, speed groupings | 11 |
+| `SystemService` | Read-only lookups (suburbs, users, settings) | 23 |
+| `ExtraChargeService` | Extra charges / accessorials | 12 |
+| `AutomationRuleService` | Automation rules | 7 |
+| `HolidayService` | Holidays | 6 |
+| `FuelService` | Fuel surcharge rates | 5 |
+| `JobService` | Dispatch jobs | 10 |
+| `LocationService` | Locations/suburbs | 4 |
+| `NotificationService` | Notification templates | 4 |
+
+### API Quirks to Watch For
+
+These are already handled in the SDK, but know about them:
+
+1. **`/API/` vs `/api/`** — some endpoints use capital `API`. The SDK handles this per-method, but if you add new endpoints, check the MCP source.
+2. **Zone zip GET returns id:0** — the SDK uses POST search instead. Don't try to fix this.
+3. **Update = GET → strip → merge → POST** — don't just POST new data, you'll lose existing fields. All `UpdateAsync()` methods do this correctly.
+4. **Couriers are "agents" in the API** — `AgentService` handles courier CRUD. Confusing but that's the terminology.
+5. **Speed create needs `groupingId`** — defaults to 1 (Excelerator). Don't forget this field.
+
+### Common Operations (copy-paste examples)
+
+**Set up a new client with contacts:**
+```csharp
+var client = await tms.Clients.CreateAsync(new Client { Name = "Acme", Code = "ACME" });
+var contact = await tms.Contacts.CreateAsync(new Contact { FirstName = "John", LastName = "Doe", Email = "john@acme.com" });
+await tms.Contacts.LinkToClientAsync(client.Id, contact.Id, isPrimary: true);
+```
+
+**Set up zones with zips:**
+```csharp
+var zone = await tms.Zones.CreateAsync(new Zone { Name = "CBD", GroupId = 1 });
+await tms.Zones.AddZipToZoneAsync(zone.Id, new ZoneZip { ZipCode = "1010", Location = "Auckland CBD" });
+// Bulk: add many zips at once
+await tms.Zones.BulkAddZipsToZoneAsync(zone.Id, zipList, batchSize: 50);
+```
+
+**Create rate card with zone rates:**
+```csharp
+var card = await tms.Rates.CreateRateCardAsync(new RateCard { Name = "Standard", ServiceId = 1 });
+await tms.Rates.CreateZoneRateAsync(new ZoneRate { RateCardId = card.Id, ZoneId = zone.Id, Rate = 15.50m });
+```
+
+### Adding New Endpoints
+
+1. Add the DTO to `Models/TmsApi/{Domain}Models.cs`
+2. Add the method to the appropriate service in `Services/TmsApi/`
+3. Use `GetAsync<T>()`, `PostAsync<T>()`, `PutAsync<T>()`, `DeleteAsync()` from `TmsServiceBase`
+4. Check the MCP source (`dfrnt-mcp-server/src/tools/`) for the exact endpoint path and any quirks
+5. Watch the `/API/` vs `/api/` casing
+
+---
+
 ## What Needs Doing
 
-### Priority 1 — Wire Admin Manager Push
-The `AdminManagerClient` has the auth pattern working. Now each step save endpoint needs to actually call the Admin Manager API to create the records. The MCP server's tool files (`dfrnt-mcp-server/src/tools/*.ts`) document every endpoint:
-
-| Step | MCP Tool File | Key Endpoints |
-|------|--------------|---------------|
-| Clients | `clients.ts` | `POST /api/client` |
-| Contacts | `contacts.ts` | `POST /API/contact`, `POST /API/clientContact` |
-| Zones | `zones.ts` | `POST /api/zoneName`, `POST /api/zoneZip` |
-| Rates | `rates.ts` | `POST /api/rateCard`, `POST /api/zoneRate` |
-| Couriers | `agents.ts` | `POST /api/agent` (couriers are "agents" in the API) |
-| Services | `services.ts` | `POST /api/service`, `POST /api/speed` |
+### Priority 1 — Wire Import Execute to TMS SDK
+The TMS SDK is fully built. Now `ImportController.Execute` needs to create a `TmsApiServiceProvider` and call the appropriate service when the user confirms an import. Example flow:
+- User uploads clients CSV → detect → preview → execute
+- Execute calls `tms.Clients.CreateAsync()` for each row
+- Use bulk batching for large imports
 
 ### Priority 2 — Session Persistence
 Replace in-memory `SessionStore` with database-backed storage so sessions survive backend restarts.
 
 ### Priority 3 — Real Validation
-Wire the validation endpoints (`/validate/username`, `/validate/client-code`, etc.) to actually call Admin Manager and check for duplicates.
+Wire `/validate/username`, `/validate/client-code` etc. to call `tms.Clients.GetAllAsync()` / `tms.System.GetUsersAsync()` and check for duplicates.
 
 ---
 
