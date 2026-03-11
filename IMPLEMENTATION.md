@@ -15,7 +15,7 @@
 │                                 │         │  ┌──────────────────────────────┐  │
 │  10-step wizard                 │         │  │ SmartUploaderService         │  │
 │  Zustand state store            │         │  │ - CSV/Excel parsing          │  │
-│  SmartImport on every step      │         │  │ - Fuzzy column matching      │  │
+│  SmartImport on ALL 10 steps    │         │  │ - Fuzzy column matching      │  │
 │  Auto-Mate chat sidebar         │         │  │ - Competitor system detect   │  │
 │  Environment picker             │         │  │ - Validation + preview       │  │
 │  Session resume/rollback        │         │  └──────────────────────────────┘  │
@@ -71,32 +71,47 @@ src/
 │   ├── Pill.tsx                     # Status pill component
 │   ├── ProgressBar.tsx              # Step progress indicator
 │   ├── ResumeSession.tsx            # Resume previous session dialog
-│   ├── SmartImport.tsx              # CSV/Excel upload modal (reused everywhere)
+│   ├── SmartImport.tsx              # CSV/Excel upload modal (reused on ALL steps)
 │   ├── Toggle.tsx                   # Toggle switch
 │   ├── ValidationIndicator.tsx      # Field validation icons
 │   └── steps/
-│       ├── Step0Business.tsx        # Company profile
-│       ├── Step1Team.tsx            # Team members        ← SmartImport
-│       ├── Step2Clients.tsx         # Clients + contacts  ← SmartImport
-│       ├── Step3Rates.tsx           # Zones + rate cards   ← SmartImport
-│       ├── Step4Couriers.tsx        # Drivers/couriers     ← SmartImport
-│       ├── Step5Automations.tsx     # Automation rules
-│       ├── Step6Integrations.tsx    # Hub launch pad (links)
-│       ├── Step7AppConfig.tsx       # Hub launch pad (links)
-│       ├── Step8Partners.tsx        # Hub launch pad (links)
-│       └── Step9Training.tsx        # Gamified training
+│       ├── Step0Business.tsx        # Company profile       ← SmartImport (business)
+│       ├── Step1Team.tsx            # Team members          ← SmartImport (team)
+│       ├── Step2Clients.tsx         # Clients + contacts    ← SmartImport (clients, contacts)
+│       ├── Step3Rates.tsx           # Zones + rate cards    ← SmartImport (rates)
+│       ├── Step4Couriers.tsx        # Drivers/couriers      ← SmartImport (drivers)
+│       ├── Step5Automations.tsx     # Automation rules      ← SmartImport (automations)
+│       ├── Step6Integrations.tsx    # Hub launch pad        ← SmartImport (integrations)
+│       ├── Step7AppConfig.tsx       # Hub launch pad        ← SmartImport (settings)
+│       ├── Step8Partners.tsx        # Hub launch pad        ← SmartImport (agents)
+│       └── Step9Training.tsx        # Gamified training     ← SmartImport (team roster)
 ```
 
 ### SmartImport Component
 
-`SmartImport.tsx` is a reusable modal used on Steps 1-4. It:
+`SmartImport.tsx` is a reusable modal used on **all 10 steps** (Steps 0-9). It:
 1. Accepts drag-drop CSV or Excel file
 2. Calls `POST /api/setup/import/detect` → gets column mapping with confidence %
 3. Shows mapping preview — user can adjust if fuzzy match was wrong
 4. Calls `POST /api/setup/import/preview` → shows data with validation warnings
 5. Calls `POST /api/setup/import/execute` → saves to session
 
-Props: `entityType` (team/clients/contacts/drivers/zones/rates), `sessionId`, `onImport` callback.
+Props: `entityType` (business/team/clients/contacts/drivers/zones/rates/automations/integrations/settings/agents), `onComplete` callback, `onClose` callback.
+
+### Entity Types by Step
+
+| Step | Entity Type | Import Description |
+|------|------------|-------------------|
+| 0 Business | `business` | Company profile data |
+| 1 Team | `team` | Staff/user roster |
+| 2 Clients | `clients`, `contacts` | Client list + contact details |
+| 3 Rates | `rates` | Zone rates and pricing |
+| 4 Couriers | `drivers` | Driver/courier fleet |
+| 5 Automations | `automations` | Automation rule configs |
+| 6 Integrations | `integrations` | Integration settings |
+| 7 App Config | `settings` | App configuration |
+| 8 Partners | `agents` | Agent/partner network |
+| 9 Training | `team` | Training roster (reuses team type) |
 
 ### Steps 6-8 (Hub Launch Pads)
 

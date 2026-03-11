@@ -16,6 +16,11 @@ The Setup Dashboard is a **DF-internal tool** used by DFRNT staff when onboardin
 2. Clients (add clients + contacts) — **Smart Import**
 3. Rates (zones, rate cards, pricing) — **Smart Import**
 4. Couriers/Drivers (fleet setup) — **Smart Import**
+5. Automations (event-driven rules) — **Smart Import**
+6. Integrations (Hub link) — **Smart Import**
+7. App Config (Hub link) — **Smart Import**
+8. Partners (Hub link) — **Smart Import**
+9. Training (gamified onboarding) — **Smart Import**
 5. Automations (event-driven rules)
 6. Integrations (Hub link)
 7. App Config (Hub link)
@@ -50,7 +55,7 @@ The frontend has localStorage fallback — it will work without the backend runn
 
 ## Smart Uploader — The Key Feature
 
-Every step that has tabular data (Steps 1-4) has a **"📄 Import from CSV/Excel"** button. This is the smart uploader:
+**Every step (0-9)** has a **"📄 Smart Import from Competitor TMS"** button. This is the smart uploader:
 
 ### How It Works
 1. User uploads a CSV or Excel file (drag-drop or file picker)
