@@ -1,0 +1,63 @@
+@using System.IO
+@using System.Text.Json
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnv
+@{
+    Layout = null;
+
+    // Read Vite manifest to get current hashed asset filenames
+    // Same approach as DespatchWeb reading manifest.json for bundle names
+    var webRoot = HostEnv.WebRootPath;
+    var manifestPath = System.IO.Path.Combine(webRoot, "setup-dashboard", ".vite", "manifest.json");
+    var jsFile = "";
+    var cssFile = "";
+
+    if (System.IO.File.Exists(manifestPath))
+    {
+        var manifestJson = System.IO.File.ReadAllText(manifestPath);
+        var manifest = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(manifestJson);
+        if (manifest != null && manifest.TryGetValue("index.html", out var entry))
+        {
+            jsFile = entry.GetProperty("file").GetString() ?? "";
+            if (entry.TryGetProperty("css", out var cssArray))
+            {
+                var cssFiles = cssArray.EnumerateArray().ToList();
+                if (cssFiles.Count > 0)
+                {
+                    cssFile = cssFiles[0].GetString() ?? "";
+                }
+            }
+        }
+    }
+    else
+    {
+        // Fallback: scan assets directory for files
+        var assetsDir = System.IO.Path.Combine(webRoot, "setup-dashboard", "assets");
+        if (Directory.Exists(assetsDir))
+        {
+            var jsFiles = Directory.GetFiles(assetsDir, "index-*.js");
+            var cssFiles = Directory.GetFiles(assetsDir, "index-*.css");
+            if (jsFiles.Length > 0) jsFile = "assets/" + System.IO.Path.GetFileName(jsFiles[0]);
+            if (cssFiles.Length > 0) cssFile = "assets/" + System.IO.Path.GetFileName(cssFiles[0]);
+        }
+    }
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deliver Different — Setup Dashboard</title>
+    @if (!string.IsNullOrEmpty(cssFile))
+    {
+        <link rel="stylesheet" crossorigin href="/setup-dashboard/@cssFile">
+    }
+</head>
+<body>
+    <div id="root"></div>
+    @if (!string.IsNullOrEmpty(jsFile))
+    {
+        <script type="module" crossorigin src="/setup-dashboard/@jsFile"></script>
+    }
+</body>
+</html>

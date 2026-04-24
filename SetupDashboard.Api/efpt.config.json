@@ -1,0 +1,138 @@
+﻿{
+   "CodeGenerationMode": 4,
+   "ContextClassName": "DespatchContext",
+   "ContextNamespace": null,
+   "FilterSchemas": false,
+   "IncludeConnectionString": false,
+   "MinimumProductVersion": "2.6.1166",
+   "ModelNamespace": null,
+   "OutputContextPath": null,
+   "OutputPath": "Models",
+   "PreserveCasingWithRegex": true,
+   "ProjectRootNamespace": "SetupDashboard",
+   "Schemas": null,
+   "SelectedHandlebarsLanguage": 2,
+   "SelectedToBeGenerated": 0,
+   "T4TemplatePath": null,
+   "Tables": [
+      {
+         "Name": "[dbo].[AgentVehicles]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[AutomationActions]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[AutomationConditions]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[AutomationRules]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[BreakGroups]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[CourierType]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[ExtraCharges]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[RateCards]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[tblClientContact]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[tblService]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[tblSetting]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[tblUser]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[tblUserGroup]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[tucAgents]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[tucClient]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[tucClientContact]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[tucJobType]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[tucStaff]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[VehicleType]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[ZoneCombo]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[ZoneGroup]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[ZoneName]",
+         "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[ZoneZip]",
+         "ObjectType": 0
+      }
+   ],
+   "UiHint": null,
+   "UncountableWords": null,
+   "UseAsyncStoredProcedureCalls": true,
+   "UseBoolPropertiesWithoutDefaultSql": false,
+   "UseDatabaseNames": false,
+   "UseDatabaseNamesForRoutines": true,
+   "UseDateOnlyTimeOnly": true,
+   "UseDbContextSplitting": false,
+   "UseDecimalDataAnnotationForSprocResult": true,
+   "UseFluentApiOnly": true,
+   "UseHandleBars": false,
+   "UseHierarchyId": false,
+   "UseInflector": true,
+   "UseInternalAccessModifiersForSprocsAndFunctions": false,
+   "UseLegacyPluralizer": false,
+   "UseManyToManyEntity": false,
+   "UseNoDefaultConstructor": false,
+   "UseNoNavigations": false,
+   "UseNoObjectFilter": false,
+   "UseNodaTime": false,
+   "UseNullableReferences": false,
+   "UsePrefixNavigationNaming": false,
+   "UseSchemaFolders": false,
+   "UseSchemaNamespaces": false,
+   "UseSpatial": false,
+   "UseT4": false,
+   "UseT4Split": false
+}
