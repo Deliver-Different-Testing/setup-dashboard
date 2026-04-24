@@ -1,10 +1,10 @@
 # Default values for chart.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
-replicaCount: 2
+replicaCount: 1
 
 extraLabels:
-  tenant: am
+  tenant: crisis
 
 affinity:
   nodeAffinity:
@@ -14,19 +14,18 @@ affinity:
         - key: tenant
           operator: In
           values:
-          - am
+          - crisis
 
 tolerations:
   - key: tenant
     operator: Equal
-    value: am
+    value: crisis
     effect: NoSchedule
-
 
 hpa:
   enabled: true
-  minReplicas: 2
-  maxReplicas: 5
+  minReplicas: 1
+  maxReplicas: 2
   metrics:
   - type: Resource
     resource:
@@ -46,7 +45,6 @@ ingress:
     enabled: true
   annotations:
     kubernetes.io/tls-acme: "true"
-    kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/proxy-body-size: 32m
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
@@ -86,10 +84,10 @@ readinessProbe:
 
 resources:
   requests:
-    memory: 512Mi
+    memory: 256Mi
     cpu: 100m
   limits:
-    memory: 1Gi
+    memory: 512Mi
     cpu: 500m
 
 lifecycle:
