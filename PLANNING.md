@@ -4,9 +4,10 @@
 
 A **Deliver Different internal tool** for onboarding new tenants onto the DFRNT TMS platform. Not a tenant-facing self-service tool — DF staff use this alongside the tenant to configure their new instance.
 
-**Repo**: `Deliver-Different-Testing/setup-dashboard`
-**Live**: https://deliver-different-testing.github.io/setup-dashboard/
-**Stack**: React 19 + Vite + Tailwind CSS (frontend) / Express + TypeScript (backend)
+**Repo**: `urgent-couriers/setup-dashboard` (GitLab — to be created)
+**Stack**: React 19 + Vite 7 + Tailwind v4 (frontend) / .NET 10 + EF Core 10 + SQL Server (backend) — single deployable, frontend served from .NET `wwwroot/`
+**Deploy**: AWS EKS via GitLab CI + Helm (Auto DevOps), per-tenant Helm values
+**Solution**: `SetupDashboard.sln` — open in Visual Studio, F5 to debug both
 
 ---
 
@@ -16,17 +17,18 @@ A **Deliver Different internal tool** for onboarding new tenants onto the DFRNT 
 ┌─────────────────────────────────────────────────────────┐
 │                    Setup Dashboard                       │
 │                                                         │
-│  React Frontend (GitHub Pages)                          │
-│  ├── 9-step wizard with Zustand state                   │
+│  React Frontend (served from .NET wwwroot/)             │
+│  ├── 10-step wizard with Zustand state                  │
 │  ├── Auto-Mate chat sidebar (per-step contextual)       │
 │  ├── Progress bar (field-level completion tracking)     │
 │  └── CSV import with column mapping UI                  │
 │                                                         │
-│  Express Backend (backend/)                             │
-│  ├── Routes per wizard step (9 route files)             │
-│  ├── api-client.ts (adapted from MCP server)            │
-│  ├── Service layer (orchestration, zone/rate/client)    │
-│  └── Session tracking (entity IDs for rollback)         │
+│  .NET 8 Backend (SetupDashboard.Api/)                   │
+│  ├── EF Core + SQL Server (multi-tenant)                │
+│  ├── Hub cookie auth + Redis connection caching         │
+│  ├── TMS API SDK (15 service classes, 183 methods)      │
+│  ├── Smart Uploader (CSV/Excel fuzzy import)            │
+│  └── Session tracking (in-memory shopping cart)         │
 │                                                         │
 └──────────────────┬──────────────────────────────────────┘
                    │
@@ -58,24 +60,30 @@ A **Deliver Different internal tool** for onboarding new tenants onto the DFRNT 
 ## Current State
 
 ### Frontend ✅ Built
-- 9 step components (`Step0Business` → `Step8Partners`)
+- 10 step components (`Step0Business` → `Step9Training`)
 - Shared components: `ChatSidebar`, `Header`, `ProgressBar`, `Toggle`, `Pill`
 - Zustand store with all form state + completion tracking
 - All toggles, pills, CSV upload, drag zones manage real state
-- Deployed to GitHub Pages
+- Built into `wwwroot/setup-dashboard/` by the .csproj `NpmBuild` MSBuild target and served by the .NET app
 
-### Backend ✅ Scaffolded
-- Express server on port 3001
-- 9 route files (Steps 0-5 wired to TMS API, Steps 6-8 stubs)
-- 5 service files: `setup-orchestrator`, `zone-setup`, `rate-setup`, `client-import`, `courier-setup`
-- `api-client.ts` adapted from MCP server (cookie auth, session self-healing, bulk ops)
-- All 9 TMS environment configs copied from MCP server
-- Zod validation on all request bodies
-- CORS configured for dev + production
+### Backend ✅ Built (.NET 8)
+- .NET 8 Web API with controllers (SetupDashboard.Api/)
+- Entity Framework Core 8 with multi-tenant SetupDashboardDbContext (~20 entities)
+- Hub cookie-based authentication (shared `.AspNet.SharedCookie`)
+- Redis distributed cache for connection string management
+- TMS API SDK: 15 C# service classes (183 methods) ported from MCP server
+- Smart Uploader: CSV/Excel parse + fuzzy column matching (FuzzySharp)
+- Serilog structured logging
+- Health checks at `/healthz` and `/health/live`
+- Visual Studio solution (SetupDashboard.sln) with pre-built frontend for F5 debugging
+- Two launch profiles: IIS Express (local hub) + Project (staging hub)
+- Environment variables in launchSettings.json (matches AdminManager/DespatchWeb pattern)
+- AWS SSM Data Protection for production deployment
 
 ### Documentation ✅
 - `MIGRATION-MAPPING.md` — competitor CSV column mappings for CXT, Key Software, Datatrac, Crown, e-Courier
-- `backend/README.md` — how to run the backend
+- `docs/setup-guide.md` — end-user guide for DF staff
+- `changes.log` — detailed change history
 - This file (`PLANNING.md`)
 
 ---
@@ -111,7 +119,12 @@ A **Deliver Different internal tool** for onboarding new tenants onto the DFRNT 
 | `api.*` | JWT Bearer token | 20 external endpoints (jobs, rates, webhooks, labels) |
 
 ### Current Implementation
-Backend uses cookie-based auth (adapted from MCP server). JWT Bearer support planned as primary auth once API key provisioning is automated.
+Backend uses the same cookie-based auth as AdminManager/RunBuilder/ClientManager:
+- Shared cookie (`.AspNet.SharedCookie`) from Hub login
+- Data Protection keys shared across all DFRNT apps
+- `LoginController` validates cookie claims + caches connection string in Redis
+- Direct EF Core database access via `DynamicDespatchDbContextFactory`
+- JWT Bearer support planned for external API access once provisioning is automated.
 
 ---
 
@@ -172,7 +185,7 @@ The setup dashboard should **wrap/reference the bulk importer's patterns**, not 
 **Tools**: ~147 MCP tools covering full tenant onboarding
 **Auth**: Cookie-based (auto-login with session self-healing)
 
-The backend's `api-client.ts` is adapted from the MCP server. Same:
+The backend's `AdminManagerClient.cs` is adapted from the MCP server. Same:
 - Cookie-based auth with auto-login (4-step Hub login flow)
 - 401/302 interceptor → auto re-login → retry
 - Bulk operations with batching + mid-batch session refresh
@@ -191,7 +204,7 @@ The backend's `api-client.ts` is adapted from the MCP server. Same:
 ## What's Next
 
 ### Phase 1: Wire Frontend → Backend (Priority: ECA Dallas demo)
-- [ ] Connect React frontend to Express backend API calls
+- [ ] Connect React frontend to .NET backend API calls
 - [ ] Implement CSV upload flow in Step 2 with column auto-mapping
 - [ ] Add "Select your old system" dropdown with competitor presets
 - [ ] Test end-to-end against `dfrnt-staging` environment
@@ -218,66 +231,61 @@ The backend's `api-client.ts` is adapted from the MCP server. Same:
 
 ```
 setup-dashboard/
-├── PLANNING.md              # This file
-├── MIGRATION-MAPPING.md     # Competitor CSV column mappings
-├── README.md                # Quick start
-├── index.html               # Vite entry
-├── package.json             # React 19, Vite, Tailwind, Zustand
-├── vite.config.ts           # base: '/setup-dashboard/'
-├── src/
-│   ├── main.tsx             # Entry point
-│   ├── App.tsx              # Router + layout
-│   ├── store.ts             # Zustand store (all wizard state)
-│   ├── index.css            # Tailwind + custom styles
-│   ├── data/
-│   │   └── chatMessages.ts  # Per-step Auto-Mate messages
-│   └── components/
-│       ├── Header.tsx       # Top bar (logo, welcome, progress %)
-│       ├── ChatSidebar.tsx  # Auto-Mate chat panel
-│       ├── ProgressBar.tsx  # Step progress indicator
-│       ├── Toggle.tsx       # Toggle switch component
-│       ├── Pill.tsx         # Selectable pill/tag component
-│       └── steps/
-│           ├── Step0Business.tsx    # Company setup
-│           ├── Step1Team.tsx        # Team members
-│           ├── Step2Clients.tsx     # Client import
-│           ├── Step3Rates.tsx       # Rate cards
-│           ├── Step4Couriers.tsx    # Driver setup
-│           ├── Step5Automations.tsx # Automation toggles
-│           ├── Step6Integrations.tsx # AI Integration Builder
-│           ├── Step7AppConfig.tsx   # App Configurator
-│           └── Step8Partners.tsx    # Agent network
-├── backend/
-│   ├── package.json         # Express, axios, tough-cookie, zod, papaparse
-│   ├── tsconfig.json
-│   ├── .env.example
-│   ├── README.md
-│   └── src/
-│       ├── index.ts         # Express server (port 3001)
-│       ├── api-client.ts    # TMS API client (from MCP server)
-│       ├── types/
-│       │   └── api.ts       # Environment configs (9 envs)
-│       ├── middleware/
-│       │   └── error-handler.ts
-│       ├── routes/
-│       │   ├── index.ts     # Route barrel
-│       │   ├── health.ts    # GET /api/health
-│       │   ├── business.ts  # Step 0
-│       │   ├── team.ts      # Step 1
-│       │   ├── clients.ts   # Step 2
-│       │   ├── rates.ts     # Step 3
-│       │   ├── couriers.ts  # Step 4
-│       │   ├── automations.ts # Step 5
-│       │   ├── integrations.ts # Step 6 (stub)
-│       │   ├── app-config.ts   # Step 7 (stub)
-│       │   └── partners.ts     # Step 8 (stub)
-│       └── services/
-│           ├── setup-orchestrator.ts # Session + progress tracking
-│           ├── zone-setup.ts         # Zone group → zones → zips
-│           ├── rate-setup.ts         # Rate card → breaks → zone rates
-│           ├── client-import.ts      # CSV parse + bulk create
-│           └── courier-setup.ts      # Courier + agent creation
-└── dist/                    # Vite build output (GitHub Pages)
+├── SetupDashboard.sln                # Visual Studio solution (Solution Items + API project)
+├── README.md                         # Quick start guide
+├── PLANNING.md                       # This file
+├── HANDOVER.md                       # Handover documentation
+├── IMPLEMENTATION.md                 # Detailed implementation guide
+├── MIGRATION-MAPPING.md              # Competitor CSV column mappings
+├── changes.log                       # Detailed change history
+├── docs/
+│   └── setup-guide.md               # End-user guide for DF staff
+├── SetupDashboard.Api/               # .NET 8 Web API
+│   ├── SetupDashboard.Api.csproj     # MSBuild pre-build target builds frontend
+│   ├── Program.cs                    # DI, auth, EF, Redis, health checks
+│   ├── appsettings.json              # Environment URLs, Serilog, AWS config
+│   ├── appsettings.Development.json  # Dev CORS origins, debug logging
+│   ├── appsettings.Production.json   # Prod CORS origins, tighter logging
+│   ├── SqlServerHealthCheck.cs
+│   ├── wwwroot/setup-dashboard/      # Pre-built React frontend (gitignored)
+│   ├── Core/Domain/
+│   │   ├── SetupDashboardDbContext.cs # Slim context (~20 entities)
+│   │   ├── Entities/                 # Entity POCOs
+│   │   ├── DynamicDespatchDbContext.cs
+│   │   ├── DynamicDespatchDbContextFactory.cs
+│   │   ├── ConnectionStringManager.cs
+│   │   └── DesignTimeDespatchContextFactory.cs
+│   ├── Controllers/
+│   │   ├── LoginController.cs        # Hub cookie auth
+│   │   ├── SetupController.cs        # Session CRUD + step saves
+│   │   └── ImportController.cs       # Smart import flow
+│   ├── Models/
+│   │   ├── TmsApi/                   # 14 DTO files
+│   │   ├── SmartUpload.cs
+│   │   ├── Session.cs
+│   │   └── Environment.cs
+│   ├── Services/
+│   │   ├── TmsApi/                   # 16 service files (183 methods)
+│   │   ├── AdminManagerClient.cs     # Cookie auth HTTP client
+│   │   ├── SmartUploaderService.cs
+│   │   └── SessionStore.cs
+│   ├── ClientApp/                    # React 19 frontend source
+│   │   ├── package.json
+│   │   ├── vite.config.ts            # Builds to ../wwwroot/setup-dashboard/
+│   │   ├── index.html
+│   │   └── src/
+│   │       ├── App.tsx
+│   │       ├── store.ts              # Zustand store
+│   │       ├── lib/api.ts            # All API calls
+│   │       └── components/steps/     # Step0-9 components
+│   └── Properties/launchSettings.json # Two profiles + env vars (matches AdminManager)
+├── .gitlab-ci.yml                    # GitLab CI include of ci-templates
+├── Dockerfile                        # Multi-stage SDK 10.0 + Node 20 → ASP.NET 10.0
+├── .dockerignore                     # Excludes bin/obj/node_modules/launchSettings/etc.
+├── nuget.config                      # nuget.org only (no Telerik feed)
+└── .gitlab/                          # Helm values for Auto DevOps deploy
+    ├── auto-deploy-values.yaml       # Default (DFRNT staging)
+    └── {tenant}-{env}-auto-deploy-values.yaml  # Per-tenant overrides
 ```
 
 ---
@@ -287,8 +295,8 @@ setup-dashboard/
 | Decision | Choice | Why |
 |----------|--------|-----|
 | Separate repo from CSP | ✅ | This is a DF tool, not a tenant tool |
-| React + Vite (not .NET) | ✅ | Lightweight wizard, fast iteration, GitHub Pages deploy |
-| Express backend (not .NET) | ✅ | Same language as frontend, reuse MCP server patterns directly |
+| React + Vite frontend | ✅ | Lightweight wizard, fast iteration, served as static assets from the .NET app's wwwroot |
+| .NET 8 backend (was Express) | ✅ | Consistent with all DFRNT apps, EF Core for DB access, shared hub auth |
 | Cookie auth first, JWT later | ✅ | MCP server pattern works now, JWT is the upgrade path |
 | Competitor mapping via CSV | ✅ | Legal safety — tenant exports their own data, we never touch competitors |
 | Wrap bulk importer patterns | ✅ | Don't reinvent the template mapping system — reuse `UrgentField → ImportField` model |

@@ -283,7 +283,7 @@ Click **"⚠️ Reset"** in the header to tear down everything and start fresh. 
 | **CSV not importing** | Make sure the file has a header row with a "name" or "company" column |
 | **Smart Import shows low confidence** | The system couldn't detect the competitor format. Switch to "Generic" mode and map columns manually |
 | **"Session not found" error** | Your session may have expired. Start a new session |
-| **Backend not connected** | The app works offline (data saves locally) but won't push to TMS until the backend is running on port 3001 |
+| **Backend not connected** | The app works offline (data saves locally) but won't push to TMS until the backend is running (`dotnet run` → https://localhost:7200) |
 | **Logo not uploading** | Check file size (max 10MB) and format (JPG, PNG, SVG) |
 | **Team member didn't receive invite** | Invites are placeholder during onboarding — accounts activate when the tenant goes live |
 

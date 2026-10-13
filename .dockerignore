@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea/
+.vs/
+*.user
+
+# Build outputs
+**/bin/
+**/obj/
+
+# Node modules & built SPA (rebuilt in Docker via MSBuild NpmBuild target)
+**/node_modules/
+**/wwwroot/setup-dashboard/
+
+# Documentation
+*.md
+*.pdf
+docs/
+
+# CI/CD
+.gitlab-ci.yml
+.gitlab/
+
+# Claude
+.claude/
+tmpclaude-*
+
+# Local-only settings (contains dev SQL/Redis credentials)
+**/Properties/launchSettings.json
+
+# Environment files
+.env
+.env.*
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+!appsettings.Production.json
+
+# Legacy
+_legacy-node-backend/

@@ -1,30 +1,33 @@
 # Setup Dashboard
-**Last Updated:** 2026-03-14
+**Last Updated:** 2026-10-14
+
+## Where the code lives
+- **Source of truth:** `gitlab.com/deliver-different/setup-dashboard` (`master`, `develop`). This GitHub repo is a mirror.
+- 2026-10-14: GitHub `main` merged from GitLab `master` (unrelated histories). The pre-April GitHub tree
+  (`backend/`, `src/`, root Vite files) was the March 2026 prototype and has been removed; the product is
+  `SetupDashboard.Api/` with the React app in `SetupDashboard.Api/ClientApp/`.
+- `gh-pages` still serves the March prototype at deliver-different-testing.github.io/setup-dashboard — a click-through only.
 
 ## Status
-- Standalone React app with 10-step wizard, smart import engine, Auto-Mate assistant
-- .NET 8 backend built (no database — all permanent data → Admin Manager API; in-memory SessionStore)
-- All 147 MCP server tools ported to C# TMS API SDK (15 services, 183 methods, 14 DTOs)
-- Smart Import button on every wizard step (0-9)
+- Deployed by GitLab auto-deploy to EKS. Live on **urgent-staging**:
+  https://setupdashboard.urgent.staging.deliverdifferent.com/setup-dashboard/ (Hub shared-cookie login).
+  Helm values exist for all 8 tenants × staging/prod; no other host resolves yet, no prod deploy.
+- Reads the tenant DB via EF Core (`DespatchContext`, master-controller registry + Redis); real validation against tenant tables.
+- Writes via Admin Manager API (`ProvisioningService`) using the signed-in staff member's forwarded Hub cookie;
+  per-step push on save plus `POST /api/setup/session/{id}/go-live` (zones → rates → clients → couriers → users → automations).
+- Sessions in Redis (24 h).
+
+## Open
+- No Hub tile / entry point.
+- Rates provisioning = rate card + fuel surcharge only (no zone rates, break groups, zone zips).
+- Smart Import `execute` saves to session only (pushed when the step is saved).
+- Auto-Mate help is scripted text (`ClientApp/src/data/chatMessages.ts`); target is CSP Knowledge Base / Ask Auto-Mate.
+- Writes depend on Admin Manager (being retired) and on a user's login — see `docs/SERVICE-AUTH-FOR-PROVISIONING-2026-10-14.md`.
+- No recorded end-to-end go-live test on a real tenant.
 
 ## Key Decisions
 - Separate repo, NOT part of CSP
-- No "30-minute setup guarantee" — operators know their business is complex
-- Migration approach: tenant exports own data from competitor TMS; DF never accesses competitor systems (legal safeguard)
-- Steps 6-8 are Hub launch pads (link to existing Hub UI, don't rebuild)
-- Auto-Mate IS the help system — popup chat overlay, not page navigation
-- No own database — in-memory session store for wizard state, permanent data → Admin Manager API
-
-## Architecture Notes
-- Frontend: React/Vite/Tailwind + Zustand store
-- Backend: .NET 8 Web API (port 3001) with SmartUploaderService + AdminManagerClient
-- Smart Import recognizes 6 competitor TMS CSV exports (CXT, Key Software, Datatrac, Crown, e-Courier, Elite EXTRA)
-- AI scan-to-fill across all forms
-- Cookie auth for Admin Manager endpoints; JWT Bearer for Hub
-
-## Handover Log
-| Date | Event |
-|------|-------|
-| 2026-03-11 | HANDOVER.md pushed (Kevin handover — full wizard spec + smart uploader docs) |
-| 2026-03-11 | IMPLEMENTATION.md pushed (architecture, file layout, API reference) |
-| 2026-03-14 | PROJECT-STATUS.md added for dev productivity tracking |
+- No "30-minute setup guarantee"
+- Migration approach: tenant exports own data from competitor TMS; DF never accesses competitor systems
+- Steps 6-8 are Hub launch pads
+- Auto-Mate IS the help system

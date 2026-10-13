@@ -1,8 +1,8 @@
 # Setup Dashboard — Implementation Guide
 
-> **Last updated:** 11 March 2026
+> **Last updated:** 12 March 2026
 > **Owner:** Kevin (frontend + backend)
-> **Status:** Backend compiles, frontend runs, smart uploader on every step
+> **Status:** VS solution, EF Core + SQL Server multi-tenant, hub auth, smart uploader on every step
 
 ---
 
@@ -10,39 +10,49 @@
 
 ```
 ┌─────────────────────────────────┐         ┌────────────────────────────────────┐
-│  React / Vite / Tailwind        │  fetch  │  .NET 8 Web API (port 3001)        │
-│  (port 5173)                    │────────▶│                                    │
-│                                 │         │  ┌──────────────────────────────┐  │
-│  10-step wizard                 │         │  │ SmartUploaderService         │  │
-│  Zustand state store            │         │  │ - CSV/Excel parsing          │  │
-│  SmartImport on ALL 10 steps    │         │  │ - Fuzzy column matching      │  │
-│  Auto-Mate chat sidebar         │         │  │ - Competitor system detect   │  │
-│  Environment picker             │         │  │ - Validation + preview       │  │
+│  React / Vite / Tailwind        │  /api   │  .NET 8 Web API (port 5200/7200)   │
+│  (port 5173, Vite proxy)        │────────▶│  SetupDashboard.Api                │
+│                                 │         │                                    │
+│  10-step wizard                 │         │  ┌──────────────────────────────┐  │
+│  Zustand state store            │         │  │ EF Core + SQL Server         │  │
+│  SmartImport on ALL 10 steps    │         │  │ - DespatchContext (~20 ents) │  │
+│  Auto-Mate chat sidebar         │         │  │ - Multi-tenant dynamic ctx   │  │
+│  Environment picker             │         │  │ - Redis connection caching   │  │
 │  Session resume/rollback        │         │  └──────────────────────────────┘  │
 │                                 │         │  ┌──────────────────────────────┐  │
-│  src/lib/api.ts = all calls     │         │  │ AdminManagerClient           │  │
-│                                 │         │  │ - Cookie auth (from MCP)     │  │
-└─────────────────────────────────┘         │  │ - Auto-login + retry         │  │
-                                            │  │ - Push to real TMS API       │  │
+│  src/lib/api.ts = all calls     │         │  │ Hub Cookie Auth              │  │
+│                                 │         │  │ - SharedCookie + DataProtect │  │
+└─────────────────────────────────┘         │  │ - LoginController validates  │  │
+                                            │  │ - Connection string caching  │  │
+                                            │  └──────────────────────────────┘  │
+                                            │  ┌──────────────────────────────┐  │
+                                            │  │ SmartUploaderService         │  │
+                                            │  │ - CSV/Excel + fuzzy matching │  │
+                                            │  │ - Competitor TMS detection   │  │
+                                            │  └──────────────────────────────┘  │
+                                            │  ┌──────────────────────────────┐  │
+                                            │  │ AdminManagerClient           │  │
+                                            │  │ - Cookie auth (from MCP)     │  │
+                                            │  │ - Push to Admin Manager API  │  │
                                             │  └──────────────────────────────┘  │
                                             │  ┌──────────────────────────────┐  │
                                             │  │ SessionStore (in-memory)     │  │
-                                            │  │ - ConcurrentDictionary       │  │
-                                            │  │ - Thread-safe                │  │
+                                            │  │ - Wizard shopping cart       │  │
                                             │  └──────────────────────────────┘  │
                                             └────────────────────────────────────┘
                                                          │
-                                                         ▼
-                                            ┌────────────────────────────────────┐
-                                            │  DFRNT Admin Manager API           │
-                                            │  (staging or production)           │
-                                            │  Cookie-based auth via hub login   │
-                                            └────────────────────────────────────┘
+                                              ┌──────────┼──────────┐
+                                              ▼                     ▼
+                                 ┌──────────────────┐  ┌──────────────────────┐
+                                 │  SQL Server       │  │  Admin Manager API   │
+                                 │  (tenant DB)      │  │  (staging/prod)      │
+                                 │  via EF Core      │  │  Cookie-based auth   │
+                                 └──────────────────┘  └──────────────────────┘
 ```
 
 ## Key Principle
 
-**Data writes → DF API.** The Setup Dashboard does NOT have its own database. All permanent data goes to the Admin Manager API. The in-memory session store is just for wizard state while the user is configuring — think of it as a shopping cart before checkout.
+**Two data paths:** The Setup Dashboard can write data via the Admin Manager API (HTTP, using `AdminManagerClient`) or directly to the tenant database via Entity Framework Core (`DynamicDespatchDbContext`). The in-memory session store is just for wizard state while the user is configuring — think of it as a shopping cart before checkout.
 
 ---
 
@@ -132,21 +142,50 @@ Gamified training module with:
 ### File Layout
 
 ```
-backend/
-├── Program.cs                              # Entry point, DI, CORS, middleware
-├── SetupDashboard.Api.csproj               # Project file
-├── appsettings.json                        # Environment URLs
+SetupDashboard.Api/
+├── SetupDashboard.Api.csproj               # Project file (EF Core, Redis, auth, MSBuild frontend)
+├── Program.cs                              # DI, auth, EF, Redis, health checks, Serilog
+├── appsettings.json                        # Environment URLs, Serilog, AWS config
+├── appsettings.Development.json            # Dev CORS origins, debug logging
+├── appsettings.Production.json             # Prod CORS origins, tighter logging
+├── SqlServerHealthCheck.cs                 # Health check via SELECT @@version
+├── Core/Domain/
+│   ├── SetupDashboardDbContext.cs          # Slim DbContext (~20 entities for setup wizard)
+│   ├── Entities/                           # Entity models (simple [Table]-annotated POCOs)
+│   │   ├── Client.cs                       # TucClient
+│   │   ├── ClientContact.cs                # tbl_ClientContact
+│   │   ├── Agent.cs                        # TucAgent (couriers)
+│   │   ├── Courier.cs                      # TucCourier
+│   │   ├── AgentVehicle.cs                 # AgentVehicle
+│   │   ├── User.cs                         # tbl_User, tbl_UserGroup, tuc_Staff
+│   │   ├── Zone.cs                         # ZoneName, ZoneGroup, ZoneZip
+│   │   ├── Rate.cs                         # RateCard, BreakGroup, Break, ExtraCharge
+│   │   ├── Service.cs                      # tbl_Service
+│   │   ├── AutomationRule.cs               # AutomationRule
+│   │   └── Lookups.cs                      # Setting, Suburb, Holiday, FuelSurcharge, VehicleType, CourierType
+│   ├── DynamicDespatchDbContext.cs          # Multi-tenant context subclass
+│   ├── DynamicDespatchDbContextFactory.cs   # Creates context with tenant connection string
+│   ├── ConnectionStringManager.cs           # Redis-backed connection string cache
+│   └── DesignTimeDespatchContextFactory.cs  # For dotnet ef commands
+├── Controllers/
+│   ├── LoginController.cs                  # Hub cookie auth + connection caching
+│   ├── SetupController.cs                  # Session CRUD + all step save endpoints
+│   └── ImportController.cs                 # Smart import detect/preview/execute + templates
 ├── Models/
-│   ├── Environment.cs                      # DfrntEnvironment { Key, Name, HubUrl, AdminUrl, DispatchUrl }
+│   ├── TmsApi/                             # 14 DTO files for Admin Manager API
+│   ├── Environment.cs                      # DfrntEnvironment config
 │   ├── Session.cs                          # SetupSession + all step data models
 │   └── SmartUpload.cs                      # Upload DTOs + EntityFieldDefinition per type
 ├── Services/
+│   ├── TmsApi/                             # 16 service files (183 methods) — Admin Manager SDK
 │   ├── SessionStore.cs                     # In-memory ConcurrentDictionary<string, SetupSession>
 │   ├── AdminManagerClient.cs               # Cookie-based HTTP → Admin Manager API
 │   └── SmartUploaderService.cs             # CSV/Excel parse + fuzzy match + validate
-└── Controllers/
-    ├── SetupController.cs                  # Session CRUD + all step save endpoints
-    └── ImportController.cs                 # Smart import detect/preview/execute + templates
+├── ClientApp/                              # React 19 frontend (Vite + Tailwind)
+│   ├── src/                                # All React/TS code
+│   ├── vite.config.ts                      # Build to ../wwwroot/setup-dashboard/, dev proxy /api → .NET
+│   └── package.json
+└── Properties/launchSettings.json          # Two profiles (IIS Express + Project), env vars for dev
 ```
 
 ### AdminManagerClient — Auth Pattern
@@ -370,9 +409,20 @@ await tms.Zones.BulkAddZipsToZoneAsync(zoneId, zipCodes, batchSize: 50, delayMs:
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| CsvHelper | 33.* | CSV parsing |
-| ClosedXML | 0.104.* | Excel (.xlsx) read/write |
-| FuzzySharp | 2.* | Fuzzy string matching for column auto-mapping |
+| CsvHelper | 31.0.2 | CSV parsing |
+| ClosedXML | 0.102.3 | Excel (.xlsx) read/write |
+| FuzzySharp | 2.0.2 | Fuzzy string matching for column auto-mapping |
+| Microsoft.EntityFrameworkCore | 8.0.10 | Entity Framework Core |
+| Microsoft.EntityFrameworkCore.SqlServer | 8.0.10 | SQL Server provider |
+| Microsoft.EntityFrameworkCore.Tools | 8.0.10 | EF CLI tools (migrations, scaffolding) |
+| Microsoft.Data.SqlClient | 5.2.2 | SQL Server client (health checks) |
+| Microsoft.Extensions.Caching.StackExchangeRedis | 8.0.10 | Redis distributed cache |
+| Microsoft.Extensions.Diagnostics.HealthChecks | 8.0.10 | Health check framework |
+| AspNetCore.HealthChecks.SqlServer | 8.0.2 | SQL Server health check |
+| Amazon.AspNetCore.DataProtection.SSM | 3.2.1 | AWS SSM data protection (prod) |
+| Serilog.AspNetCore | 8.0.3 | Structured logging |
+| Serilog.Settings.Configuration | 8.0.4 | Serilog config from appsettings |
+| Serilog.Sinks.Console | 6.0.0 | Console log sink |
 
 ---
 
@@ -381,7 +431,8 @@ await tms.Zones.BulkAddZipsToZoneAsync(zoneId, zipCodes, batchSize: 50, delayMs:
 | Feature | Priority | Notes |
 |---------|----------|-------|
 | Admin Manager push from import flow | **High** | TMS SDK is built — wire `ImportController.Execute` to call the appropriate service |
-| Database session persistence | Medium | Replace `SessionStore` (in-memory) with SQL/Redis |
+| Database session persistence | Medium | EF Core is wired up — migrate `SessionStore` from in-memory to DespatchContext |
+| Direct DB operations | Medium | Use EF Core for bulk reads/lookups instead of API calls where appropriate |
 | Google Sheets import | Low | Endpoint stub exists, needs Google API credentials |
 | WebSocket import progress | Low | Currently returns final result; large imports could use real-time progress |
 | Steps 6-8 API calls | Low | These are Hub launch pads — may never need backend calls |

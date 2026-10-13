@@ -1,73 +1,51 @@
-# React + TypeScript + Vite
+# Setup Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+DFRNT-internal tool for onboarding new tenants onto the TMS platform. A DF staff member walks the operator through a 10-step wizard.
 
-Currently, two official plugins are available:
+## Quick Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Visual Studio (Recommended)
+1. Open `SetupDashboard.sln`
+2. Press F5 — MSBuild builds the React frontend into `wwwroot/`, .NET starts, browser opens
+3. Browser opens `https://localhost:7200/setup-dashboard/`
 
-## React Compiler
+### Terminal
+```bash
+# Backend (builds frontend automatically on first run)
+cd SetupDashboard.Api
+dotnet run
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# For frontend hot reload (separate terminal)
+cd SetupDashboard.Api/ClientApp
+npm install
+npm run dev    # → http://localhost:5173/setup-dashboard/
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Stack
+- **Frontend**: React 19 + Vite 7 + Tailwind CSS v4 + Zustand
+- **Backend**: .NET 8 + Entity Framework Core 8 + SQL Server
+- **Auth**: Hub shared cookie (`.AspNet.SharedCookie`) + Data Protection
+- **Cache**: Redis (distributed cache for connection strings)
+- **Logging**: Serilog
+- **Deploy**: AWS EKS via GitLab CI + Helm (prod), env vars via per-tenant `{TENANT}_{ENV}_ENV` GitLab CI file variables; DataProtection keys in AWS SSM
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Environment Variables
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Set in `Properties/launchSettings.json` for dev (gitignored — contains local DB/Redis creds). For staging/prod, vars are injected from per-tenant `{TENANT}_STAGING_ENV` / `{TENANT}_PROD_ENV` GitLab CI file variables.
+
+| Variable | Purpose |
+|----------|---------|
+| `SQLHealthCheckConnection` | Health check DB connection (master-controller-seed) |
+| `MasterSQLConnection` | Master controller DB connection (tenant registry) |
+| `SQLCredentials` | SQL credentials appended to tenant connection strings |
+| `RedisConfig` | Redis connection string (in-memory fallback in dev) |
+| `Domain` | Cookie domain for shared auth |
+| `PublicPath` | Hub login redirect URL |
+
+## Documentation
+- `HANDOVER.md` — Handover guide (start here)
+- `IMPLEMENTATION.md` — Detailed technical reference
+- `PLANNING.md` — Architecture and roadmap
+- `MIGRATION-MAPPING.md` — Competitor TMS column mappings
+- `docs/setup-guide.md` — End-user setup guide for DF staff
+- `changes.log` — Detailed change history

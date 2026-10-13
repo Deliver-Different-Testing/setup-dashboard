@@ -21,11 +21,6 @@ The Setup Dashboard is a **DF-internal tool** used by DFRNT staff when onboardin
 7. App Config (Hub link) — **Smart Import**
 8. Partners (Hub link) — **Smart Import**
 9. Training (gamified onboarding) — **Smart Import**
-5. Automations (event-driven rules)
-6. Integrations (Hub link)
-7. App Config (Hub link)
-8. Partners (Hub link)
-9. Training (gamified onboarding challenges)
 
 Steps 6-8 are just launch pads — they link to existing Hub UI. Don't build full config forms for those.
 
@@ -33,20 +28,40 @@ Steps 6-8 are just launch pads — they link to existing Hub UI. Don't build ful
 
 ## Getting It Running
 
-### Frontend
+### Visual Studio (Recommended)
 ```bash
-cd setup-dashboard
+# Open SetupDashboard.sln → F5
+# MSBuild runs "npm run build" → output to wwwroot/setup-dashboard/
+# .NET starts on https://localhost:7200
+# Browser opens https://localhost:7200/setup-dashboard/
+```
+
+### Manual (Terminal)
+```bash
+# Backend (builds frontend automatically on first run)
+cd SetupDashboard.Api
+dotnet run           # → https://localhost:7200 / http://localhost:5200
+
+# For frontend hot reload (separate terminal)
+cd SetupDashboard.Api/ClientApp
 npm install
-npm run dev          # → http://localhost:5173
+npm run dev          # → http://localhost:5173/setup-dashboard/
 ```
 
-### Backend
-```bash
-cd setup-dashboard/backend
-dotnet run           # → http://localhost:3001
-```
+When using `npm run dev`, the Vite dev server proxies `/api` calls to `http://localhost:5200`.
 
-The frontend calls the backend at `http://localhost:3001/api` by default. Override with `VITE_API_URL` env var if needed.
+### Environment Variables
+
+Set in `Properties/launchSettings.json` for dev (gitignored — contains local DB/Redis creds). For staging/prod, vars are injected from per-tenant `{TENANT}_STAGING_ENV` / `{TENANT}_PROD_ENV` GitLab CI file variables.
+
+| Variable | Purpose |
+|----------|---------|
+| `SQLHealthCheckConnection` | Health check DB connection (master-controller-seed) |
+| `MasterSQLConnection` | Master controller DB connection (tenant registry) |
+| `SQLCredentials` | SQL credentials appended to tenant connection strings |
+| `RedisConfig` | Redis connection string (in-memory fallback in dev) |
+| `Domain` | Cookie domain for shared auth (`local.deliverdifferent.com` in dev) |
+| `PublicPath` | Hub login redirect URL |
 
 ### Without Backend (Offline Mode)
 The frontend has localStorage fallback — it will work without the backend running, but data won't persist across sessions or push to Admin Manager.
@@ -78,7 +93,7 @@ The uploader recognizes CSV exports from these competitor TMS platforms:
 When detected, column mappings are pre-configured for that system's export format. This is the migration play — operators export their own data from their old TMS, we import it cleanly.
 
 ### Adding New Entity Types
-In `backend/Models/SmartUpload.cs`, each entity type defines its fields and aliases. To add a new importable type:
+In `SetupDashboard.Api/Models/SmartUpload.cs`, each entity type defines its fields and aliases. To add a new importable type:
 1. Add a new case in `EntityFieldDefinitions` with field names, display names, required flags, and aliases
 2. Add the entity type string to the `entityType` parameter in `ImportController.cs`
 3. Add a SmartImport button to the relevant step component
@@ -114,11 +129,25 @@ The backend auto-logins to Admin Manager using the same 4-step hub flow the MCP 
 
 ---
 
-## Architecture Rule
+## Architecture
 
-**The Setup Dashboard has NO database.** All permanent data goes to the Admin Manager API via the backend. The in-memory `SessionStore` is just a temp shopping cart while the user configures things.
+### Database (SQL Server via Entity Framework Core)
+The Setup Dashboard now connects to the **same SQL Server databases** as the other DFRNT apps (AdminManager, WebAPI, etc.) using the shared multi-tenant pattern:
 
-Future: Replace `SessionStore` with Redis or SQL if session persistence across backend restarts is needed.
+- **SetupDashboardDbContext** — slim context with ~20 entities needed by the setup wizard (clients, agents, zones, rates, users, services, automations, lookups). Entity files in `Core/Domain/Entities/`. Add more entities to `Entities/` and register in the DbContext as needed.
+- **DynamicDespatchDbContextFactory** — resolves tenant connection strings from Redis cache at runtime
+- **ConnectionStringManager** — thread-safe Redis-backed cache for tenant connection strings
+- **LoginController** — validates hub shared cookie, extracts `CurrentTenantID` claim, caches connection string
+
+### Authentication (Hub Shared Cookie)
+Uses the same cookie-based auth as AdminManager:
+- Shared cookie name: `.AspNet.SharedCookie`
+- Data Protection keys shared via `SetApplicationName("DeliverDifferent")`
+- Login flow: Hub login → shared cookie → LoginController validates → caches connection string
+- Session cookie: `hub_session` (24h timeout)
+
+### Session Store
+The in-memory `SessionStore` is still used for wizard state (shopping cart). Permanent data goes to the Admin Manager API or directly to the tenant database via EF Core.
 
 ---
 
@@ -126,20 +155,24 @@ Future: Replace `SessionStore` with Redis or SQL if session persistence across b
 
 | File | What It Does |
 |------|-------------|
-| `src/lib/api.ts` | Every single API call the frontend makes — start here |
-| `src/store.ts` | Zustand state store — wizard state, current step, session data |
-| `src/components/SmartImport.tsx` | The reusable smart upload modal |
-| `backend/Services/SmartUploaderService.cs` | Column matching + validation engine |
-| `backend/Services/AdminManagerClient.cs` | Cookie auth to Admin Manager |
-| `backend/Models/SmartUpload.cs` | Entity field definitions + aliases |
-| `backend/Controllers/ImportController.cs` | Upload/detect/preview/execute endpoints |
-| `backend/Controllers/SetupController.cs` | Session CRUD + step save endpoints |
+| `SetupDashboard.Api/ClientApp/src/lib/api.ts` | Every single API call the frontend makes — start here |
+| `SetupDashboard.Api/ClientApp/src/store.ts` | Zustand state store — wizard state, current step, session data |
+| `SetupDashboard.Api/ClientApp/src/components/SmartImport.tsx` | The reusable smart upload modal |
+| `SetupDashboard.Api/Program.cs` | DI, auth, EF Core, Redis, health checks |
+| `SetupDashboard.Api/Controllers/LoginController.cs` | Hub cookie auth + connection string caching |
+| `SetupDashboard.Api/Controllers/SetupController.cs` | Session CRUD + step save endpoints |
+| `SetupDashboard.Api/Controllers/ImportController.cs` | Upload/detect/preview/execute endpoints |
+| `SetupDashboard.Api/Services/SmartUploaderService.cs` | Column matching + validation engine |
+| `SetupDashboard.Api/Services/AdminManagerClient.cs` | Cookie auth to Admin Manager API |
+| `SetupDashboard.Api/Core/Domain/DynamicDespatchDbContextFactory.cs` | Multi-tenant EF context |
+| `SetupDashboard.Api/Core/Domain/ConnectionStringManager.cs` | Redis connection string cache |
+| `SetupDashboard.Api/Models/SmartUpload.cs` | Entity field definitions + aliases |
 
 ---
 
 ## TMS API SDK — The Big Piece
 
-The entire MCP server (Mike's 147 tools) has been ported into C# service classes at `backend/Services/TmsApi/`. This is a complete SDK for the Admin Manager API.
+The entire MCP server (Mike's 147 tools) has been ported into C# service classes at `SetupDashboard.Api/Services/TmsApi/`. This is a complete SDK for the Admin Manager API.
 
 ### How to Use It
 
@@ -210,8 +243,8 @@ await tms.Rates.CreateZoneRateAsync(new ZoneRate { RateCardId = card.Id, ZoneId 
 
 ### Adding New Endpoints
 
-1. Add the DTO to `Models/TmsApi/{Domain}Models.cs`
-2. Add the method to the appropriate service in `Services/TmsApi/`
+1. Add the DTO to `SetupDashboard.Api/Models/TmsApi/{Domain}Models.cs`
+2. Add the method to the appropriate service in `SetupDashboard.Api/Services/TmsApi/`
 3. Use `GetAsync<T>()`, `PostAsync<T>()`, `PutAsync<T>()`, `DeleteAsync()` from `TmsServiceBase`
 4. Check the MCP source (`dfrnt-mcp-server/src/tools/`) for the exact endpoint path and any quirks
 5. Watch the `/API/` vs `/api/` casing
@@ -227,10 +260,13 @@ The TMS SDK is fully built. Now `ImportController.Execute` needs to create a `Tm
 - Use bulk batching for large imports
 
 ### Priority 2 — Session Persistence
-Replace in-memory `SessionStore` with database-backed storage so sessions survive backend restarts.
+Replace in-memory `SessionStore` with database-backed storage (EF Core + DespatchContext is now wired up) so sessions survive backend restarts.
 
 ### Priority 3 — Real Validation
 Wire `/validate/username`, `/validate/client-code` etc. to call `tms.Clients.GetAllAsync()` / `tms.System.GetUsersAsync()` and check for duplicates.
+
+### Priority 4 — Direct DB Operations
+Use the new EF Core DespatchContext for operations that benefit from direct database access rather than going through the Admin Manager API (e.g., bulk reads, lookups, reporting).
 
 ---
 
@@ -248,13 +284,15 @@ Auto-Mate (the chat sidebar) should be light theme — not dark `#0d0c2c`. Dark 
 
 ## Deploy
 
-```bash
-cd setup-dashboard
-npm run build
-npx gh-pages -d dist
-```
+Deploys to AWS EKS via the standard DFRNT GitLab CI pipeline (Auto DevOps + Helm). The frontend is built into the .NET app's `wwwroot/setup-dashboard/` by the `NpmBuild` MSBuild target during `dotnet publish`, then the whole thing ships as a single container image.
 
-Backend is not yet deployed — runs locally during DF onboarding sessions. Future: could deploy alongside Admin Manager or as a standalone service.
+- `.gitlab-ci.yml` → one-line include of `urgent-couriers/ci-templates`
+- `Dockerfile` → multi-stage SDK 10.0 + Node 20 → ASP.NET 10.0 runtime
+- `.gitlab/auto-deploy-values.yaml` + `.gitlab/{tenant}-{env}-auto-deploy-values.yaml` → Helm values per tenant × env
+- Per-tenant env vars (`K8S_SECRET_*` lines) live in the `{TENANT}_STAGING_ENV` / `{TENANT}_PROD_ENV` GitLab CI file variables; default/baseline values are individual `K8S_SECRET_*` env_vars at `*` scope.
+- DataProtection keys → AWS SSM (`/Hub/DataProtection`), accessed via EKS Pod Identity.
+
+For local dev, just F5 in Visual Studio.
 
 ---
 

@@ -7,28 +7,35 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Frontend
+SetupDashboard.Api/ClientApp/node_modules/
+SetupDashboard.Api/ClientApp/dist/
 *.local
 
 # Editor directories and files
+.vs/
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
+*.user
+*.userosscache
+*.sln.docstates
 *.ntvs*
 *.njsproj
-*.sln
 *.sw?
-node_modules
-dist
-backend/node_modules/
-backend/dist/
-backend/.env
--e 
+.claude/
+
+# .NET
+SetupDashboard.Api/bin/
+SetupDashboard.Api/obj/
+SetupDashboard.Api/.env
+SetupDashboard.Api/wwwroot/setup-dashboard/
+
+# Local-only settings (contains dev SQL/Redis credentials)
+SetupDashboard.Api/Properties/launchSettings.json
+
 # SQLite data
-backend/data/
-backend/bin/
-backend/obj/
+SetupDashboard.Api/data/
