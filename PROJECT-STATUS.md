@@ -18,7 +18,7 @@
 - Sessions in Redis (24 h).
 
 ## Open
-- No Hub tile / entry point.
+- ~~No Hub tile / entry point.~~ Done 2026-10-15 (Garry): Hub tile on staging, DF Admin only, controlled in Access Control; switching it off also blocks the app URL.
 - Rates provisioning = rate card + fuel surcharge only (no zone rates, break groups, zone zips).
 - Smart Import `execute` saves to session only (pushed when the step is saved).
 - Auto-Mate help is scripted text (`ClientApp/src/data/chatMessages.ts`); target is CSP Knowledge Base / Ask Auto-Mate.
