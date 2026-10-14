@@ -42,6 +42,10 @@
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+
+    <!-- Access Control switch (hub-tile-setup-dashboard) via [RequireFeature].
+         Private feed, see nuget.config. -->
+    <PackageReference Include="DeliverDifferent.AccessControl" Version="1.0.0" />
   </ItemGroup>
 
   <!-- Show ClientApp files in Solution Explorer -->

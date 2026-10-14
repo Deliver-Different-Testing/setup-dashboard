@@ -1,3 +1,4 @@
+using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,7 @@ namespace SetupDashboard.Controllers;
 ///   ContactID claim → TucClientContact (by UcctId) → TucClient (by UcctClientId)
 /// </summary>
 [Route("API/[controller]")]
+[RequireFeature(FeatureKeys.SetupDashboard)]
 [ApiController]
 public class LoginController(
     IConnectionStringManager connectionStringManager,

@@ -1,3 +1,4 @@
+using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,7 @@ namespace SetupDashboard.Controllers;
 /// Maps to the existing React frontend's api.ts calls.
 /// </summary>
 [Authorize]
+[RequireFeature(FeatureKeys.SetupDashboard)]
 [ApiController]
 [Route("api/setup")]
 public class SetupController : ControllerBase

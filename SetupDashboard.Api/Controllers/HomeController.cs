@@ -1,3 +1,4 @@
+using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
@@ -11,6 +12,7 @@ namespace SetupDashboard.Controllers;
 /// - Extracts claims from Hub cookie
 /// - Returns Razor view that boots the React app
 /// </summary>
+[RequireFeature(FeatureKeys.SetupDashboard)]
 public class HomeController : Controller
 {
     [Authorize]
