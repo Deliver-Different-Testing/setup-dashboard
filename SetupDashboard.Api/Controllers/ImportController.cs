@@ -1,3 +1,4 @@
+using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SetupDashboard.Models;
@@ -16,6 +17,7 @@ namespace SetupDashboard.Controllers;
 ///   4. GET  /api/setup/import/template/{entityType} — download blank CSV template
 /// </summary>
 [Authorize]
+[RequireFeature(FeatureKeys.SetupDashboard)]
 [ApiController]
 [Route("api/setup/import")]
 public class ImportController : ControllerBase

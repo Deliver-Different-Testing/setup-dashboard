@@ -2,6 +2,7 @@ using Amazon;
 using Amazon.Runtime;
 using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
+using DeliverDifferent.AccessControl;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -92,6 +93,16 @@ try
                     context.HttpContext.Response.Redirect(
                         Environment.GetEnvironmentVariable("PublicPath") ?? "");
                     return Task.CompletedTask;
+                },
+                // A plain 403 instead of a redirect to AccessDeniedPath. No
+                // /Forbidden/ route exists, so the redirect would land on the
+                // SPA fallback (HomeController), be forbidden again, and loop.
+                OnRedirectToAccessDenied = context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    context.Response.ContentType = "text/plain";
+                    return context.Response.WriteAsync(
+                        "Setup Dashboard is not enabled for your account. Ask a DFRNT administrator.");
                 }
             };
             options.Cookie.HttpOnly = true;
@@ -142,6 +153,29 @@ try
         ), ServiceLifetime.Transient);
 
     builder.Services.AddScoped<IDbContextFactory<DynamicDespatchDbContext>, DynamicDespatchDbContextFactory>();
+
+    // ── Access Control switch (hub-tile-setup-dashboard) ──
+    // [RequireFeature] on every controller, so turning the tile off in Access
+    // Control blocks the app rather than just hiding the tile. DF Admin
+    // (ClientTypeId 5) bypasses by default and never reaches the store.
+    //
+    // The store connects from the Hub cookie's Connection claim plus
+    // SQLCredentials - the same value LoginController.Validate caches - and NOT
+    // through DynamicDespatchDbContextFactory: that reads the Redis cache, which
+    // is empty until the SPA has called Validate, so the first page load would
+    // fail.
+    builder.Services.AddAccessControlFeatures();
+    builder.Services.AddSqlFeatureCatalogueStore((sp, _) =>
+    {
+        var user = sp.GetRequiredService<IHttpContextAccessor>().HttpContext?.User;
+        var connection = user?.FindFirst("Connection")?.Value;
+        if (string.IsNullOrEmpty(connection) || string.IsNullOrEmpty(user?.FindFirst("CurrentTenantID")?.Value))
+            throw new UnauthorizedAccessException("Valid tenant authentication required. Please login via Hub first.");
+
+        var credentials = Environment.GetEnvironmentVariable("SQLCredentials") ?? "";
+        return Task.FromResult<System.Data.Common.DbConnection>(
+            new Microsoft.Data.SqlClient.SqlConnection(connection + credentials));
+    });
 
     // ── Health Checks ──
     builder.Services.AddHealthChecks()
