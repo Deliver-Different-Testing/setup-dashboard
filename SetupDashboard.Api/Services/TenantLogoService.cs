@@ -7,14 +7,13 @@ namespace SetupDashboard.Services;
 
 public interface ITenantLogoService
 {
-    Task<string?> GetLogoUrlAsync(string environment, string tenantCode = "");
+    Task<string?> GetLogoUrlAsync(string? tenantCode);
 }
 
 public class TenantLogoService : ITenantLogoService
 {
     private readonly IAmazonS3 _s3Client;
     private readonly IMemoryCache _cache;
-    private const string BucketPrefix = "urgent-couriers-bulk-upload-storage-";
     private const string LogoKey = "tenantLogo.png";
     private const int CacheDurationMinutes = 30;
     private const string FallbackLogo = "/setup-dashboard/logos/DFRNT_HorizLogo_RGB.png";
@@ -38,46 +37,46 @@ public class TenantLogoService : ITenantLogoService
         _cache = cache;
     }
 
-    public async Task<string?> GetLogoUrlAsync(string environment, string tenantCode = "")
+    /// <summary>
+    /// Tenant logo for the header. The bucket comes from env <c>S3BucketBulk</c>, the same
+    /// variable Hub's LogoController reads; it was derived from a browser-chosen
+    /// "environment" before the rewrite.
+    /// </summary>
+    public async Task<string?> GetLogoUrlAsync(string? tenantCode)
     {
-        if (string.IsNullOrEmpty(environment))
-            return FallbackLogo;
-
-        // Use tenant code if provided, otherwise extract from environment
-        var code = !string.IsNullOrEmpty(tenantCode) ? tenantCode : environment.Split('-')[0];
-        var cacheKey = $"tenant_logo_url_{code}_{environment}";
+        var code = tenantCode ?? "";
+        var cacheKey = $"tenant_logo_url_{code}";
         if (_cache.TryGetValue(cacheKey, out string? cachedUrl))
             return cachedUrl;
-        // 1. Try local logo (works in dev and prod)
+
         if (LocalLogos.TryGetValue(code, out var localFile))
         {
             var url = $"/setup-dashboard/logos/{localFile}";
             _cache.Set(cacheKey, url, TimeSpan.FromMinutes(CacheDurationMinutes));
-            Log.Information("Using local logo for {Environment}: {File}", environment, localFile);
             return url;
         }
 
-        // 2. Try S3 (production tenants without local logo)
-        try
+        var bucketName = Environment.GetEnvironmentVariable("S3BucketBulk");
+        if (!string.IsNullOrWhiteSpace(bucketName))
         {
-            var bucketName = $"{BucketPrefix}{environment}";
-            var logoUrl = await _s3Client.GetPreSignedURLAsync(new GetPreSignedUrlRequest
+            try
             {
-                BucketName = bucketName,
-                Key = LogoKey,
-                Verb = HttpVerb.GET,
-                Expires = DateTime.UtcNow.AddHours(1)
-            });
-
-            _cache.Set(cacheKey, logoUrl, TimeSpan.FromMinutes(CacheDurationMinutes));
-            return logoUrl;
+                var logoUrl = await _s3Client.GetPreSignedURLAsync(new GetPreSignedUrlRequest
+                {
+                    BucketName = bucketName,
+                    Key = LogoKey,
+                    Verb = HttpVerb.GET,
+                    Expires = DateTime.UtcNow.AddHours(1)
+                });
+                _cache.Set(cacheKey, logoUrl, TimeSpan.FromMinutes(CacheDurationMinutes));
+                return logoUrl;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "S3 logo not available for tenant {TenantCode}", code);
+            }
         }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "S3 logo not available for {Environment}", environment);
-        }
 
-        // 3. Fallback
         _cache.Set(cacheKey, FallbackLogo, TimeSpan.FromMinutes(5));
         return FallbackLogo;
     }

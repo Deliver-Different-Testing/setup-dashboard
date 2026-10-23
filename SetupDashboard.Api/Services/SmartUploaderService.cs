@@ -30,7 +30,7 @@ public class SmartUploaderService
     };
 
     // Store parsed data per session for preview/import flow
-    private readonly Dictionary<string, (List<string[]> Rows, List<string> Headers, string EntityType)> _uploadCache = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (List<string[]> Rows, List<string> Headers, string EntityType)> _uploadCache = new();
 
     public SmartUploaderService(ILogger<SmartUploaderService> logger)
     {
@@ -54,7 +54,7 @@ public class SmartUploaderService
         var (system, systemConfidence) = DetectSystem(headers);
 
         // Get target field definitions
-        if (!EntityDefinitions.Fields.TryGetValue(entityType, out var targetFields))
+        if (EntityDefinitions.For(entityType) is not { } targetFields)
             return new DetectionResult { Success = false, Message = $"Unknown entity type: {entityType}" };
 
         // Map columns using fuzzy matching
@@ -96,7 +96,7 @@ public class SmartUploaderService
             headerIndex[headers[i]] = i;
 
         // Get required fields
-        var requiredFields = EntityDefinitions.Fields.TryGetValue(entityType, out var defs)
+        var requiredFields = EntityDefinitions.For(entityType) is { } defs
             ? defs.Where(d => d.Required).Select(d => d.FieldName).ToHashSet()
             : new HashSet<string>();
 
@@ -105,7 +105,7 @@ public class SmartUploaderService
         foreach (var req in requiredFields)
         {
             if (!mappedFields.Contains(req))
-                validation.Errors.Add($"Required field '{req}' is not mapped to any CSV column");
+                validation.Warnings.Add($"'{req}' isn't in this file. Rows will come in, but each will need it filled in before it can be sent.");
         }
 
         // Map rows
@@ -207,7 +207,7 @@ public class SmartUploaderService
         using var writer = new StreamWriter(ms, Encoding.UTF8);
         writer.WriteLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
         // Write an example row
-        var fields = EntityDefinitions.Fields[entityType];
+        var fields = EntityDefinitions.For(entityType) ?? throw new ArgumentException($"Unknown entity type: {entityType}");
         var exampleValues = fields.Select(f => f.FieldName switch
         {
             "Name" or "ClientName" or "ZoneName" => "Example Corp",
@@ -235,7 +235,7 @@ public class SmartUploaderService
     /// <summary>
     /// Remove cached upload data for a session.
     /// </summary>
-    public void ClearCache(string sessionId) => _uploadCache.Remove(sessionId);
+    public void ClearCache(string sessionId) => _uploadCache.TryRemove(sessionId, out _);
 
     // --- Private helpers ---
 

@@ -48,6 +48,10 @@
     <PackageReference Include="DeliverDifferent.AccessControl" Version="1.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="SetupDashboard.Tests" />
+  </ItemGroup>
+
   <!-- Show ClientApp files in Solution Explorer -->
   <ItemGroup>
     <None Include="ClientApp\**" Exclude="ClientApp\node_modules\**;ClientApp\dist\**" />
@@ -62,7 +66,7 @@
   </ItemGroup>
 
   <!-- Pre-build: install + build frontend into wwwroot/setup-dashboard/ -->
-  <Target Name="NpmBuild" BeforeTargets="Build">
+  <Target Name="NpmBuild" BeforeTargets="Build" Condition="'$(SkipNpm)' != 'true'">
     <Exec WorkingDirectory="$(SpaRoot)" Command="npm install --prefer-offline --no-audit" />
     <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build" />
   </Target>

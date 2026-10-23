@@ -81,7 +81,26 @@ StepState {
 | D2 | Courier initial password (courier create requires one; it is stored in plain text on tucCourier) | operator types it, shown once; never generated or defaulted |
 | D3 | Automations go live on create | create, then immediately PUT `isActive=false` unless the row says Active |
 | D4 | Card details on Business step | removed entirely |
-| D5 | Inviting customer booking users from Clients step | optional per contact, default off |
+| D5 | Inviting customer booking users from Clients step | optional per extra contact, default off. **The primary contact is always invited when the customer is created** (Settings `TenantClientsController.Create` calls `CreateSignInAsync`, no opt-out), so each customer row needs an explicit "this emails <contact>" tick before it is sent |
+
+## API surfaces missing today (candidates for Jacob's MCP write tools)
+
+Steve, 24 Oct: flag these; they can probably be added as part of the agent-access MCP work. Until then each is a "DFRNT does this" checklist item in the dashboard.
+
+| # | Surface | Today | Needed for |
+|---|---|---|---|
+| G1 | Create depot (`tblBulkRegion`: name, address, GPS, timezone) | Admin Manager only; Routed Ops can only deactivate/reactivate | schedules, distance rates, fleets |
+| G2 | Create the tenant's own client file (ClientTypeId 4) | no API (Settings creates type 2 only; NP cascade type 3) | Team step (contacts hang off it), role ownership |
+| G3 | Upload tenant logo (`tenantLogo.png` in S3BucketBulk) | read-only everywhere | Business step, booking/portal branding |
+| G4 | NZ bulk zone rates (`BulkZoneRate` / `tucRateCode`) | no API; Routed Ops pricing (spec 9 Oct M7/M8) not built | Rates step for NZ tenants |
+| G5 | Create a speed (`tucJobType`) from scratch | copy-only, DF Admin | first tenant setup if no seed speeds |
+| G6 | Integration Manager fuel surcharges | admin portal calls `/admin/rates/fuel-surcharges` but no backend route | Rates/Integrations |
+| G7 | Create-returns-id for extra charges, accessorial charges, unit types | returns `id: null` | any caller that links them next |
+| G8 | First-customer site: `SiteId` copied from an existing customer (0 on an empty tenant) and NP cascade needs an existing client | implicit dependency | Clients + Partners on a brand-new tenant |
+| G9 | Account status on a client (`ucclAccountStatus`, BlocksBooking) | column exists, no Settings write | Clients |
+| G10 | Tenant-callable rate card create + rate import | AdminOnly | tenant self-service on Rates |
+| G11 | Automation create honouring `isActive` and `all* = false` scope | not settable on create; scope flags likely stored true | Automations |
+| G12 | Tenant system settings (`TblSetting` row 1: company name/address/bank/GST, SMTP + from/reply addresses, admin/enquiry/statement emails, internet root, address validation, map roots) and message templates (`tblSMPPSettings` row 1, incl. the sign-in invite / reset-password subject + body) | Admin Manager System Settings only; no Settings API. **Cheetah's rows are a copy of Urgent's (24 Oct): Auckland PO Box, NZ bank number, smtp.gmail.com as noreply@urgent.co.nz, helpdesk/cs/Statements/recruitment @urgent.co.nz, www.urgent.co.nz, CourierPost address validation as WS.UrgentCouriers, uclsql2 map roots** | Business step (tenant identity) - must be right **before any invite is sent**, because Hub's invite goes through `NET_stpContact_ResetPassword`, which takes its subject/body from `tblSMPPSettings` |
 
 ## Milestones
 

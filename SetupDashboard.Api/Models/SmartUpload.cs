@@ -86,77 +86,77 @@ public class EntityFieldDefinition
 /// </summary>
 public static class EntityDefinitions
 {
+    // Target fields per step. "Required" mirrors what the owning app rejects without (Settings
+    // TenantClientsService, AdminContactService, NpFleetService on develop 3a3fde0); an import can
+    // still bring rows in without them - they show as "needs: ..." until filled in.
     public static readonly Dictionary<string, List<EntityFieldDefinition>> Fields = new()
     {
         ["team"] = new()
         {
-            new() { FieldName = "Name", DisplayName = "Full Name", Required = true, Aliases = ["FullName", "StaffName", "MemberName"] },
+            new() { FieldName = "FirstName", DisplayName = "First Name", Required = true, Aliases = ["GivenName", "First", "Name", "FullName"] },
+            new() { FieldName = "LastName", DisplayName = "Last Name", Required = false, Aliases = ["Surname", "FamilyName", "Last"] },
             new() { FieldName = "Email", DisplayName = "Email", Required = true, Aliases = ["EmailAddress", "E-Mail", "Username"] },
-            new() { FieldName = "Role", DisplayName = "Role", Required = false, Aliases = ["JobTitle", "Position", "Title", "Department"] },
+            new() { FieldName = "JobTitle", DisplayName = "Job Title", Required = false, Aliases = ["Title", "Position"] },
+            new() { FieldName = "Mobile", DisplayName = "Mobile", Required = false, Aliases = ["Phone", "Cell", "MobilePhone"] },
+            new() { FieldName = "Role", DisplayName = "Role", Required = true, Aliases = ["AccessRole", "Department", "Group"] },
         },
         ["clients"] = new()
         {
-            new() { FieldName = "Name", DisplayName = "Client Name", Required = true, Aliases = ["ClientName", "Company", "CompanyName", "Account", "AccountName"] },
-            new() { FieldName = "Code", DisplayName = "Client Code", Required = false, Aliases = ["ClientCode", "AccountCode", "ID"] },
-            new() { FieldName = "Contact", DisplayName = "Contact Person", Required = false, Aliases = ["ContactName", "ContactPerson", "PrimaryContact"] },
-            new() { FieldName = "Phone", DisplayName = "Phone", Required = false, Aliases = ["PhoneNumber", "Tel", "Telephone", "ContactPhone"] },
-            new() { FieldName = "Email", DisplayName = "Email", Required = false, Aliases = ["EmailAddress", "ContactEmail", "E-Mail"] },
-            new() { FieldName = "Billing", DisplayName = "Billing Type", Required = false, Aliases = ["BillingType", "PaymentTerms", "InvoiceType"] },
-            new() { FieldName = "LegalName", DisplayName = "Legal Name", Required = false, Aliases = ["LegalBusinessName", "RegisteredName"] },
-            new() { FieldName = "Type", DisplayName = "Client Type", Required = false, Aliases = ["ClientType", "AccountType", "Category"] },
-            new() { FieldName = "City", DisplayName = "City", Required = false, Aliases = ["Suburb", "Town"] },
-            new() { FieldName = "State", DisplayName = "State", Required = false, Aliases = ["Region", "Province"] },
-            new() { FieldName = "ZipCode", DisplayName = "Zip Code", Required = false, Aliases = ["PostCode", "PostalCode", "Zip"] },
+            new() { FieldName = "Code", DisplayName = "Client Code", Required = true, Aliases = ["ClientCode", "AccountCode", "CustCode", "ID", "Account"] },
+            new() { FieldName = "Name", DisplayName = "Client Name", Required = true, Aliases = ["ClientName", "Company", "CompanyName", "AccountName", "CustName"] },
+            new() { FieldName = "Address", DisplayName = "Street Address", Required = true, Aliases = ["Address1", "AddressLine1", "Street", "StreetAddress", "DelAddr1"] },
+            new() { FieldName = "Unit", DisplayName = "Unit / Suite", Required = false, Aliases = ["Address2", "AddressLine2", "Suite", "Floor"] },
+            new() { FieldName = "Suburb", DisplayName = "Suburb (US: City)", Required = true, Aliases = ["Suburb", "Town", "Locality"] },
+            new() { FieldName = "City", DisplayName = "City (US: State)", Required = true, Aliases = ["City", "State", "Region", "Province"] },
+            new() { FieldName = "PostCode", DisplayName = "Post / Zip Code", Required = false, Aliases = ["PostalCode", "Zip", "ZipCode"] },
+            new() { FieldName = "Country", DisplayName = "Country", Required = false, Aliases = ["CountryCode", "Nation"] },
+            new() { FieldName = "Phone", DisplayName = "Phone", Required = false, Aliases = ["PhoneNumber", "Tel", "Telephone"] },
+            new() { FieldName = "Email", DisplayName = "Company Email", Required = false, Aliases = ["EmailAddress", "CompanyEmail"] },
+            new() { FieldName = "InvoiceEmail", DisplayName = "Invoice Email", Required = false, Aliases = ["AccountsEmail", "BillingEmail"] },
+            new() { FieldName = "ContactFirstName", DisplayName = "Primary Contact First Name", Required = true, Aliases = ["ContactFirst", "Contact", "ContactName", "PrimaryContact"] },
+            new() { FieldName = "ContactSurname", DisplayName = "Primary Contact Surname", Required = false, Aliases = ["ContactLast", "ContactSurname"] },
+            new() { FieldName = "ContactEmail", DisplayName = "Primary Contact Email", Required = true, Aliases = ["ContactEmail", "PrimaryEmail"] },
+            new() { FieldName = "ContactMobile", DisplayName = "Primary Contact Mobile", Required = false, Aliases = ["ContactPhone", "ContactMobile"] },
         },
         ["contacts"] = new()
         {
-            new() { FieldName = "ClientName", DisplayName = "Client Name", Required = true, Aliases = ["Company", "Account"] },
+            new() { FieldName = "ClientCode", DisplayName = "Client Code", Required = true, Aliases = ["Code", "AccountCode", "ClientName", "Company", "Account"] },
             new() { FieldName = "FirstName", DisplayName = "First Name", Required = true, Aliases = ["GivenName", "First"] },
-            new() { FieldName = "LastName", DisplayName = "Last Name", Required = true, Aliases = ["Surname", "FamilyName", "Last"] },
-            new() { FieldName = "Email", DisplayName = "Email", Required = false, Aliases = ["EmailAddress", "E-Mail"] },
-            new() { FieldName = "Phone", DisplayName = "Phone", Required = false, Aliases = ["PhoneNumber", "Mobile", "Cell"] },
-            new() { FieldName = "Role", DisplayName = "Role", Required = false, Aliases = ["JobTitle", "Title", "Position"] },
-            new() { FieldName = "IsPrimary", DisplayName = "Primary Contact", Required = false, Aliases = ["Primary", "Main", "Default"] },
+            new() { FieldName = "LastName", DisplayName = "Last Name", Required = false, Aliases = ["Surname", "FamilyName", "Last"] },
+            new() { FieldName = "Email", DisplayName = "Email", Required = true, Aliases = ["EmailAddress", "E-Mail"] },
+            new() { FieldName = "Phone", DisplayName = "Mobile", Required = false, Aliases = ["PhoneNumber", "Mobile", "Cell"] },
+            new() { FieldName = "JobTitle", DisplayName = "Job Title", Required = false, Aliases = ["Title", "Position", "Role"] },
         },
         ["drivers"] = new()
         {
-            new() { FieldName = "Name", DisplayName = "Full Name", Required = true, Aliases = ["DriverName", "FullName", "CourierName"] },
+            new() { FieldName = "FirstName", DisplayName = "First Name", Required = true, Aliases = ["GivenName", "First", "Name", "DriverName"] },
+            new() { FieldName = "SurName", DisplayName = "Last Name", Required = true, Aliases = ["LastName", "Surname", "FamilyName"] },
+            new() { FieldName = "Email", DisplayName = "Email", Required = true, Aliases = ["EmailAddress", "E-Mail", "Login"] },
             new() { FieldName = "Code", DisplayName = "Courier Code", Required = false, Aliases = ["CourierCode", "DriverCode", "ID", "Fleet Number", "FleetNumber"] },
-            new() { FieldName = "FirstName", DisplayName = "First Name", Required = false, Aliases = ["GivenName", "First"] },
-            new() { FieldName = "SurName", DisplayName = "Last Name", Required = false, Aliases = ["LastName", "Surname", "FamilyName"] },
-            new() { FieldName = "Phone", DisplayName = "Phone", Required = false, Aliases = ["Mobile", "Cell", "PersonalMobile", "PhoneNumber"] },
-            new() { FieldName = "Vehicle", DisplayName = "Vehicle Type", Required = false, Aliases = ["VehicleType", "Transport", "CourierType"] },
-            new() { FieldName = "Zone", DisplayName = "Zone", Required = false, Aliases = ["Area", "Region", "Territory"] },
+            new() { FieldName = "Phone", DisplayName = "Mobile", Required = false, Aliases = ["Mobile", "Cell", "PersonalMobile", "PhoneNumber"] },
+            new() { FieldName = "Vehicle", DisplayName = "Vehicle Type", Required = false, Aliases = ["VehicleType", "Transport"] },
+            new() { FieldName = "Fleet", DisplayName = "Vehicle Fleet", Required = false, Aliases = ["FleetName", "Depot", "Branch"] },
         },
         ["zones"] = new()
         {
+            new() { FieldName = "ZoneGroup", DisplayName = "Zone Group", Required = true, Aliases = ["Group", "ZoneGroupName", "Region"] },
             new() { FieldName = "ZoneName", DisplayName = "Zone Name", Required = true, Aliases = ["Name", "Zone", "Area"] },
-            new() { FieldName = "ZipCode", DisplayName = "Zip Code", Required = true, Aliases = ["PostCode", "PostalCode", "Zip", "Code"] },
-            new() { FieldName = "ZoneNumber", DisplayName = "Zone Number", Required = false, Aliases = ["Number", "ZoneNum", "Num"] },
-            new() { FieldName = "Location", DisplayName = "Location", Required = false, Aliases = ["Suburb", "City", "Area", "Description"] },
+            new() { FieldName = "ZipCode", DisplayName = "Zip / Post Code", Required = true, Aliases = ["PostCode", "PostalCode", "Zip", "Code"] },
         },
         ["rates"] = new()
         {
-            new() { FieldName = "ZoneName", DisplayName = "Zone Name", Required = true, Aliases = ["Zone", "Area"] },
-            new() { FieldName = "ServiceType", DisplayName = "Service Type", Required = true, Aliases = ["Service", "Speed", "DeliveryType"] },
-            new() { FieldName = "MinWeight", DisplayName = "Min Weight (kg)", Required = true, Aliases = ["WeightFrom", "FromWeight", "Min"] },
-            new() { FieldName = "MaxWeight", DisplayName = "Max Weight (kg)", Required = true, Aliases = ["WeightTo", "ToWeight", "Max"] },
-            new() { FieldName = "Rate", DisplayName = "Rate ($)", Required = true, Aliases = ["Price", "Amount", "Cost", "Charge"] },
-            new() { FieldName = "OriginZone", DisplayName = "Origin Zone", Required = false, Aliases = ["From", "FromZone", "Origin"] },
-            new() { FieldName = "DestinationZone", DisplayName = "Destination Zone", Required = false, Aliases = ["To", "ToZone", "Destination"] },
-        },
-        // "agents" is an alias for "drivers" — the Admin Manager API calls couriers "agents"
-        ["agents"] = new()
-        {
-            new() { FieldName = "Name", DisplayName = "Full Name", Required = true, Aliases = ["AgentName", "DriverName", "FullName", "CourierName"] },
-            new() { FieldName = "Code", DisplayName = "Agent Code", Required = false, Aliases = ["AgentCode", "CourierCode", "DriverCode", "ID", "Fleet Number", "FleetNumber"] },
-            new() { FieldName = "FirstName", DisplayName = "First Name", Required = false, Aliases = ["GivenName", "First"] },
-            new() { FieldName = "SurName", DisplayName = "Last Name", Required = false, Aliases = ["LastName", "Surname", "FamilyName"] },
-            new() { FieldName = "Phone", DisplayName = "Phone", Required = false, Aliases = ["Mobile", "Cell", "PersonalMobile", "PhoneNumber"] },
-            new() { FieldName = "Vehicle", DisplayName = "Vehicle Type", Required = false, Aliases = ["VehicleType", "Transport", "CourierType"] },
-            new() { FieldName = "Zone", DisplayName = "Zone", Required = false, Aliases = ["Area", "Region", "Territory"] },
+            new() { FieldName = "Name", DisplayName = "Rate Name", Required = true, Aliases = ["RateName", "Description"] },
+            new() { FieldName = "FromZone", DisplayName = "From Zone", Required = true, Aliases = ["From", "OriginZone", "Origin"] },
+            new() { FieldName = "ToZone", DisplayName = "To Zone", Required = true, Aliases = ["To", "DestinationZone", "Destination"] },
+            new() { FieldName = "ChargeRate", DisplayName = "Customer Charge ($)", Required = true, Aliases = ["Rate", "Price", "Amount", "Charge"] },
+            new() { FieldName = "DriverRate", DisplayName = "Driver Rate ($)", Required = true, Aliases = ["DriverPay", "CourierRate", "Pay"] },
+            new() { FieldName = "VehicleSize", DisplayName = "Vehicle Size", Required = true, Aliases = ["Vehicle", "VehicleType"] },
         },
     };
+
+    // "agents" was an alias for drivers in the Admin Manager era.
+    public static List<EntityFieldDefinition>? For(string entityType)
+        => Fields.TryGetValue(entityType == "agents" ? "drivers" : entityType, out var f) ? f : null;
 
     public static List<string> GetFieldNames(string entityType)
         => Fields.TryGetValue(entityType, out var defs) ? defs.Select(d => d.FieldName).ToList() : new();

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -5,853 +6,342 @@ using Microsoft.EntityFrameworkCore;
 using SetupDashboard.Core.Domain;
 using SetupDashboard.Models;
 using SetupDashboard.Services;
+using SetupDashboard.Services.Steps;
+using SetupDashboard.Services.TenantApps;
 
 namespace SetupDashboard.Controllers;
 
 /// <summary>
-/// Session management and core setup endpoints.
-/// Maps to the existing React frontend's api.ts calls.
+/// Onboarding sessions and their steps. Every endpoint needs a signed-in Hub user (the fallback
+/// policy) and the hub-tile-setup-dashboard switch; every session is the caller's tenant's.
 /// </summary>
+/// <remarks>
+/// The old controller had 22 of 26 endpoints [AllowAnonymous] and wrote to whichever environment the
+/// browser named. Nothing here is anonymous, and the tenant only ever comes from the cookie.
+/// </remarks>
 [Authorize]
 [RequireFeature(FeatureKeys.SetupDashboard)]
 [ApiController]
 [Route("api/setup")]
-public class SetupController : ControllerBase
+public class SetupController(
+    ISessionStore sessions,
+    IEnumerable<IStepPusher> pushers,
+    ITenantAppUrls urls,
+    IDbContextFactory<DynamicDespatchDbContext> dbFactory,
+    ITenantLogoService logoService,
+    ILogger<SetupController> logger) : ControllerBase
 {
-    private readonly ISessionStore _sessions;
-    private readonly AdminManagerClientFactory _clientFactory;
-    private readonly IDbContextFactory<DynamicDespatchDbContext> _dbFactory;
-    private readonly ProvisioningService _provisioning;
-    private readonly ILogger<SetupController> _logger;
-    private readonly ITenantLogoService _logoService;
+    private CallerContext? Caller => CallerContext.From(User);
 
-    /// <summary>Capture the shared Hub cookie from the current request (must be called before Task.Run).</summary>
-    private string? CaptureRequestCookie() => Request.Headers.Cookie.FirstOrDefault();
+    // ── Sessions ────────────────────────────────────────────────────────────
 
-    public SetupController(
-        ISessionStore sessions,
-        AdminManagerClientFactory clientFactory,
-        IDbContextFactory<DynamicDespatchDbContext> dbFactory,
-        ProvisioningService provisioning,
-        ILogger<SetupController> logger,
-        ITenantLogoService logoService)
-    {
-        _sessions = sessions;
-        _clientFactory = clientFactory;
-        _dbFactory = dbFactory;
-        _provisioning = provisioning;
-        _logger = logger;
-        _logoService = logoService;
-    }
-
-    // --- Session Management ---
-
-    [AllowAnonymous]
     [HttpPost("session")]
-    public IActionResult CreateSession([FromBody] CreateSessionRequest? req)
+    public async Task<IActionResult> CreateSession(CancellationToken ct)
     {
-        var session = _sessions.Create(req?.Environment);
-        return Ok(new { session = new { id = session.Id, environment = session.Environment } });
+        if (Caller is not { } caller) return Unauthorized(new { message = "Sign in through Hub first." });
+        var session = await sessions.CreateAsync(caller.TenantId, caller.TenantCode, caller.ContactId, caller.Name, ct);
+        Seed(session, caller);
+        await sessions.UpdateAsync(session, ct);
+        return Ok(new { session = View(session) });
     }
 
-    [AllowAnonymous]
     [HttpGet("sessions")]
-    public IActionResult ListSessions([FromQuery] string status = "active")
+    public async Task<IActionResult> ListSessions([FromQuery] string? status = "active", CancellationToken ct = default)
     {
-        var sessions = _sessions.List(status).Select(s => new
-        {
-            s.Id,
-            environment = s.Environment,
-            currentStep = s.CurrentStep,
-            completedSteps = s.CompletedSteps,
-            businessData = s.Business,
-            createdAt = s.CreatedAt.ToString("o"),
-            updatedAt = s.UpdatedAt.ToString("o"),
-        });
-        return Ok(new { sessions });
-    }
-
-    [AllowAnonymous]
-    [HttpGet("session/{id}/full")]
-    public IActionResult GetFullSession(string id)
-    {
-        var session = _sessions.Get(id);
-        if (session == null) return NotFound(new { message = "Session not found" });
-
+        if (Caller is not { } caller) return Unauthorized();
+        var list = await sessions.ListAsync(caller.TenantId, status, ct);
         return Ok(new
         {
-            session = new
+            sessions = list.Select(s => new
             {
-                session.Id,
-                session.Environment,
-                currentStep = session.CurrentStep,
-                completedSteps = session.CompletedSteps,
-                business = session.Business,
-                team = session.Team,
-                clients = session.Clients,
-                rates = session.Rates,
-                couriers = session.Couriers,
-                automations = session.Automations,
-                training = session.TrainingProgress,
-            }
+                s.Id,
+                s.CurrentStep,
+                companyName = s.Business.CompanyName,
+                s.CreatedByName,
+                s.Status,
+                waitingOnTenant = s.Steps.Values.Sum(st => st.Requests.Count(r => r.FulfilledAt == null)),
+                stepsDone = s.Steps.Values.Count(st => st.Status == StepStatus.Done),
+                createdAt = s.CreatedAt.ToString("o"),
+                updatedAt = s.UpdatedAt.ToString("o"),
+            }),
         });
     }
 
-    [AllowAnonymous]
-    [HttpDelete("session/{id}/rollback")]
-    public IActionResult RollbackSession(string id)
+    [HttpGet("session/{id}")]
+    public async Task<IActionResult> GetSession(string id, CancellationToken ct)
     {
-        var deleted = _sessions.Delete(id);
-        if (!deleted) return NotFound(new { success = false, message = "Session not found" });
+        if (await Load(id, ct) is not { } loaded) return NotFound(new { message = "Session not found" });
+        return Ok(new { session = View(loaded.Session) });
+    }
+
+    /// <summary>Deleting a session forgets the dashboard's record only; nothing created in Settings is removed.</summary>
+    [HttpDelete("session/{id}")]
+    public async Task<IActionResult> DeleteSession(string id, CancellationToken ct)
+    {
+        if (Caller is not { IsDfAdmin: true } caller) return Forbid();
+        return await sessions.DeleteAsync(caller.TenantId, id, ct) ? Ok(new { success = true }) : NotFound();
+    }
+
+    [HttpPost("session/{id}/current-step")]
+    public async Task<IActionResult> SetCurrentStep(string id, [FromBody] CurrentStepRequest req, CancellationToken ct)
+    {
+        if (await Load(id, ct) is not { } loaded) return NotFound();
+        loaded.Session.CurrentStep = Math.Clamp(req.Step, 0, StepKeys.All.Length - 1);
+        await sessions.UpdateAsync(loaded.Session, ct);
         return Ok(new { success = true });
     }
 
-    // --- Phase 1: Load tenant data from SQL Server ---
+    // ── Step data ───────────────────────────────────────────────────────────
 
-    // Fast summary endpoint — counts + settings only (~50ms)
-    [HttpGet("session/{id}/tenant-summary")]
-    public async Task<IActionResult> GetTenantSummary(string id)
+    /// <summary>Saves a step's records to the session. Nothing leaves the dashboard until /push.</summary>
+    [HttpPut("session/{id}/steps/{step}/data")]
+    public async Task<IActionResult> SaveStepData(string id, string step, [FromBody] JsonElement body, CancellationToken ct)
     {
-        var session = _sessions.Get(id);
-        if (session == null) return NotFound(new { message = "Session not found" });
-
+        if (await Load(id, ct) is not { } loaded) return NotFound();
+        var s = loaded.Session;
+        var opts = DistributedSessionStore.Json;
         try
         {
-            await using var db = _dbFactory.CreateDbContext();
+            switch (step)
+            {
+                case StepKeys.Business: s.Business = body.Deserialize<BusinessProfile>(opts) ?? new(); break;
+                case StepKeys.Team: s.Team = body.Deserialize<TeamStep>(opts) ?? new(); break;
+                case StepKeys.Clients: s.Clients = body.Deserialize<List<ClientRow>>(opts) ?? new(); break;
+                case StepKeys.Rates: s.Rates = body.Deserialize<RatesStep>(opts) ?? new(); break;
+                case StepKeys.Schedules: s.Schedules = body.Deserialize<List<ScheduleRow>>(opts) ?? new(); break;
+                case StepKeys.Couriers: s.Couriers = MergeCouriers(s.Couriers, body.Deserialize<CouriersStep>(opts) ?? new()); break;
+                case StepKeys.Partners: s.Partners = body.Deserialize<List<PartnerRow>>(opts) ?? new(); break;
+                default: return BadRequest(new { message = $"Step '{step}' has no data of its own." });
+            }
+        }
+        catch (JsonException ex)
+        {
+            return BadRequest(new { message = $"That doesn't look like {step} data: {ex.Message}" });
+        }
 
-            var setting = await db.TblSettings.AsNoTracking().FirstOrDefaultAsync();
-            var settingsDict = new Dictionary<string, string>();
+        StepCatalog.Recompute(s, step, hasData: true);
+        await sessions.UpdateAsync(s, ct);
+        return Ok(new { session = View(s) });
+    }
+
+    /// <summary>
+    /// Sends the step's records to the app that owns them, row by row, as the signed-in person.
+    /// Synchronous on purpose: the old dashboard answered "success" and pushed in a background task,
+    /// so failures were only ever logged.
+    /// </summary>
+    [HttpPost("session/{id}/steps/{step}/push")]
+    public async Task<IActionResult> PushStep(string id, string step, CancellationToken ct)
+    {
+        if (await Load(id, ct) is not { } loaded) return NotFound();
+        var pusher = pushers.FirstOrDefault(p => p.StepKey == step);
+        if (pusher == null) return BadRequest(new { message = $"Step '{step}' is a checklist; there is nothing to send." });
+
+        await pusher.PushAsync(loaded.Session, loaded.Caller, ct);
+        StepCatalog.Recompute(loaded.Session, step, hasData: true);
+        await sessions.UpdateAsync(loaded.Session, ct);
+
+        var rows = loaded.Session.Step(step).Rows;
+        return Ok(new
+        {
+            session = View(loaded.Session),
+            summary = new
+            {
+                created = rows.Count(r => r.Status == RowStatus.Created),
+                needsData = rows.Count(r => r.Status == RowStatus.NeedsData),
+                failed = rows.Count(r => r.Status == RowStatus.Failed),
+                signInExpired = rows.Any(r => r.Errors.Any(e => e.StartsWith("Your sign-in has expired"))),
+            },
+        });
+    }
+
+    // ── Progress: requests to the tenant, checklist, completion ─────────────
+
+    [HttpPost("session/{id}/steps/{step}/requests")]
+    public async Task<IActionResult> AddRequest(string id, string step, [FromBody] DataRequestCreate req, CancellationToken ct)
+    {
+        if (await Load(id, ct) is not { } loaded) return NotFound();
+        if (!loaded.Caller.IsDfAdmin) return Forbid();
+        if (string.IsNullOrWhiteSpace(req.Item)) return BadRequest(new { message = "Say what you're asking the tenant for." });
+
+        var st = loaded.Session.Step(step);
+        st.Requests.Add(new DataRequest { Item = req.Item.Trim(), DueBy = req.DueBy, RequestedBy = loaded.Caller.Name });
+        StepCatalog.Recompute(loaded.Session, step, hasData: false);
+        await sessions.UpdateAsync(loaded.Session, ct);
+        return Ok(new { session = View(loaded.Session) });
+    }
+
+    [HttpPost("session/{id}/steps/{step}/requests/{requestId}/fulfil")]
+    public async Task<IActionResult> FulfilRequest(string id, string step, string requestId, CancellationToken ct)
+    {
+        if (await Load(id, ct) is not { } loaded) return NotFound();
+        var r = loaded.Session.Step(step).Requests.FirstOrDefault(x => x.Id == requestId);
+        if (r == null) return NotFound();
+        r.FulfilledAt ??= DateTime.UtcNow;
+        r.FulfilledBy ??= loaded.Caller.Name;
+        StepCatalog.Recompute(loaded.Session, step, hasData: false);
+        await sessions.UpdateAsync(loaded.Session, ct);
+        return Ok(new { session = View(loaded.Session) });
+    }
+
+    /// <summary>DFRNT-owned items are ticked by DF Admin; tenant-owned items by anyone on the session.</summary>
+    [HttpPost("session/{id}/steps/{step}/checklist/{itemId}")]
+    public async Task<IActionResult> TickChecklist(string id, string step, string itemId, [FromBody] ChecklistTick req, CancellationToken ct)
+    {
+        if (await Load(id, ct) is not { } loaded) return NotFound();
+        var item = loaded.Session.Step(step).Checklist.FirstOrDefault(c => c.Id == itemId);
+        if (item == null) return NotFound();
+        if (item.Owner == "DFRNT" && !loaded.Caller.IsDfAdmin)
+            return StatusCode(403, new { message = "DFRNT ticks this one." });
+
+        item.DoneAt = req.Done ? DateTime.UtcNow : null;
+        item.DoneBy = req.Done ? loaded.Caller.Name : null;
+        StepCatalog.Recompute(loaded.Session, step, hasData: false);
+        await sessions.UpdateAsync(loaded.Session, ct);
+        return Ok(new { session = View(loaded.Session) });
+    }
+
+    [HttpPost("session/{id}/steps/{step}/complete")]
+    public async Task<IActionResult> CompleteStep(string id, string step, CancellationToken ct)
+    {
+        if (await Load(id, ct) is not { } loaded) return NotFound();
+        if (StepCatalog.CompleteBlocker(loaded.Session, step) is { } why) return Conflict(new { message = why });
+
+        var st = loaded.Session.Step(step);
+        st.Status = StepStatus.Done;
+        st.CompletedAt = DateTime.UtcNow;
+        st.CompletedBy = loaded.Caller.Name;
+        if (loaded.Session.Steps.Values.All(x => x.Status == StepStatus.Done)) loaded.Session.Status = "completed";
+        await sessions.UpdateAsync(loaded.Session, ct);
+        return Ok(new { session = View(loaded.Session) });
+    }
+
+    [HttpPost("session/{id}/steps/{step}/reopen")]
+    public async Task<IActionResult> ReopenStep(string id, string step, CancellationToken ct)
+    {
+        if (await Load(id, ct) is not { } loaded) return NotFound();
+        if (!loaded.Caller.IsDfAdmin) return Forbid();
+        var st = loaded.Session.Step(step);
+        st.Status = StepStatus.InProgress;
+        st.CompletedAt = null;
+        st.CompletedBy = null;
+        loaded.Session.Status = "active";
+        StepCatalog.Recompute(loaded.Session, step, hasData: false);
+        await sessions.UpdateAsync(loaded.Session, ct);
+        return Ok(new { session = View(loaded.Session) });
+    }
+
+    // ── Tenant summary (read-only, tenant DB) ───────────────────────────────
+
+    [HttpGet("session/{id}/tenant-summary")]
+    public async Task<IActionResult> GetTenantSummary(string id, CancellationToken ct)
+    {
+        if (await Load(id, ct) is null) return NotFound(new { message = "Session not found" });
+        try
+        {
+            await using var db = dbFactory.CreateDbContext();
+            var setting = await db.TblSettings.AsNoTracking().FirstOrDefaultAsync(ct);
+            var settings = new Dictionary<string, string>();
             if (setting != null)
             {
-                settingsDict["SystemName"] = setting.SystemName ?? "";
-                settingsDict["ApplicationName"] = setting.ApplicationName ?? "";
-                settingsDict["AdminEmail"] = setting.AdminEmail ?? "";
-                settingsDict["CountryCode"] = setting.CountryCode ?? "";
-                settingsDict["CompanyAddress"] = setting.CompanyAddress ?? "";
+                settings["SystemName"] = setting.SystemName ?? "";
+                settings["ApplicationName"] = setting.ApplicationName ?? "";
+                settings["AdminEmail"] = setting.AdminEmail ?? "";
+                settings["CountryCode"] = setting.CountryCode ?? "";
+                settings["CompanyAddress"] = setting.CompanyAddress ?? "";
             }
 
-            var counts = new TenantCounts
+            return Ok(new TenantSummary
             {
-                Team = await db.TblUsers.AsNoTracking().CountAsync(u => u.Active),
-                Clients = await db.TucClients.AsNoTracking().CountAsync(c => c.UcclActive),
-                Contacts = await db.TucClientContacts.AsNoTracking().CountAsync(cc => cc.Active),
-                Couriers = await db.TucAgents.AsNoTracking().CountAsync(),
-                Zones = await db.ZoneNames.AsNoTracking().CountAsync(),
-                Automations = await db.AutomationRules.AsNoTracking().CountAsync(a => a.IsActive),
-                Services = await db.TblServices.AsNoTracking().CountAsync(),
-            };
-
-            return Ok(new TenantSummary { Settings = settingsDict, Counts = counts });
+                Settings = settings,
+                Counts = new TenantCounts
+                {
+                    // Staff are contacts on the tenant's own client now, not tblUser rows.
+                    Team = await db.TucClientContacts.AsNoTracking().CountAsync(cc => cc.Active && cc.UcctClient != null && cc.UcctClient.ClientTypeId == CallerContext.TenantClientType, ct),
+                    Clients = await db.TucClients.AsNoTracking().CountAsync(c => c.UcclActive && c.ClientTypeId == 2, ct),
+                    Contacts = await db.TucClientContacts.AsNoTracking().CountAsync(cc => cc.Active, ct),
+                    Couriers = await db.Database.SqlQueryRaw<int>("SELECT COUNT(1) AS [Value] FROM tucCourier WHERE Active = 1").FirstAsync(ct),
+                    Zones = await db.ZoneNames.AsNoTracking().CountAsync(ct),
+                    Automations = await db.AutomationRules.AsNoTracking().CountAsync(a => a.IsActive, ct),
+                    Services = await db.TblServices.AsNoTracking().CountAsync(ct),
+                },
+            });
         }
         catch (UnauthorizedAccessException)
         {
-            _logger.LogWarning("No tenant context available for tenant summary — returning empty data");
             return Ok(new TenantSummary());
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load tenant summary for session {SessionId}", id);
-            return StatusCode(500, new { success = false, message = "Failed to load tenant summary" });
+            logger.LogError(ex, "Failed to load tenant summary for session {SessionId}", id);
+            return StatusCode(500, new { message = "Failed to load tenant summary" });
         }
     }
-
-    // Legacy endpoint — now returns summary only for backward compatibility
-    [HttpGet("session/{id}/tenant-data")]
-    public async Task<IActionResult> GetTenantData(string id)
-    {
-        return await GetTenantSummary(id);
-    }
-
-    // --- Step 0: Business Profile ---
-
-    [AllowAnonymous]
-    [HttpPost("business")]
-    public IActionResult SaveBusiness([FromBody] BusinessSaveRequest req)
-    {
-        var session = _sessions.GetOrThrow(req.SessionId);
-        session.Business = new BusinessProfile
-        {
-            CompanyName = req.CompanyName,
-            Geography = req.Geography ?? new(),
-            Verticals = req.Verticals ?? new(),
-            CurrentSystem = req.CurrentSystem,
-            DeliveriesPerMonth = req.DeliveriesPerMonth,
-            LegalName = req.LegalName,
-            RegistrationNumber = req.RegistrationNumber,
-            CountryOfRegistration = req.CountryOfRegistration,
-            StateOfIncorporation = req.StateOfIncorporation,
-            BusinessType = req.BusinessType,
-            CardNumber = req.CardNumber,
-            CardExpiry = req.CardExpiry,
-            CardCvc = req.CardCvc,
-            CardholderName = req.CardholderName,
-            BillingAddress = req.BillingAddress,
-            PrimaryContact = req.PrimaryContact,
-        };
-        session.CurrentStep = Math.Max(session.CurrentStep, 0);
-        _sessions.Update(session);
-        return Ok(new { success = true });
-    }
-
-    // --- Step 1: Team ---
-
-    [AllowAnonymous]
-    [HttpPost("team")]
-    public async Task<IActionResult> SaveTeam([FromBody] TeamSaveRequest req)
-    {
-        var session = _sessions.GetOrThrow(req.SessionId);
-        session.Team = req.Members ?? new();
-        session.CurrentStep = Math.Max(session.CurrentStep, 1);
-        _sessions.Update(session);
-
-        // Phase 2: Push to Admin Manager API
-        var cookie = CaptureRequestCookie();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var result = await _provisioning.ProvisionUsersAsync(
-                    session.Environment, session.Team,
-                    session.ProvisionedIds.GetValueOrDefault("users"), cookie);
-                if (result.CreatedIds.Count > 0)
-                {
-                    if (!session.ProvisionedIds.ContainsKey("users"))
-                        session.ProvisionedIds["users"] = new();
-                    session.ProvisionedIds["users"].AddRange(result.CreatedIds);
-                    _sessions.Update(session);
-                }
-            }
-            catch (Exception ex) { _logger.LogWarning(ex, "Background user provisioning failed"); }
-        });
-
-        return Ok(new { success = true });
-    }
-
-    // --- Step 2: Clients ---
-
-    [AllowAnonymous]
-    [HttpPost("clients")]
-    public async Task<IActionResult> SaveClients([FromBody] ClientsSaveRequest req)
-    {
-        var session = _sessions.GetOrThrow(req.SessionId);
-        session.Clients = req.Clients ?? new();
-        session.CurrentStep = Math.Max(session.CurrentStep, 2);
-        _sessions.Update(session);
-
-        // Phase 2: Push to Admin Manager API
-        var cookie = CaptureRequestCookie();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var result = await _provisioning.ProvisionClientsAsync(
-                    session.Environment, session.Clients,
-                    session.ProvisionedIds.GetValueOrDefault("clients"), cookie);
-                if (result.CreatedIds.Count > 0)
-                {
-                    if (!session.ProvisionedIds.ContainsKey("clients"))
-                        session.ProvisionedIds["clients"] = new();
-                    session.ProvisionedIds["clients"].AddRange(result.CreatedIds);
-                    _sessions.Update(session);
-                }
-            }
-            catch (Exception ex) { _logger.LogWarning(ex, "Background client provisioning failed"); }
-        });
-
-        return Ok(new { success = true });
-    }
-
-    [AllowAnonymous]
-    [HttpPost("clients/import")]
-    public async Task<IActionResult> ImportClientsCsv([FromForm] string sessionId, IFormFile file)
-    {
-        var session = _sessions.GetOrThrow(sessionId);
-
-        using var reader = new StreamReader(file.OpenReadStream());
-        var clients = new List<ClientRecord>();
-        var header = await reader.ReadLineAsync();
-        while (!reader.EndOfStream)
-        {
-            var line = await reader.ReadLineAsync();
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            var parts = line.Split(',').Select(p => p.Trim('"', ' ')).ToArray();
-            clients.Add(new ClientRecord
-            {
-                Name = parts.ElementAtOrDefault(0) ?? "",
-                Contact = parts.ElementAtOrDefault(1),
-                Phone = parts.ElementAtOrDefault(2),
-                Email = parts.ElementAtOrDefault(3),
-                Billing = parts.ElementAtOrDefault(4),
-            });
-        }
-
-        session.Clients.AddRange(clients);
-        _sessions.Update(session);
-        return Ok(new { success = true, imported = clients.Count });
-    }
-
-    // --- Step 3: Rates ---
-
-    [AllowAnonymous]
-    [HttpPost("rates")]
-    public async Task<IActionResult> SaveRates([FromBody] RatesSaveRequest req)
-    {
-        var session = _sessions.GetOrThrow(req.SessionId);
-        session.Rates = new RateConfig
-        {
-            BaseRate = req.BaseRate,
-            PerKmRate = req.PerKmRate,
-            MinCharge = req.MinCharge,
-            FuelSurcharge = req.FuelSurcharge,
-            WaitTime = req.WaitTime,
-            AfterHours = req.AfterHours,
-            Zones = req.Zones ?? new(),
-            WeightBreaks = req.WeightBreaks ?? new(),
-        };
-        session.CurrentStep = Math.Max(session.CurrentStep, 3);
-        _sessions.Update(session);
-
-        // Phase 2: Push zones and rates to Admin Manager API
-        var cookie = CaptureRequestCookie();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                // Zones first (dependency for rates)
-                if (session.Rates.Zones.Count > 0)
-                {
-                    var zoneResult = await _provisioning.ProvisionZonesAsync(
-                        session.Environment, session.Rates.Zones,
-                        session.ProvisionedIds.GetValueOrDefault("zones"), cookie);
-                    if (zoneResult.CreatedIds.Count > 0)
-                    {
-                        if (!session.ProvisionedIds.ContainsKey("zones"))
-                            session.ProvisionedIds["zones"] = new();
-                        session.ProvisionedIds["zones"].AddRange(zoneResult.CreatedIds);
-                    }
-                }
-
-                // Then rates/extra charges
-                var rateResult = await _provisioning.ProvisionRatesAsync(
-                    session.Environment, session.Rates, session.ProvisionedIds, cookie);
-                _sessions.Update(session);
-            }
-            catch (Exception ex) { _logger.LogWarning(ex, "Background rate provisioning failed"); }
-        });
-
-        return Ok(new { success = true });
-    }
-
-    // --- Step 4: Couriers ---
-
-    [AllowAnonymous]
-    [HttpPost("couriers")]
-    public async Task<IActionResult> SaveCouriers([FromBody] CouriersSaveRequest req)
-    {
-        var session = _sessions.GetOrThrow(req.SessionId);
-        session.Couriers = req.Couriers ?? new();
-        session.CurrentStep = Math.Max(session.CurrentStep, 4);
-        _sessions.Update(session);
-
-        // Phase 2: Push to Admin Manager API
-        var cookie = CaptureRequestCookie();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var result = await _provisioning.ProvisionCouriersAsync(
-                    session.Environment, session.Couriers,
-                    session.ProvisionedIds.GetValueOrDefault("couriers"), cookie);
-                if (result.CreatedIds.Count > 0)
-                {
-                    if (!session.ProvisionedIds.ContainsKey("couriers"))
-                        session.ProvisionedIds["couriers"] = new();
-                    session.ProvisionedIds["couriers"].AddRange(result.CreatedIds);
-                    _sessions.Update(session);
-                }
-            }
-            catch (Exception ex) { _logger.LogWarning(ex, "Background courier provisioning failed"); }
-        });
-
-        return Ok(new { success = true });
-    }
-
-    // --- Step 5: Automations ---
-
-    [AllowAnonymous]
-    [HttpPost("automations")]
-    public async Task<IActionResult> SaveAutomations([FromBody] AutomationsSaveRequest req)
-    {
-        var session = _sessions.GetOrThrow(req.SessionId);
-        session.Automations = req.Rules ?? new();
-        session.CurrentStep = Math.Max(session.CurrentStep, 5);
-        _sessions.Update(session);
-
-        // Phase 2: Push to Admin Manager API
-        var cookie = CaptureRequestCookie();
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var result = await _provisioning.ProvisionAutomationsAsync(
-                    session.Environment, session.Automations,
-                    session.ProvisionedIds.GetValueOrDefault("automations"), cookie);
-                if (result.CreatedIds.Count > 0)
-                {
-                    if (!session.ProvisionedIds.ContainsKey("automations"))
-                        session.ProvisionedIds["automations"] = new();
-                    session.ProvisionedIds["automations"].AddRange(result.CreatedIds);
-                    _sessions.Update(session);
-                }
-            }
-            catch (Exception ex) { _logger.LogWarning(ex, "Background automation provisioning failed"); }
-        });
-
-        return Ok(new { success = true });
-    }
-
-    // --- Training ---
-
-    [AllowAnonymous]
-    [HttpGet("training/progress")]
-    public IActionResult GetTrainingProgress([FromQuery] string sessionId)
-    {
-        var session = _sessions.GetOrThrow(sessionId);
-        return Ok(new { progress = session.TrainingProgress });
-    }
-
-    [AllowAnonymous]
-    [HttpPost("training/progress")]
-    public IActionResult SaveTrainingProgress([FromBody] TrainingProgressRequest req)
-    {
-        var session = _sessions.GetOrThrow(req.SessionId);
-        session.TrainingProgress = req.Members ?? new();
-        _sessions.Update(session);
-        return Ok(new { success = true });
-    }
-
-    [AllowAnonymous]
-    [HttpPost("training/complete-challenge")]
-    public IActionResult CompleteChallenge([FromBody] CompleteChallengeRequest req)
-    {
-        var session = _sessions.GetOrThrow(req.SessionId);
-        var member = session.TrainingProgress.FirstOrDefault(m => m.UserEmail == req.UserEmail);
-        if (member == null)
-        {
-            return NotFound(new { message = $"Training member with email '{req.UserEmail}' not found. Save training progress first." });
-        }
-
-        if (!member.CompletedChallenges.Contains(req.ChallengeId))
-        {
-            member.CompletedChallenges.Add(req.ChallengeId);
-            member.Xp += req.XpEarned;
-            member.LastActive = DateTime.UtcNow.ToString("o");
-        }
-        _sessions.Update(session);
-        return Ok(new { success = true, member = new { member.UserEmail, member.Xp, member.CompletedChallenges } });
-    }
-
-    [AllowAnonymous]
-    [HttpGet("training/leaderboard")]
-    public IActionResult GetLeaderboard([FromQuery] string sessionId)
-    {
-        var session = _sessions.GetOrThrow(sessionId);
-        var leaderboard = session.TrainingProgress
-            .OrderByDescending(m => m.Xp)
-            .Select((m, i) => new { rank = i + 1, m.UserEmail, m.UserName, m.Xp, m.CompletedChallenges, m.CurrentStreak })
-            .ToList();
-        return Ok(new { leaderboard });
-    }
-
-    // --- Phase 3: Real Validation via EF Core ---
-
-    [AllowAnonymous]
-    [HttpGet("validate/user-fullname")]
-    public async Task<IActionResult> ValidateUserFullName([FromQuery] string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return Ok(new { available = true });
-        try
-        {
-            await using var db = _dbFactory.CreateDbContext();
-            var exists = await db.TblUsers.AnyAsync(u => u.FullName == name);
-            return Ok(new { available = !exists });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Ok(new { available = true, @unchecked = true });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "User full name validation failed, returning unchecked");
-            return Ok(new { available = true, @unchecked = true });
-        }
-    }
-
-    [AllowAnonymous]
-    [HttpGet("validate/username")]
-    public async Task<IActionResult> ValidateUsername([FromQuery] string? username)
-    {
-        if (string.IsNullOrWhiteSpace(username))
-            return Ok(new { available = true });
-        try
-        {
-            await using var db = _dbFactory.CreateDbContext();
-            var exists = await db.TblUsers.AnyAsync(u => u.UserName == username && u.Active);
-            return Ok(new { available = !exists });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Ok(new { available = true, @unchecked = true });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Username validation failed, returning unchecked");
-            return Ok(new { available = true, @unchecked = true });
-        }
-    }
-
-    [AllowAnonymous]
-    [HttpGet("validate/client-name")]
-    public async Task<IActionResult> ValidateClientName([FromQuery] string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return Ok(new { available = true });
-        try
-        {
-            await using var db = _dbFactory.CreateDbContext();
-            var exists = await db.TucClients.AnyAsync(c => c.UcclName == name);
-            return Ok(new { available = !exists });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Ok(new { available = true, @unchecked = true });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Client name validation failed, returning unchecked");
-            return Ok(new { available = true, @unchecked = true });
-        }
-    }
-
-    [AllowAnonymous]
-    [HttpGet("validate/client-code")]
-    public async Task<IActionResult> ValidateClientCode([FromQuery] string? code)
-    {
-        if (string.IsNullOrWhiteSpace(code))
-            return Ok(new { available = true });
-        try
-        {
-            await using var db = _dbFactory.CreateDbContext();
-            var exists = await db.TucClients.AnyAsync(c => c.UcclCode == code && c.UcclActive);
-            return Ok(new { available = !exists });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Ok(new { available = true, @unchecked = true });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Client code validation failed, returning unchecked");
-            return Ok(new { available = true, @unchecked = true });
-        }
-    }
-
-    [AllowAnonymous]
-    [HttpGet("validate/courier-name")]
-    public async Task<IActionResult> ValidateCourierName([FromQuery] string? firstName, [FromQuery] string? surname)
-    {
-        if (string.IsNullOrWhiteSpace(firstName) && string.IsNullOrWhiteSpace(surname))
-            return Ok(new { available = true });
-        try
-        {
-            await using var db = _dbFactory.CreateDbContext();
-            var exists = await db.Database.SqlQueryRaw<int>(
-                "SELECT COUNT(1) AS [Value] FROM tucCourier WHERE uccrName = {0} AND uccrSurname = {1}",
-                firstName ?? "", surname ?? "").FirstAsync() > 0;
-            return Ok(new { available = !exists });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Ok(new { available = true, @unchecked = true });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Courier name validation failed, returning unchecked");
-            return Ok(new { available = true, @unchecked = true });
-        }
-    }
-
-    [AllowAnonymous]
-    [HttpGet("validate/courier-code")]
-    public async Task<IActionResult> ValidateCourierCode([FromQuery] string? code)
-    {
-        if (string.IsNullOrWhiteSpace(code))
-            return Ok(new { available = true });
-        try
-        {
-            await using var db = _dbFactory.CreateDbContext();
-            var exists = await db.Database.SqlQueryRaw<int>(
-                "SELECT COUNT(1) AS [Value] FROM tucCourier WHERE Code = {0} AND Active = 1",
-                code).FirstAsync() > 0;
-            return Ok(new { available = !exists });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Ok(new { available = true, @unchecked = true });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Courier code validation failed, returning unchecked");
-            return Ok(new { available = true, @unchecked = true });
-        }
-    }
-
-    // --- Phase 5: Go Live ---
-
-    [HttpPost("session/{id}/go-live")]
-    public async Task<IActionResult> GoLive(string id)
-    {
-        var session = _sessions.Get(id);
-        if (session == null) return NotFound(new { message = "Session not found" });
-
-        var report = new Dictionary<string, object>();
-        var errors = new List<string>();
-        var cookie = CaptureRequestCookie();
-
-        // Provision in dependency order: Zones → Rates → Clients → Couriers → Users → Automations
-        try
-        {
-            // Zones
-            if (session.Rates?.Zones?.Count > 0)
-            {
-                var zoneResult = await _provisioning.ProvisionZonesAsync(
-                    session.Environment, session.Rates.Zones,
-                    session.ProvisionedIds.GetValueOrDefault("zones"), cookie);
-                report["zones"] = zoneResult.Succeeded;
-                if (zoneResult.CreatedIds.Count > 0)
-                {
-                    if (!session.ProvisionedIds.ContainsKey("zones"))
-                        session.ProvisionedIds["zones"] = new();
-                    session.ProvisionedIds["zones"].AddRange(zoneResult.CreatedIds);
-                }
-                errors.AddRange(zoneResult.Errors);
-            }
-
-            // Rates
-            if (session.Rates != null)
-            {
-                var rateResult = await _provisioning.ProvisionRatesAsync(
-                    session.Environment, session.Rates, session.ProvisionedIds, cookie);
-                report["rates"] = rateResult.Succeeded;
-                errors.AddRange(rateResult.Errors);
-            }
-
-            // Clients
-            if (session.Clients.Count > 0)
-            {
-                var clientResult = await _provisioning.ProvisionClientsAsync(
-                    session.Environment, session.Clients,
-                    session.ProvisionedIds.GetValueOrDefault("clients"), cookie);
-                report["clients"] = clientResult.Succeeded;
-                if (clientResult.CreatedIds.Count > 0)
-                {
-                    if (!session.ProvisionedIds.ContainsKey("clients"))
-                        session.ProvisionedIds["clients"] = new();
-                    session.ProvisionedIds["clients"].AddRange(clientResult.CreatedIds);
-                }
-                errors.AddRange(clientResult.Errors);
-            }
-
-            // Couriers
-            if (session.Couriers.Count > 0)
-            {
-                var courierResult = await _provisioning.ProvisionCouriersAsync(
-                    session.Environment, session.Couriers,
-                    session.ProvisionedIds.GetValueOrDefault("couriers"), cookie);
-                report["couriers"] = courierResult.Succeeded;
-                if (courierResult.CreatedIds.Count > 0)
-                {
-                    if (!session.ProvisionedIds.ContainsKey("couriers"))
-                        session.ProvisionedIds["couriers"] = new();
-                    session.ProvisionedIds["couriers"].AddRange(courierResult.CreatedIds);
-                }
-                errors.AddRange(courierResult.Errors);
-            }
-
-            // Users
-            if (session.Team.Count > 0)
-            {
-                var userResult = await _provisioning.ProvisionUsersAsync(
-                    session.Environment, session.Team,
-                    session.ProvisionedIds.GetValueOrDefault("users"), cookie);
-                report["users"] = userResult.Succeeded;
-                if (userResult.CreatedIds.Count > 0)
-                {
-                    if (!session.ProvisionedIds.ContainsKey("users"))
-                        session.ProvisionedIds["users"] = new();
-                    session.ProvisionedIds["users"].AddRange(userResult.CreatedIds);
-                }
-                errors.AddRange(userResult.Errors);
-            }
-
-            // Automations
-            if (session.Automations.Count > 0)
-            {
-                var autoResult = await _provisioning.ProvisionAutomationsAsync(
-                    session.Environment, session.Automations,
-                    session.ProvisionedIds.GetValueOrDefault("automations"), cookie);
-                report["automations"] = autoResult.Succeeded;
-                if (autoResult.CreatedIds.Count > 0)
-                {
-                    if (!session.ProvisionedIds.ContainsKey("automations"))
-                        session.ProvisionedIds["automations"] = new();
-                    session.ProvisionedIds["automations"].AddRange(autoResult.CreatedIds);
-                }
-                errors.AddRange(autoResult.Errors);
-            }
-
-            session.Status = "completed";
-            _sessions.Update(session);
-
-            var goLiveSuccess = errors.Count == 0;
-            var result = new { success = goLiveSuccess, provisioned = report, errors };
-            return goLiveSuccess ? Ok(result) : UnprocessableEntity(result);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Go Live failed for session {SessionId}", id);
-            return StatusCode(500, new
-            {
-                success = false,
-                provisioned = report,
-                errors = new List<string> { ex.Message },
-            });
-        }
-    }
-
-    // --- Tenant Logo (direct S3, same as Hub) ---
-    // Bucket: urgent-couriers-bulk-upload-storage-{environment}
 
     [HttpGet("logo")]
-    public async Task<IActionResult> GetLogo([FromQuery] string? environment, [FromQuery] string? tenantCode)
+    public async Task<IActionResult> GetLogo()
     {
-        try
-        {
-            // Use provided environment, or find from active session
-            var env = environment;
-            if (string.IsNullOrEmpty(env))
-            {
-                var sessions = _sessions.List("active");
-                env = sessions.FirstOrDefault()?.Environment;
-            }
-
-            // Get tenant code from query param, claims, or environment prefix
-            var code = tenantCode
-                ?? HttpContext.User.Claims.FirstOrDefault(c => c.Type == "TenantCode")?.Value
-                ?? "";
-
-            var logoUrl = await _logoService.GetLogoUrlAsync(env ?? "", code);
-            return Ok(new { success = logoUrl != null, logoUrl });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not fetch tenant logo");
-            return StatusCode(500, new { success = false, logoUrl = (string?)null, message = "Failed to fetch logo" });
-        }
+        var url = await logoService.GetLogoUrlAsync(Caller?.TenantCode);
+        return Ok(new { success = url != null, logoUrl = url });
     }
 
-    // --- Environments ---
+    // ── helpers ─────────────────────────────────────────────────────────────
 
-    [AllowAnonymous]
-    [HttpGet("environments")]
-    public IActionResult GetEnvironments()
+    private sealed record Loaded(SetupSession Session, CallerContext Caller);
+
+    private async Task<Loaded?> Load(string id, CancellationToken ct)
     {
-        var envs = _clientFactory.GetEnvironmentDetails();
-        return Ok(new
+        if (Caller is not { } caller) return null;
+        var session = await sessions.GetAsync(caller.TenantId, id, ct);
+        if (session == null) return null;
+        Seed(session, caller);
+        return new Loaded(session, caller);
+    }
+
+    private void Seed(SetupSession session, CallerContext caller)
+        => StepCatalog.Seed(session, host => urls.BaseUrlForHost(host, caller));
+
+    /// <summary>The session as the browser sees it: courier passwords never leave the server.</summary>
+    internal static object View(SetupSession s) => new
+    {
+        s.Id,
+        s.TenantCode,
+        s.CurrentStep,
+        s.Status,
+        s.CreatedByName,
+        createdAt = s.CreatedAt.ToString("o"),
+        updatedAt = s.UpdatedAt.ToString("o"),
+        steps = s.Steps,
+        business = s.Business,
+        team = s.Team,
+        clients = s.Clients,
+        rates = s.Rates,
+        schedules = s.Schedules,
+        couriers = new
         {
-            environments = envs.Select(e => new
+            fleets = s.Couriers.Fleets,
+            couriers = s.Couriers.Couriers.Select(c => new
             {
-                key = e.Key,
-                name = e.Value.Name,
-                baseUrl = e.Value.BaseUrl,
-            })
-        });
+                c.Email, c.FirstName, c.SurName, c.Code, c.Mobile, c.VehicleType, c.CourierTypeId, c.FleetName,
+                hasInitialPassword = !string.IsNullOrEmpty(c.InitialPassword),
+            }),
+        },
+        partners = s.Partners,
+        training = s.TrainingProgress,
+    };
+
+    /// <summary>The browser never has the passwords back, so a blank one means "keep what's stored".</summary>
+    internal static CouriersStep MergeCouriers(CouriersStep stored, CouriersStep incoming)
+    {
+        foreach (var c in incoming.Couriers.Where(c => string.IsNullOrEmpty(c.InitialPassword)))
+        {
+            var prior = stored.Couriers.FirstOrDefault(p =>
+                string.Equals(p.Email?.Trim(), c.Email?.Trim(), StringComparison.OrdinalIgnoreCase));
+            c.InitialPassword = prior?.InitialPassword;
+        }
+        return incoming;
     }
 }
 
-// --- Request DTOs ---
-
-public record CreateSessionRequest(string? Environment);
-
-public class BusinessSaveRequest
-{
-    public string SessionId { get; set; } = "";
-    public string? CompanyName { get; set; }
-    public List<string>? Geography { get; set; }
-    public List<string>? Verticals { get; set; }
-    public string? CurrentSystem { get; set; }
-    public string? DeliveriesPerMonth { get; set; }
-    public string? LegalName { get; set; }
-    public string? RegistrationNumber { get; set; }
-    public string? CountryOfRegistration { get; set; }
-    public string? StateOfIncorporation { get; set; }
-    public string? BusinessType { get; set; }
-    public string? CardNumber { get; set; }
-    public string? CardExpiry { get; set; }
-    public string? CardCvc { get; set; }
-    public string? CardholderName { get; set; }
-    public Address? BillingAddress { get; set; }
-    public ContactInfo? PrimaryContact { get; set; }
-}
-
-public class TeamSaveRequest
-{
-    public string SessionId { get; set; } = "";
-    public List<TeamMember>? Members { get; set; }
-}
-
-public class ClientsSaveRequest
-{
-    public string SessionId { get; set; } = "";
-    public List<ClientRecord>? Clients { get; set; }
-}
-
-public class RatesSaveRequest
-{
-    public string SessionId { get; set; } = "";
-    public decimal BaseRate { get; set; }
-    public decimal PerKmRate { get; set; }
-    public decimal MinCharge { get; set; }
-    public decimal FuelSurcharge { get; set; }
-    public decimal WaitTime { get; set; }
-    public decimal AfterHours { get; set; }
-    public List<ZoneRateRow>? Zones { get; set; }
-    public List<WeightBreakRow>? WeightBreaks { get; set; }
-}
-
-public class CouriersSaveRequest
-{
-    public string SessionId { get; set; } = "";
-    public List<CourierRecord>? Couriers { get; set; }
-}
-
-public class AutomationsSaveRequest
-{
-    public string SessionId { get; set; } = "";
-    public List<SetupAutomationRule>? Rules { get; set; }
-}
-
-public class TrainingProgressRequest
-{
-    public string SessionId { get; set; } = "";
-    public List<TrainingMember>? Members { get; set; }
-}
-
-public class CompleteChallengeRequest
-{
-    public string SessionId { get; set; } = "";
-    public string UserEmail { get; set; } = "";
-    public string ChallengeId { get; set; } = "";
-    public int XpEarned { get; set; }
-}
+public sealed record CurrentStepRequest(int Step);
+public sealed record DataRequestCreate(string Item, DateTime? DueBy);
+public sealed record ChecklistTick(bool Done);
