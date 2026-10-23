@@ -1,6 +1,8 @@
 # Setup Dashboard
 
-DFRNT-internal tool for onboarding new tenants onto the TMS platform. A DF staff member walks the operator through a 10-step wizard.
+Onboarding app for new DFRNT tenants: an 11-step journey the tenant and DFRNT both see, with progress, what DFRNT is waiting on the tenant for, and a checklist of DFRNT-owned work. Every record is written through the app that owns it (Settings, Routed Operations) as the signed-in person - never through Admin Manager, and never with placeholder data. Design and status: [`docs/REWRITE-DESIGN-2026-10-24.md`](docs/REWRITE-DESIGN-2026-10-24.md).
+
+Tests: `dotnet test SetupDashboard.Tests -p:SkipNpm=true` and `cd SetupDashboard.Api/ClientApp && npm test`.
 
 ## Quick Start
 
