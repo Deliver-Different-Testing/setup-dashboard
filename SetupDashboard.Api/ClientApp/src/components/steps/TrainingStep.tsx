@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../../store'
+import * as api from '../../lib/api'
 import { SmartImport } from '../SmartImport'
 
 const CHALLENGES: Record<string, { id: string; title: string; desc: string; xp: number; prereqs: string[] }[]> = {
@@ -97,20 +98,18 @@ const CHALLENGE_INSTRUCTIONS: Record<string, string[]> = {
   'driver-master': ['Complete all other driver challenges to unlock this achievement!'],
 }
 
-export function Step9Training() {
-  const { trainingProgress, initTraining, completeChallenge, teamMembers } = useStore()
+export function TrainingStep() {
+  const { trainingProgress, initTraining, completeChallenge, teamMembers } = useTraining()
   const [leaderboardTab, setLeaderboardTab] = useState<'week' | 'all'>('all')
   const [activeRole, setActiveRole] = useState('dispatcher')
   const [selectedChallenge, setSelectedChallenge] = useState<string | null>(null)
 
-  const [trainingInitialized, setTrainingInitialized] = useState(false)
-
+  // initTraining only adds people who aren't on the board yet, so it's safe to call whenever the team changes.
+  const memberKey = teamMembers.map(m => m.email).join('|')
   useEffect(() => {
-    if (!trainingInitialized && teamMembers.length > 0) {
-      setTrainingInitialized(true)
-      initTraining()
-    }
-  }, [trainingInitialized, teamMembers, initTraining])
+    if (memberKey) initTraining()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when the set of people changes
+  }, [memberKey])
 
   // Build leaderboard
   const leaderboard = Object.entries(trainingProgress)
@@ -166,7 +165,7 @@ export function Step9Training() {
         📄 Smart Import Training Roster from Competitor TMS
       </button>
       {showSmartImport && (
-        <SmartImport entityType="team" onComplete={() => setShowSmartImport(false)} onClose={() => setShowSmartImport(false)} />
+        <SmartImport entityType="team" onComplete={() => { setShowSmartImport(false); useStore.getState().reload() }} onClose={() => setShowSmartImport(false)} />
       )}
 
       {/* Stats Bar */}
@@ -327,4 +326,39 @@ export function Step9Training() {
       )}
     </div>
   )
+}
+
+
+/**
+ * Adapts the session (team.people + training) to the shape this screen was built on.
+ * Progress is kept on the server per tenant session.
+ */
+function useTraining() {
+  const session = useStore(s => s.session)
+  const reload = useStore(s => s.reload)
+  const people = session?.team.people ?? []
+  const teamMembers = people
+    .filter(p => p.email)
+    .map(p => ({ name: [p.firstName, p.lastName].filter(Boolean).join(' ') || p.email!, email: p.email!, role: p.roleName || 'Staff' }))
+  const trainingProgress: Record<string, { xp: number; completedChallenges: string[]; currentStreak: number; lastActive?: string; role?: string }> = {}
+  for (const m of session?.training ?? []) {
+    trainingProgress[m.userEmail] = { xp: m.xp, completedChallenges: m.completedChallenges, currentStreak: m.currentStreak, lastActive: m.lastActive, role: m.role }
+  }
+
+  const initTraining = () => {
+    if (!session) return
+    const known = new Set((session.training ?? []).map(m => m.userEmail))
+    const added = teamMembers.filter(m => !known.has(m.email))
+      .map(m => ({ userEmail: m.email, userName: m.name, role: m.role, xp: 0, completedChallenges: [], currentStreak: 0 }))
+    if (added.length === 0) return
+    api.saveTraining(session.id, [...(session.training ?? []), ...added]).then(reload).catch(() => { /* retried next visit */ })
+  }
+
+  const completeChallenge = (email: string, challengeId: string) => {
+    if (!session) return
+    const xp = Object.values(CHALLENGES).flat().find(c => c.id === challengeId)?.xp ?? 0
+    api.completeChallenge(session.id, email, challengeId, xp).then(reload).catch(() => { /* shown on next load */ })
+  }
+
+  return { trainingProgress, initTraining, completeChallenge, teamMembers }
 }
