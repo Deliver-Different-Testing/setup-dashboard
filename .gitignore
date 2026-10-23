@@ -39,3 +39,7 @@ SetupDashboard.Api/Properties/launchSettings.json
 
 # SQLite data
 SetupDashboard.Api/data/
+
+# build output for every project
+[Bb]in/
+[Oo]bj/

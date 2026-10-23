@@ -1,198 +1,121 @@
-using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
 using SetupDashboard.Models;
 
 namespace SetupDashboard.Services;
 
+/// <summary>
+/// Tenant-scoped onboarding sessions. Every call names the tenant (from the
+/// caller's CurrentTenantID claim); a session belonging to another tenant is
+/// indistinguishable from one that doesn't exist.
+/// </summary>
 public interface ISessionStore
 {
-    SetupSession Create(string? environment = null);
-    SetupSession? Get(string id);
-    SetupSession GetOrThrow(string id);
-    List<SetupSession> List(string? status = null);
-    void Update(SetupSession session);
-    bool Delete(string id);
+    Task<SetupSession> CreateAsync(int tenantId, string? tenantCode, int? contactId, string? createdByName, CancellationToken ct = default);
+    Task<SetupSession?> GetAsync(int tenantId, string id, CancellationToken ct = default);
+    Task<List<SetupSession>> ListAsync(int tenantId, string? status = null, CancellationToken ct = default);
+    Task UpdateAsync(SetupSession session, CancellationToken ct = default);
+    Task<bool> DeleteAsync(int tenantId, string id, CancellationToken ct = default);
 }
 
 /// <summary>
-/// In-memory session store. Used as dev fallback when Redis is unavailable.
+/// One implementation over IDistributedCache: Redis in deployed environments,
+/// the in-memory distributed cache in development.
 /// </summary>
-public class InMemorySessionStore : ISessionStore
+/// <remarks>
+/// SLIDING 120 DAYS, NOT 24 HOURS. The old store expired a session a day after
+/// creation, which suits a demo and not an onboarding that waits on the tenant
+/// for weeks. Each write slides the expiry.
+/// </remarks>
+public class DistributedSessionStore(IDistributedCache cache, ILogger<DistributedSessionStore> logger) : ISessionStore
 {
-    private readonly ConcurrentDictionary<string, SetupSession> _sessions = new();
+    private static readonly DistributedCacheEntryOptions Lifetime = new() { SlidingExpiration = TimeSpan.FromDays(120) };
 
-    public SetupSession Create(string? environment = null)
-    {
-        var session = new SetupSession();
-        if (!string.IsNullOrEmpty(environment))
-            session.Environment = environment;
-        _sessions[session.Id] = session;
-        return session;
-    }
-
-    public SetupSession? Get(string id) => _sessions.TryGetValue(id, out var s) ? s : null;
-
-    public SetupSession GetOrThrow(string id)
-        => Get(id) ?? throw new KeyNotFoundException($"Session '{id}' not found");
-
-    public List<SetupSession> List(string? status = null)
-        => _sessions.Values
-            .Where(s => status == null || s.Status == status)
-            .OrderByDescending(s => s.UpdatedAt)
-            .ToList();
-
-    public void Update(SetupSession session)
-    {
-        session.UpdatedAt = DateTime.UtcNow;
-        _sessions[session.Id] = session;
-    }
-
-    public bool Delete(string id) => _sessions.TryRemove(id, out _);
-}
-
-/// <summary>
-/// Redis-backed session store. Sessions survive server restarts with 24h expiry.
-/// </summary>
-public class RedisSessionStore : ISessionStore
-{
-    private readonly IDistributedCache _cache;
-    private readonly ILogger<RedisSessionStore> _logger;
-    private const string KeyPrefix = "setup-session:";
-    private const string ActiveSetKey = "setup-sessions:active";
-    private static readonly DistributedCacheEntryOptions CacheOptions = new()
-    {
-        AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24)
-    };
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    internal static readonly JsonSerializerOptions Json = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
     };
 
-    public RedisSessionStore(IDistributedCache cache, ILogger<RedisSessionStore> logger)
-    {
-        _cache = cache;
-        _logger = logger;
-    }
+    private static string SessionKey(int tenantId, string id) => $"setup-session:{tenantId}:{id}";
+    private static string IndexKey(int tenantId) => $"setup-sessions:{tenantId}";
 
-    public SetupSession Create(string? environment = null)
+    public async Task<SetupSession> CreateAsync(int tenantId, string? tenantCode, int? contactId, string? createdByName, CancellationToken ct = default)
     {
-        var session = new SetupSession();
-        if (!string.IsNullOrEmpty(environment))
-            session.Environment = environment;
-        SaveToCache(session);
+        if (tenantId <= 0) throw new ArgumentOutOfRangeException(nameof(tenantId), "A session needs the caller's tenant.");
+
+        var session = new SetupSession
+        {
+            TenantId = tenantId,
+            TenantCode = tenantCode,
+            CreatedByContactId = contactId,
+            CreatedByName = createdByName,
+        };
+        await SaveAsync(session, ct);
+        await AddToIndexAsync(tenantId, session.Id, ct);
         return session;
     }
 
-    public SetupSession? Get(string id)
+    public async Task<SetupSession?> GetAsync(int tenantId, string id, CancellationToken ct = default)
     {
-        try
-        {
-            var json = _cache.GetString($"{KeyPrefix}{id}");
-            if (string.IsNullOrEmpty(json)) return null;
-            return JsonSerializer.Deserialize<SetupSession>(json, JsonOptions);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to get session {Id} from Redis", id);
-            return null;
-        }
+        if (tenantId <= 0 || string.IsNullOrWhiteSpace(id)) return null;
+
+        var json = await cache.GetStringAsync(SessionKey(tenantId, id), ct);
+        if (string.IsNullOrEmpty(json)) return null;
+
+        var session = JsonSerializer.Deserialize<SetupSession>(json, Json);
+        // Belt and braces: the key already carries the tenant.
+        return session?.TenantId == tenantId ? session : null;
     }
 
-    public SetupSession GetOrThrow(string id)
-        => Get(id) ?? throw new KeyNotFoundException($"Session '{id}' not found");
+    public async Task<List<SetupSession>> ListAsync(int tenantId, string? status = null, CancellationToken ct = default)
+    {
+        var result = new List<SetupSession>();
+        foreach (var id in await ReadIndexAsync(tenantId, ct))
+        {
+            var s = await GetAsync(tenantId, id, ct);
+            if (s != null && (status == null || s.Status == status)) result.Add(s);
+        }
+        return result.OrderByDescending(s => s.UpdatedAt).ToList();
+    }
 
-    public List<SetupSession> List(string? status = null)
+    public async Task UpdateAsync(SetupSession session, CancellationToken ct = default)
+    {
+        session.UpdatedAt = DateTime.UtcNow;
+        await SaveAsync(session, ct);
+    }
+
+    public async Task<bool> DeleteAsync(int tenantId, string id, CancellationToken ct = default)
+    {
+        if (await GetAsync(tenantId, id, ct) == null) return false;
+        await cache.RemoveAsync(SessionKey(tenantId, id), ct);
+        var ids = await ReadIndexAsync(tenantId, ct);
+        ids.Remove(id);
+        await cache.SetStringAsync(IndexKey(tenantId), JsonSerializer.Serialize(ids), Lifetime, ct);
+        return true;
+    }
+
+    private Task SaveAsync(SetupSession session, CancellationToken ct)
+        => cache.SetStringAsync(SessionKey(session.TenantId, session.Id), JsonSerializer.Serialize(session, Json), Lifetime, ct);
+
+    private async Task AddToIndexAsync(int tenantId, string id, CancellationToken ct)
+    {
+        var ids = await ReadIndexAsync(tenantId, ct);
+        if (!ids.Contains(id)) ids.Add(id);
+        await cache.SetStringAsync(IndexKey(tenantId), JsonSerializer.Serialize(ids), Lifetime, ct);
+    }
+
+    private async Task<List<string>> ReadIndexAsync(int tenantId, CancellationToken ct)
     {
         try
         {
-            var indexJson = _cache.GetString(ActiveSetKey);
-            if (string.IsNullOrEmpty(indexJson)) return new();
-
-            var ids = JsonSerializer.Deserialize<List<string>>(indexJson) ?? new();
-            var sessions = new List<SetupSession>();
-            foreach (var id in ids)
-            {
-                var session = Get(id);
-                if (session != null && (status == null || session.Status == status))
-                    sessions.Add(session);
-            }
-            return sessions.OrderByDescending(s => s.UpdatedAt).ToList();
+            var json = await cache.GetStringAsync(IndexKey(tenantId), ct);
+            return string.IsNullOrEmpty(json) ? new() : JsonSerializer.Deserialize<List<string>>(json) ?? new();
         }
-        catch (Exception ex)
+        catch (JsonException ex)
         {
-            _logger.LogWarning(ex, "Failed to list sessions from Redis");
+            logger.LogWarning(ex, "Session index for tenant {TenantId} was unreadable; starting a new one", tenantId);
             return new();
         }
     }
-
-    public void Update(SetupSession session)
-    {
-        session.UpdatedAt = DateTime.UtcNow;
-        SaveToCache(session);
-    }
-
-    public bool Delete(string id)
-    {
-        try
-        {
-            _cache.Remove($"{KeyPrefix}{id}");
-            RemoveFromIndex(id);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to delete session {Id} from Redis", id);
-            return false;
-        }
-    }
-
-    private void SaveToCache(SetupSession session)
-    {
-        var json = JsonSerializer.Serialize(session, JsonOptions);
-        _cache.SetString($"{KeyPrefix}{session.Id}", json, CacheOptions);
-        AddToIndex(session.Id);
-    }
-
-    private void AddToIndex(string id)
-    {
-        try
-        {
-            var indexJson = _cache.GetString(ActiveSetKey);
-            var ids = string.IsNullOrEmpty(indexJson)
-                ? new List<string>()
-                : JsonSerializer.Deserialize<List<string>>(indexJson) ?? new();
-            if (!ids.Contains(id))
-            {
-                ids.Add(id);
-                _cache.SetString(ActiveSetKey, JsonSerializer.Serialize(ids), CacheOptions);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to add session {Id} to index", id);
-        }
-    }
-
-    private void RemoveFromIndex(string id)
-    {
-        try
-        {
-            var indexJson = _cache.GetString(ActiveSetKey);
-            if (string.IsNullOrEmpty(indexJson)) return;
-            var ids = JsonSerializer.Deserialize<List<string>>(indexJson) ?? new();
-            ids.Remove(id);
-            _cache.SetString(ActiveSetKey, JsonSerializer.Serialize(ids), CacheOptions);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to remove session {Id} from index", id);
-        }
-    }
 }
-
-/// <summary>
-/// Backwards-compatible alias — existing code references SessionStore directly.
-/// </summary>
-public class SessionStore : InMemorySessionStore { }

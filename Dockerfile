@@ -1,9 +1,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build-env
 WORKDIR /App
 
-# Install Node.js 20 (frontend is built via the .csproj NpmBuild MSBuild target)
+# Install Node.js 22 LTS (frontend is built via the .csproj NpmBuild MSBuild target)
 RUN apt-get update && apt-get install -y curl
-RUN curl -sL https://deb.nodesource.com/setup_20.x | bash -
+RUN curl -sL https://deb.nodesource.com/setup_22.x | bash -
 RUN apt-get install -y nodejs
 
 # Restore layer caching. GITLAB_NUGET_USERNAME/GITLAB_NUGET_TOKEN authenticate
