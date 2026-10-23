@@ -54,22 +54,22 @@ const step = (key: StepKey, extra: Partial<StepState> = {}): StepState => ({
 
 function sampleSession(): Session {
   const s: Session = {
-    id: 'demo-session', tenantCode: 'cheetah', currentStep: 2, status: 'active', createdByName: 'Sample DFRNT staff',
+    id: 'demo-session', tenantCode: 'example', currentStep: 2, status: 'active', createdByName: 'Sample DFRNT staff',
     createdAt: daysAgo(6), updatedAt: daysAgo(0),
     steps: Object.fromEntries(STEP_KEYS.map(k => [k, step(k)])) as Record<StepKey, StepState>,
     business: {
-      companyName: 'Cheetah Final Mile', legalName: 'Cheetah Final Mile LLC', country: 'United States',
+      companyName: 'Example Final Mile', legalName: 'Example Final Mile LLC', country: 'United States',
       geography: ['Kansas City', 'Fort Lauderdale'], verticals: ['Final mile', 'Retail'], currentSystem: 'Datatrac', deliveriesPerMonth: '6,000',
       primaryContact: { name: 'Sample Admin', email: 'admin@example.com', phone: '(555) 010 0100', title: 'Chief Executive Officer' },
     },
     team: {
       roles: [
-        { name: 'Cheetah Admin', description: 'Tenant administrator', tiles: ['hub-tile-configurator', 'hub-tile-despatchweb', 'hub-tile-booking', 'hub-tile-tracking', 'hub-tile-accounts', 'hub-tile-print', 'hub-tile-routed-operations', 'hub-tile-dfrntcrm'] },
-        { name: 'Cheetah Operations', description: 'Operations staff - everything except Accounts', tiles: ['hub-tile-configurator', 'hub-tile-despatchweb', 'hub-tile-booking', 'hub-tile-tracking', 'hub-tile-print', 'hub-tile-routed-operations', 'hub-tile-dfrntcrm'] },
+        { name: 'Example Admin', description: 'Tenant administrator', tiles: ['hub-tile-configurator', 'hub-tile-despatchweb', 'hub-tile-booking', 'hub-tile-tracking', 'hub-tile-accounts', 'hub-tile-print', 'hub-tile-routed-operations', 'hub-tile-dfrntcrm'] },
+        { name: 'Example Operations', description: 'Operations staff - everything except Accounts', tiles: ['hub-tile-configurator', 'hub-tile-despatchweb', 'hub-tile-booking', 'hub-tile-tracking', 'hub-tile-print', 'hub-tile-routed-operations', 'hub-tile-dfrntcrm'] },
       ],
       people: [
-        { email: 'admin@example.com', firstName: 'Sample', lastName: 'Admin', jobTitle: 'Chief Executive Officer', roleName: 'Cheetah Admin', inviteConfirmed: true },
-        { email: 'ops@example.com', firstName: 'Sample', lastName: 'Dispatcher', roleName: 'Cheetah Operations', inviteConfirmed: false },
+        { email: 'admin@example.com', firstName: 'Sample', lastName: 'Admin', jobTitle: 'Chief Executive Officer', roleName: 'Example Admin', inviteConfirmed: true },
+        { email: 'ops@example.com', firstName: 'Sample', lastName: 'Dispatcher', roleName: 'Example Operations', inviteConfirmed: false },
       ],
     },
     clients: [
@@ -95,8 +95,8 @@ function sampleSession(): Session {
   s.steps.business.status = 'in_progress'
   s.steps.team.status = 'in_progress'
   s.steps.team.rows = [
-    row('role', 'Cheetah Admin', 'created', { entityId: 9 }),
-    row('role', 'Cheetah Operations', 'created', { entityId: 10 }),
+    row('role', 'Example Admin', 'created', { entityId: 9 }),
+    row('role', 'Example Operations', 'created', { entityId: 10 }),
     row('person', 'admin@example.com', 'needs_data', { needs: ["Waiting for DFRNT to confirm the tenant's system settings and invite wording (Business step) - nobody is emailed before that."] }),
   ]
   s.steps.clients = { ...s.steps.clients, status: 'waiting_on_tenant', requests: [{ id: 'r1', item: 'Full customer list with addresses and billing contacts', requestedAt: daysAgo(3), requestedBy: 'Sample DFRNT staff', dueBy: daysAgo(-4) }] }
@@ -287,7 +287,7 @@ function view(): Session {
 
 // ── The API surface ────────────────────────────────────────────────────────────
 
-const me: Me = { success: true, tenantId: '7', tenantCode: 'cheetah', clientTypeId: 5, isDfAdmin: true, isUsTenant: true, name: 'Sample DFRNT staff' }
+const me: Me = { success: true, tenantId: '7', tenantCode: 'example', clientTypeId: 5, isDfAdmin: true, isUsTenant: true, name: 'Sample DFRNT staff' }
 
 export const validateLogin = () => wait(me, 300)
 export const listSessions = () => wait<{ sessions: SessionSummary[] }>({
@@ -357,9 +357,9 @@ export const reopenStep = (_id: string, key: StepKey) => {
   return wait({ session: view() })
 }
 
-// Deliberately shows another tenant's details, the way Cheetah's new database did.
+// Deliberately shows another tenant's details, the way a newly copied tenant database can.
 export const getTenantSummary = () => wait({
-  settings: { CompanyAddress: 'PO Box 6395, Wellesley Street, Auckland 1141', AdminEmail: 'helpdesk@urgent.co.nz', CountryCode: '', ApplicationName: 'Mercury' },
+  settings: { CompanyAddress: 'PO Box 1000, Sample Street, Auckland 1010', AdminEmail: 'helpdesk@another-tenant.example', CountryCode: '', ApplicationName: 'Mercury' },
   counts: { Clients: 0, Team: 9, Couriers: 2, Zones: 0, Automations: 0 },
 })
 export const getTenantLogo = () => wait({ success: false, logoUrl: null })

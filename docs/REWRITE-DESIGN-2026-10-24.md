@@ -132,6 +132,10 @@ Steve, 24 Oct: flag these; they can probably be added as part of the agent-acces
 
 Guarantees with a test behind them: no anonymous endpoints; tenant DbContext throws on save (no `tucStaff` / `tblUser` can be written); sessions invisible across tenants; courier passwords never in a response and cleared after create; no invented values in a customer push; a failed row never causes a later row to be re-sent; nobody is invited before the Business "system settings and email wording" item is ticked; rates always carry `clientIds`.
 
+### Click-through demo (the reference for "does the build match")
+
+**https://deliver-different-testing.github.io/setup-dashboard/rewrite/** (public, sample data). The real screens from this branch on an in-browser mock API (`src/demo/mockApi.ts`), built with `npm run build:demo` and published to `gh-pages` under `rewrite/`. The mock applies the same required-field rules as the step pushers. When the staging deploy is up, walk the same path on both and check they match: step order and status pills, the Business "system settings now" warning and checklist, invites held until the tenant-identity item is ticked, Customers' required fields and "Needs: …" rows, rates showing "Applies to every customer", schedules' day-window grid, couriers' password never shown back, requests to the tenant and the "Waiting on" header. Differences that come from real Settings data (lookup contents, real messages) are expected; differences in behaviour aren't. Rebuild the demo from the merged code with `npm run build:demo` if the screens change.
+
 ### Before merging - confirm on staging
 
 1. **Base URLs**: set `TenantApps__UrlTemplate` (e.g. `https://{app}.{tenant}.staging.deliverdifferent.com`) or `TenantURL` (Hub style, `app_name`) in the setup-dashboard Helm secrets, per environment. Without either, the fallback is `https://{app}.{Domain}`.
@@ -140,7 +144,7 @@ Guarantees with a test behind them: no anonymous endpoints; tenant DbContext thr
 4. **Feature switches**: for Tenant Staff (type 4) on the tenant, `cfg-team-users`, `cfg-settings-roles`, `cfg-settings-tile-access`, `cfg-customers`, `cfg-pricing`, `cfg-fleet`, `multi-client`, `ro-schedules-new` are visible, or the pushes 403 with Settings' message. And `hub-tile-setup-dashboard` is opened for Tenant if tenant admins should see the app (closed by migration 20261015100000).
 5. **Lookup shapes** read by the UI: `invoice-schedules` / `payment-terms` (`{options, defaultId}`), `tile-access` `tiles[].featureKey/displayName/condition`, `np/regions` `{id,name}`, `contacts/lookups/roles` `{id,name}`.
 6. **Brand-new tenant**: first customer create when no customer exists yet (`SiteId` copied from an existing customer - G8). If it fails, Settings' message comes back on the row; G8 is the fix.
-7. **One end-to-end pass** on a staging tenant: Business checklist ticked → Team (1 role, 2 tiles, 1 person) → 1 customer → 1 zone group/zone/zip + 1 zone rate → 1 schedule → 1 fleet + 1 courier → 1 partner. Check each record in Settings / Routed Ops, the invite emails' wording, and that no row was written twice.
+7. **One end-to-end pass** on a staging tenant, side by side with the click-through demo above: Business checklist ticked → Team (1 role, 2 tiles, 1 person) → 1 customer → 1 zone group/zone/zip + 1 zone rate → 1 schedule → 1 fleet + 1 courier → 1 partner. Check each record in Settings / Routed Ops, the invite emails' wording, and that no row was written twice.
 
 ### Files
 
