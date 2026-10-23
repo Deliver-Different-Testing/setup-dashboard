@@ -116,6 +116,37 @@ Steve, 24 Oct: flag these; they can probably be added as part of the agent-acces
 | M7 | Integrations + app config checklists | deep links per tenant URL; manual ticks |
 | M8 | Tests + staging run + handover | xUnit + vitest green; one staging tenant run end to end; Jacob card + Slack |
 
+## Build status (24 Oct 2026, branch `feat/settings-rewrite`)
+
+| # | Status | Notes |
+|---|---|---|
+| M0 | **Coded** | Admin Manager client, TMS SDK, provisioning service, env-credential fallback, environment picker, card fields, dev auto-login bypass all removed. `FallbackPolicy = RequireAuthenticatedUser`; no `[AllowAnonymous]` anywhere (test). Sessions tenant-scoped, 120-day sliding. Node 22. |
+| M1 | **Coded** | `Services/TenantApps/TenantAppClient.cs` - shared cookie only, `X-Requested-With`, per-tenant warm-up of each app's `GET /`, no redirects, no cookie jar; target's messages verbatim. |
+| M2 | **Coded** | `StepState` (status, requests, rows, checklist); `StepFrame.tsx`; header "Waiting on <tenant>: N"; progress PDF. |
+| M3 | **Coded** | `TeamPusher` - role (Tenant Staff), Access Control tiles, contact on the tenant client with role. |
+| M4 | **Coded** | `ClientsPusher` - Settings customer create + extra contacts + optional sign-in. |
+| M5 | **Coded** | `RatesPusher` - vehicle sizes, zone groups/names/zips, fuel surcharges, zone and distance rates with explicit `clientIds`. |
+| M6 | **Coded, with one change** | Schedules (Routed Ops), couriers + fleets, partners coded. **Automations became a checklist step** (link to Settings > Automations): building rules needs the tenant's own status ids and templates, and Settings rules go live on create with a likely `all*` scope bug (G11). D3 is therefore moot. |
+| M7 | **Coded** | Integrations and App config are checklists with deep links per tenant URL. |
+| M8 | **Partly** | xUnit 36 passing; vitest 8 passing; `tsc` + `eslint` clean; full `dotnet build` green; local smoke test: every `/api` endpoint 302s to Hub when signed out, `/health/live` 200. **Not done: a staging run** (needs a GitLab deploy; this branch is on the GitHub mirror only). |
+
+Guarantees with a test behind them: no anonymous endpoints; tenant DbContext throws on save (no `tucStaff` / `tblUser` can be written); sessions invisible across tenants; courier passwords never in a response and cleared after create; no invented values in a customer push; a failed row never causes a later row to be re-sent; nobody is invited before the Business "system settings and email wording" item is ticked; rates always carry `clientIds`.
+
+### Before merging - confirm on staging
+
+1. **Base URLs**: set `TenantApps__UrlTemplate` (e.g. `https://{app}.{tenant}.staging.deliverdifferent.com`) or `TenantURL` (Hub style, `app_name`) in the setup-dashboard Helm secrets, per environment. Without either, the fallback is `https://{app}.{Domain}`.
+2. **Logo**: `S3BucketBulk` env var (Hub's) - the old code derived the bucket from the removed environment key.
+3. **Warm-up**: the forwarded cookie's `GET /` on Settings and Routed Ops returns 200 (not a redirect) for a DF Admin and for a Tenant Staff user.
+4. **Feature switches**: for Tenant Staff (type 4) on the tenant, `cfg-team-users`, `cfg-settings-roles`, `cfg-settings-tile-access`, `cfg-customers`, `cfg-pricing`, `cfg-fleet`, `multi-client`, `ro-schedules-new` are visible, or the pushes 403 with Settings' message. And `hub-tile-setup-dashboard` is opened for Tenant if tenant admins should see the app (closed by migration 20261015100000).
+5. **Lookup shapes** read by the UI: `invoice-schedules` / `payment-terms` (`{options, defaultId}`), `tile-access` `tiles[].featureKey/displayName/condition`, `np/regions` `{id,name}`, `contacts/lookups/roles` `{id,name}`.
+6. **Brand-new tenant**: first customer create when no customer exists yet (`SiteId` copied from an existing customer - G8). If it fails, Settings' message comes back on the row; G8 is the fix.
+7. **One end-to-end pass** on a staging tenant: Business checklist ticked → Team (1 role, 2 tiles, 1 person) → 1 customer → 1 zone group/zone/zip + 1 zone rate → 1 schedule → 1 fleet + 1 courier → 1 partner. Check each record in Settings / Routed Ops, the invite emails' wording, and that no row was written twice.
+
+### Files
+
+Backend: `Controllers/{Setup,Lookups,Validate,Training,Import,Login}Controller.cs`, `Services/TenantApps/*`, `Services/Steps/*`, `Services/SessionStore.cs`, `Services/CallerContext.cs`, `Models/Session.cs`, `Core/Domain/DynamicDespatchDbContext.cs` (read-only). Tests: `SetupDashboard.Tests/`.
+Frontend: `ClientApp/src/{store.ts,App.tsx,lib/api.ts,lib/helpers.ts}`, `components/{StepFrame,ui,useDraft,Header,ProgressBar,ResumeSession,PdfSummary}.tsx`, `components/steps/*Step.tsx`.
+
 ## Appendix A - calling the apps
 
 | | Settings (configurator) | Routed Ops | Integration Manager |

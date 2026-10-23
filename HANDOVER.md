@@ -1,5 +1,8 @@
 # Setup Dashboard — Handover for Kevin
 
+> **Superseded 24 Oct 2026.** This describes the Admin Manager write path that the `feat/settings-rewrite` branch removes. Current design, build status and staging checks: [`docs/REWRITE-DESIGN-2026-10-24.md`](docs/REWRITE-DESIGN-2026-10-24.md).
+
+
 > **Date:** 11 March 2026
 > **From:** Steve / EasyEA
 > **To:** Kevin
