@@ -1,116 +1,47 @@
-import { useStore } from '../store'
-import * as api from '../lib/api'
 import { useState } from 'react'
+import { useStore } from '../store'
 
+/** Shown when this tenant has setups in progress and the browser doesn't remember one. */
 export function ResumeSession() {
-  const { availableSessions, showResumePrompt, dismissResumePrompt, resumeSession, initSession } = useStore()
-  const [loading, setLoading] = useState<string | null>(null)
-
-  if (!showResumePrompt || availableSessions.length === 0) return null
-
-  const session = availableSessions[0]
-  const companyName = (session.businessData as any)?.companyName || 'Unknown Company'
-  const stepsCompleted = (session.completedSteps || []).length
-  const updated = new Date(session.updatedAt).toLocaleString()
-
-  const handleResume = async () => {
-    setLoading(session.id)
-    try {
-      const full = await api.getFullSession(session.id)
-      sessionStorage.setItem('setup-dashboard-prompted', '1')
-      resumeSession(full)
-    } catch (e) {
-      console.error('Failed to resume session:', e)
-      setLoading(null)
-    }
-  }
-
-  const handleFresh = () => {
-    // Clear persisted session data so we start clean
-    sessionStorage.removeItem('setup-dashboard-session')
-    sessionStorage.removeItem('setup-dashboard-prompted')
-    // Reset all wizard state to defaults
-    useStore.setState({
-      currentStep: 0,
-      completedSteps: new Set(),
-      sessionId: null,
-      companyName: '',
-      geography: '',
-      selectedCities: [],
-      selectedVerticals: [],
-      currentSystem: '',
-      deliveryVolume: '',
-      legalName: '',
-      registrationNumber: '',
-      countryOfRegistration: '',
-      stateOfIncorporation: '',
-      businessType: '',
-      primaryContact: { name: '', email: '', phone: '', title: '' },
-      billingAddress: { street: '', city: '', state: '', zip: '' },
-      cardholderName: '',
-      teamMembers: [{ name: '', email: '', role: 'Admin' }],
-      clients: [],
-      clientContacts: [],
-      rates: {} as any,
-      zonePricing: [['Zone A', '15', '20', '30', '45'], ['Zone B', '18', '25', '35', '55']],
-      weightBreaks: ['0', '5', '12', '25', '40'],
-      couriers: [],
-      automations: {},
-      integrationPrompt: '',
-      appFeatures: {},
-      selectedProfiles: [],
-      useOverflow: false,
-      joinNetwork: false,
-      trainingProgress: {},
-      tenantDataLoaded: false,
-      tenantCounts: null,
-      tenantLogoUrl: null,
-      goLiveStatus: 'idle',
-      goLiveResult: null,
-    })
-    sessionStorage.setItem('setup-dashboard-prompted', '1')
-    dismissResumePrompt()
-    initSession()
-  }
+  const { showResumePrompt, sessions, resume, startNew, me, removeSession } = useStore()
+  const [busy, setBusy] = useState<string | null>(null)
+  if (!showResumePrompt) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
-        <div className="text-center mb-6">
-          <div className="text-4xl mb-3">📋</div>
-          <h2 className="text-xl font-bold text-navy">Welcome Back!</h2>
-          <p className="text-gray-500 text-sm mt-1">You have a previous setup session. Resume where you left off?</p>
-        </div>
-
-        <div className="bg-lgrey rounded-xl p-4 mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-semibold text-navy">{companyName}</span>
-            <span className="text-xs bg-cyan/10 text-cyan px-2 py-0.5 rounded-full font-medium">{session.environment}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm text-gray-500">
-            <span>{stepsCompleted}/10 steps completed</span>
-            <span>{updated}</span>
-          </div>
-          <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div className="h-full bg-cyan rounded-full transition-all" style={{ width: `${(stepsCompleted / 10) * 100}%` }} />
-          </div>
-        </div>
-
-        <div className="flex gap-3">
-          <button
-            onClick={handleFresh}
-            className="flex-1 px-4 py-2.5 rounded-full border border-gray-300 text-sm font-semibold text-gray-500 hover:border-navy hover:text-navy transition"
-          >
-            Start Fresh
-          </button>
-          <button
-            onClick={handleResume}
-            disabled={loading !== null}
-            className="flex-1 px-4 py-2.5 rounded-full bg-cyan text-white text-sm font-semibold hover:bg-cyan-dark transition shadow-lg shadow-cyan/20 disabled:opacity-60"
-          >
-            {loading ? '⟳ Loading...' : 'Resume →'}
-          </button>
-        </div>
+    <div className="fixed inset-0 z-[200] bg-navy/60 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
+        <h2 className="text-lg font-bold text-navy">Carry on with a setup?</h2>
+        <p className="text-sm text-gray-500 mt-1">This tenant already has setup in progress.</p>
+        <ul className="mt-4 space-y-2">
+          {sessions.map(s => (
+            <li key={s.id} className="flex items-center justify-between gap-3 border border-gray-100 rounded-xl px-4 py-3">
+              <div>
+                <div className="text-sm font-semibold text-navy">{s.companyName || 'Unnamed setup'}</div>
+                <div className="text-[11px] text-gray-400">
+                  {s.stepsDone} of 11 steps done{s.waitingOnTenant ? ` · waiting on tenant for ${s.waitingOnTenant}` : ''} · updated {new Date(s.updatedAt).toLocaleDateString()}
+                  {s.createdByName ? ` · started by ${s.createdByName}` : ''}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {me?.isDfAdmin && (
+                  <button className="text-xs text-gray-400 hover:text-red-500" disabled={!!busy}
+                    title="Forget this setup. Nothing already created in Settings is removed."
+                    onClick={async () => { if (confirm('Forget this setup? Nothing already created in Settings or Routed Ops is removed.')) { setBusy(s.id); try { await removeSession(s.id) } finally { setBusy(null) } } }}>
+                    Forget
+                  </button>
+                )}
+                <button className="px-4 py-1.5 rounded-full bg-cyan text-white text-xs font-semibold disabled:opacity-50" disabled={!!busy}
+                  onClick={async () => { setBusy(s.id); try { await resume(s.id) } finally { setBusy(null) } }}>
+                  {busy === s.id ? 'Opening…' : 'Continue'}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <button className="mt-4 text-xs text-gray-500 hover:text-navy underline" disabled={!!busy}
+          onClick={async () => { setBusy('new'); try { await startNew() } finally { setBusy(null) } }}>
+          Start a separate setup instead
+        </button>
       </div>
     </div>
   )

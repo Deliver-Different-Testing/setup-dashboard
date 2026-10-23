@@ -26,7 +26,7 @@ export function ChatSidebar() {
     if (!input.trim()) return
     addChatMessage({ from: 'user', text: input.trim() })
     setInput('')
-    setTimeout(() => addChatMessage({ from: 'bot', text: "Got it! I'll update your settings. 👍" }), 800)
+    setTimeout(() => addChatMessage({ from: 'bot', text: "Thanks! I'm a scripted guide for now, so I can't act on messages yet - please use the form on this step. 👍" }), 800)
   }
 
   return (
