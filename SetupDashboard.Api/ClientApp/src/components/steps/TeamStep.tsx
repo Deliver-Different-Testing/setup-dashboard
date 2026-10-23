@@ -35,7 +35,7 @@ export function TeamStep() {
           {draft.roles.map((r, i) => (
             <div key={i} className="border border-gray-100 rounded-xl p-3">
               <div className="flex gap-3 items-end">
-                <div className="flex-1"><Text label="Role name" required value={r.name} onChange={v => setRoles(patchAt(draft.roles, i, { name: v }))} placeholder="e.g. Cheetah Admin" /></div>
+                <div className="flex-1"><Text label="Role name" required value={r.name} onChange={v => setRoles(patchAt(draft.roles, i, { name: v }))} placeholder="e.g. Tenant Admin" /></div>
                 <div className="flex-1"><Text label="Description" value={r.description} onChange={v => setRoles(patchAt(draft.roles, i, { description: v }))} /></div>
                 <RemoveBtn onClick={() => setRoles(removeAt(draft.roles, i))} />
               </div>
