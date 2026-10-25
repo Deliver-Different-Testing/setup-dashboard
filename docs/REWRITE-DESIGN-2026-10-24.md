@@ -146,6 +146,15 @@ Guarantees with a test behind them: no anonymous endpoints; tenant DbContext thr
 6. **Brand-new tenant**: first customer create when no customer exists yet (`SiteId` copied from an existing customer - G8). If it fails, Settings' message comes back on the row; G8 is the fix.
 7. **One end-to-end pass** on a staging tenant, side by side with the click-through demo above: Business checklist ticked → Team (1 role, 2 tiles, 1 person) → 1 customer → 1 zone group/zone/zip + 1 zone rate → 1 schedule → 1 fleet + 1 courier → 1 partner. Check each record in Settings / Routed Ops, the invite emails' wording, and that no row was written twice.
 
+### Help centre (25 Oct 2026)
+
+`docs/help/`: 38 short articles + 54 FAQs covering every step, every Smart Import file and the messages the dashboard
+shows, each one true to the `Validate` rules in `Services/Steps/*Pusher.cs`. Written for the CSP Knowledge Base
+**shipped** collection so Ask Auto-Mate can answer setup questions; `docs/help/README.md` has the front-matter contract,
+the Auto-Mate retrieval constraints the articles are shaped for (3 hits x 400 chars) and three publishing options
+(migration, CSP sync endpoint, MCP tool) - the mechanism is Steve's decision. `node docs/help/build-manifest.mjs`
+regenerates `manifest.json` and validates FAQs. The stale March `helpContent.ts` (unused) and `setup-guide.md` were replaced.
+
 ### Files
 
 Backend: `Controllers/{Setup,Lookups,Validate,Training,Import,Login}Controller.cs`, `Services/TenantApps/*`, `Services/Steps/*`, `Services/SessionStore.cs`, `Services/CallerContext.cs`, `Models/Session.cs`, `Core/Domain/DynamicDespatchDbContext.cs` (read-only). Tests: `SetupDashboard.Tests/`.

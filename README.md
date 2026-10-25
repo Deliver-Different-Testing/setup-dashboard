@@ -49,5 +49,5 @@ Set in `Properties/launchSettings.json` for dev (gitignored — contains local D
 - `IMPLEMENTATION.md` — Detailed technical reference
 - `PLANNING.md` — Architecture and roadmap
 - `MIGRATION-MAPPING.md` — Competitor TMS column mappings
-- `docs/setup-guide.md` — End-user setup guide for DF staff
+- `docs/setup-guide.md` — index of the help centre in `docs/help/` (articles + FAQs for the CSP Knowledge Base / Ask Auto-Mate)
 - `changes.log` — Detailed change history
