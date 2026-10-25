@@ -75,8 +75,11 @@ means a fan-out to every tenant database. Three ways to do it, in order of how s
 Recommendation: **B**, with **A** as the stop-gap if Auto-Mate help is wanted before the CSP endpoint exists. Either
 way the upsert key is `SourceId`, so re-publishing updates in place and `IsHidden` set by a tenant survives.
 
-A generator for A is a one-evening job: read `manifest.json`, render each markdown body to HTML and text, emit one
-idempotent `MERGE` per article and FAQ. Not written yet because the mechanism is Steve's call.
+The generator for A exists: `node docs/help/build-migration.mjs <out.sql>` renders every article to HTML + flattened text
+and emits one idempotent `MERGE` per article (by `SourceId`) plus the category and FAQs, guarded on the KB tables
+existing. Each content change is a NEW migration file (DbUp journals by filename). First one:
+dbmigrationsv2 `DatabaseScripts/Migrations/20261026120000_SeedShippedKbSetupDashboardHelp.sql`
+(branch `docs/seed-shipped-kb-setup-dashboard` on the GitHub mirror, dry-run twice on LocalDB 26 Oct 2026).
 
 ## Keeping it true
 
