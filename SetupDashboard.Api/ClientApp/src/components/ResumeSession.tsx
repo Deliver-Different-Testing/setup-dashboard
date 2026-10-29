@@ -14,8 +14,8 @@ export function ResumeSession() {
 
   // A choice has to be made (carry on, or start a separate setup), so there is no close.
   return (
-    <DialogShell opened onClose={() => {}} closeOnClickOutside={false} closeOnEscape={false} size={DIALOG_SIZES.md} label="Carry on with a setup?">
-      <DialogHeader icon={<History size={20} strokeWidth={1.25} />} title="Carry on with a setup?" subtitle="This tenant already has setup in progress." />
+    <DialogShell opened onClose={() => {}} closeOnClickOutside={false} closeOnEscape={false} size={DIALOG_SIZES.md} label="Continue a setup?">
+      <DialogHeader icon={<History size={20} strokeWidth={1.25} />} title="Continue a setup?" subtitle="This tenant has setups in progress. Continue one or start a new one." />
       <Box p="lg">
         <Stack gap={8} component="ul" m={0} p={0} style={{ listStyle: 'none' }}>
           {sessions.map(s => (
@@ -24,21 +24,21 @@ export function ResumeSession() {
                 <div>
                   <Text size="sm" fw={600}>{s.companyName || 'Unnamed setup'}</Text>
                   <Text fz={11} c="dimmed">
-                    {s.stepsDone} of 11 steps done{s.waitingOnTenant ? ` · waiting on tenant for ${s.waitingOnTenant}` : ''} · updated {new Date(s.updatedAt).toLocaleDateString()}
+                    {s.stepsDone} of 11 steps done{s.waitingOnTenant ? ` · ${s.waitingOnTenant} waiting on tenant` : ''} · updated {new Date(s.updatedAt).toLocaleDateString()}
                     {s.createdByName ? ` · started by ${s.createdByName}` : ''}
                   </Text>
                 </div>
                 <Group gap="xs" wrap="nowrap">
                   {me?.isDfAdmin && (
-                    <Button variant="subtle" color="red" size="xs" disabled={!!busy}
-                      title="Forget this setup. Nothing already created in Settings is removed."
-                      onClick={async () => { if (confirm('Forget this setup? Nothing already created in Settings or Routed Ops is removed.')) { setBusy(s.id); try { await removeSession(s.id) } finally { setBusy(null) } } }}>
-                      Forget
+                    <Button variant="subtle" color="red" size="xs" disabled={!!busy} aria-label={`Forget setup ${s.companyName || 'Unnamed setup'}`}
+                      title="Forget this setup. Items already created in Settings stay."
+                      onClick={async () => { if (confirm('Forget this setup? Items already created in Settings or Routed Operations stay.')) { setBusy(s.id); try { await removeSession(s.id) } finally { setBusy(null) } } }}>
+                      Forget setup
                     </Button>
                   )}
-                  <Button size="xs" miw={100} disabled={!!busy && busy !== s.id} loading={busy === s.id}
+                  <Button size="xs" miw={100} aria-label={`Continue setup ${s.companyName || 'Unnamed setup'}`} disabled={!!busy && busy !== s.id} loading={busy === s.id}
                     onClick={async () => { setBusy(s.id); try { await resume(s.id) } finally { setBusy(null) } }}>
-                    Continue
+                    Continue setup
                   </Button>
                 </Group>
               </Group>
@@ -47,7 +47,7 @@ export function ResumeSession() {
         </Stack>
         <Anchor component="button" type="button" size="xs" c="dimmed" mt="md" underline="always" disabled={!!busy}
           onClick={async () => { setBusy('new'); try { await startNew() } finally { setBusy(null) } }}>
-          Start a separate setup instead
+          Start a new setup instead
         </Anchor>
       </Box>
     </DialogShell>

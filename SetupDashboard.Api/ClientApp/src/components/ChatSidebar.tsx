@@ -29,7 +29,7 @@ export function ChatSidebar() {
     if (!input.trim()) return
     addChatMessage({ from: 'user', text: input.trim() })
     setInput('')
-    setTimeout(() => addChatMessage({ from: 'bot', text: "Thanks! I'm a scripted guide for now, so I can't act on messages yet - please use the form on this step. 👍" }), 800)
+    setTimeout(() => addChatMessage({ from: 'bot', text: "Thanks. I'm a scripted guide, so I can't act on messages yet. Use the form on this step to continue." }), 800)
   }
 
   return (
@@ -39,7 +39,7 @@ export function ChatSidebar() {
         <Avatar src={`${import.meta.env.BASE_URL}auto-mate-icon-light.png`} alt="Auto-Mate" size={40} />
         <div>
           <MText size="sm" fw={600}>Auto-Mate</MText>
-          <MText fz={11} c="dimmed">Your AI setup assistant</MText>
+          <MText fz={11} c="dimmed">Your setup guide</MText>
         </div>
         <Box ml="auto" w={8} h={8} bdrs="50%" bg="var(--mantine-color-green-filled)" />
       </Group>
@@ -62,11 +62,11 @@ export function ChatSidebar() {
             value={input}
             onChange={(e) => setInput(e.currentTarget.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendChat()}
-            placeholder="Type a message..."
+            placeholder="Type a message"
             aria-label="Message Auto-Mate"
           />
           {/* Auto-Mate is an AI surface: the grape accent, not the brand cyan. */}
-          <ActionIcon onClick={sendChat} color="grape" size="input-sm" aria-label="Send">
+          <ActionIcon onClick={sendChat} color="grape" size="input-sm" aria-label="Send message">
             <SendHorizontal size={16} strokeWidth={1.5} />
           </ActionIcon>
         </Group>

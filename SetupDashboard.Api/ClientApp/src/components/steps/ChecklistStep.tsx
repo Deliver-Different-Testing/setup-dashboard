@@ -13,15 +13,15 @@ export function ChecklistStep({ step, title, intro }: { step: StepKey; title: st
 export const AutomationsStep = () => (
   <ChecklistStep step="automations" title="Automations"
     intro={<>Notifications and auto-assign rules are built in Settings &gt; Automations, where the tenant's own job statuses and templates are
-      available. Rules go live as soon as they're saved there, so set them up once rates and schedules are in.</>} />
+      available. Rules go live as soon as you save them there, so set them up after rates and schedules.</>} />
 )
 
 export const IntegrationsStep = () => (
   <ChecklistStep step="integrations" title="Integrations"
-    intro={<>Carriers, Shopify, partner links and other connections are made in Integration Manager. Tick each off here as it's connected.</>} />
+    intro={<>Make carrier, Shopify, partner and other connections in Integration Manager. Tick each one here once it's connected.</>} />
 )
 
 export const AppConfigStep = () => (
   <ChecklistStep step="appconfig" title="App configuration"
-    intro={<>Catalogues (note and document types, quizzes), dispatch settings, the sign-up page and consumer booking are set in Settings &gt; Admin Setup.</>} />
+    intro={<>Set up catalogues (note and document types, quizzes), dispatch settings, the sign-up page and consumer booking in Settings &gt; Admin Setup.</>} />
 )

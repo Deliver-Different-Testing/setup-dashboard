@@ -28,7 +28,7 @@ export function PdfSummary() {
       }
 
       line(`${session.business.companyName || 'New tenant'} - DFRNT setup progress`, 16, true, [13, 12, 44])
-      line(`Generated ${new Date().toLocaleString()}${session.createdByName ? ` · started by ${session.createdByName}` : ''}`, 9, false, [128, 128, 128])
+      line(`Created ${new Date().toLocaleString()}${session.createdByName ? ` · started by ${session.createdByName}` : ''}`, 9, false, [128, 128, 128])
       y += 4
 
       for (const s of STEPS) {
@@ -37,11 +37,11 @@ export function PdfSummary() {
         const needs = st.rows.filter(r => r.status === 'needs_data').length
         const failed = st.rows.filter(r => r.status === 'failed').length
         line(`${s.title} - ${STATUS_LABEL[st.status] ?? st.status}`, 11, true, [13, 12, 44])
-        if (st.rows.length) line(`${created} created${needs ? `, ${needs} need info` : ''}${failed ? `, ${failed} failed` : ''}`, 9)
+        if (st.rows.length) line(`${created} created${needs ? `, ${needs} missing details` : ''}${failed ? `, ${failed} failed to send` : ''}`, 9)
         for (const r of st.requests.filter(r => !r.fulfilledAt))
-          line(`Waiting on tenant: ${r.item} (asked ${new Date(r.requestedAt).toLocaleDateString()})`, 9, false, [180, 110, 0])
+          line(`Waiting on tenant: ${r.item} (requested ${new Date(r.requestedAt).toLocaleDateString()})`, 9, false, [180, 110, 0])
         for (const c of st.checklist.filter(c => c.required && !c.doneAt))
-          line(`Open (${c.owner}): ${c.item}`, 9, false, [100, 100, 100])
+          line(`To do (${c.owner}): ${c.item}`, 9, false, [100, 100, 100])
         y += 2
       }
       doc.save(`${(session.business.companyName || 'tenant').replace(/[^a-z0-9]+/gi, '-')}-setup-progress.pdf`)
@@ -53,7 +53,7 @@ export function PdfSummary() {
   return (
     <Button onClick={generate} loading={busy} variant="outline" color="gray" c="white" size="xs"
       leftSection={<Download size={14} strokeWidth={1.5} />} styles={{ root: { borderColor: 'rgba(255,255,255,0.3)' } }}>
-      Progress PDF
+      Download progress PDF
     </Button>
   )
 }

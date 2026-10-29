@@ -29,12 +29,12 @@ export function TeamStep() {
   return (
     <StepFrame step="team" title="Team, roles and access" sendsTo="Settings" draft={draft} dirty={dirty} onSaved={markSaved}
       intro={<>
-        Roles are created in Settings tagged <b>Tenant Staff</b> and start with every tile off; the tiles ticked here are switched on in
-        Access Control. People are added to the tenant's own client file with their role - Settings creates their login and
+        Roles are created in Settings tagged <b>Tenant Staff</b> with every tile off. Tiles ticked here are switched on in
+        Access Control. People are added to the tenant's own client file with their role, and Settings creates their login and
         <b> emails them a sign-in invite</b>. No staff file is created.
       </>}>
-      <Card title="Roles" right={<Btn kind="ghost" onClick={() => setRoles([...draft.roles, newRole()])}>+ Role</Btn>}>
-        {draft.roles.length === 0 && <MText size="xs" c="dimmed">Usually a tenant admin and an operations role.</MText>}
+      <Card title="Roles" right={<Btn kind="ghost" onClick={() => setRoles([...draft.roles, newRole()])}>Add role</Btn>}>
+        {draft.roles.length === 0 && <MText size="xs" c="dimmed">No roles yet. Add one, usually a tenant admin and an operations role.</MText>}
         <Stack gap="lg">
           {draft.roles.map((r, i) => (
             <Paper key={i} withBorder p="sm" radius="md" shadow="none">
@@ -58,7 +58,7 @@ export function TeamStep() {
                   })}
                 </SimpleGrid>
                 <MText fz={11} c="dimmed" mt={4}>
-                  Role actions (View Financial Data, Manage Users, Edit Settings…) follow their tile. DFRNT switches any off in Settings &gt; Roles.
+                  Role actions (View Financial Data, Manage Users, Edit Settings…) follow their tile. DFRNT can switch any off in Settings &gt; Roles.
                 </MText>
               </Box>
             </Paper>
@@ -67,10 +67,10 @@ export function TeamStep() {
       </Card>
 
       <Card title="People" right={<Group gap={8}>
-        <Btn kind="ghost" disabled={dirty} title={dirty ? 'Save first' : ''} onClick={() => setImporting(true)}>Import file</Btn>
-        <Btn kind="ghost" onClick={() => setPeople([...draft.people, newPerson()])}>+ Person</Btn>
+        <Btn kind="ghost" disabled={dirty} title={dirty ? 'Save first' : ''} onClick={() => setImporting(true)}>Import people</Btn>
+        <Btn kind="ghost" onClick={() => setPeople([...draft.people, newPerson()])}>Add person</Btn>
       </Group>}>
-        {draft.people.length === 0 && <MText size="xs" c="dimmed">Staff who will sign in to DFRNT.</MText>}
+        {draft.people.length === 0 && <MText size="xs" c="dimmed">No people yet. Add the staff who will sign in to DFRNT.</MText>}
         <Stack gap="sm">
           {draft.people.map((p, i) => (
             <Grid key={i} columns={6} gutter={8} align="flex-end" pt="sm" style={TOP} overflow="visible">
@@ -87,7 +87,7 @@ export function TeamStep() {
               </Col>
               <Col span={6}>
                 <Check warn checked={p.inviteConfirmed} onChange={v => setPeople(patchAt(draft.people, i, { inviteConfirmed: v }))}
-                  label={<>Send {p.email || 'them'} a sign-in invite now. <MText span inherit c="dimmed">Adding a person always emails them; they aren't sent until this is ticked.</MText></>} />
+                  label={<>Send {p.email || 'them'} a sign-in invite now. <MText span inherit c="dimmed">Settings always emails new people, so nothing is sent until you tick this.</MText></>} />
               </Col>
             </Grid>
           ))}

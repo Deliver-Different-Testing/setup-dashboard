@@ -15,7 +15,7 @@ export function BusinessStep() {
 
   return (
     <StepFrame step="business" title="Business profile" draft={draft} dirty={dirty} onSaved={markSaved}
-      intro={<>Who the tenant is. This page doesn't write anywhere: the checklist below is what DFRNT confirms in the tenant's own system before anyone is invited.</>}>
+      intro={<>Record who the tenant is. Nothing here is sent to Settings. DFRNT confirms the checklist below in the tenant's system before anyone is invited.</>}>
       <SystemSettingsNow />
       <Card title="Company">
         <SimpleGrid cols={2} spacing="sm">
@@ -25,13 +25,13 @@ export function BusinessStep() {
           <Text label="Registration number" value={draft.registrationNumber} onChange={v => set({ registrationNumber: v })} />
           <Text label="State of incorporation" value={draft.stateOfIncorporation} onChange={v => set({ stateOfIncorporation: v })} />
           <Text label="Business type" value={draft.businessType} onChange={v => set({ businessType: v })} placeholder="e.g. LLC" />
-          <Text label="Where they deliver" hint="comma separated" value={draft.geography.join(', ')} onChange={v => set({ geography: csv(v) })} />
-          <Text label="What they deliver" hint="comma separated" value={draft.verticals.join(', ')} onChange={v => set({ verticals: csv(v) })} />
+          <Text label="Where they deliver" hint="separate with commas" value={draft.geography.join(', ')} onChange={v => set({ geography: csv(v) })} />
+          <Text label="What they deliver" hint="separate with commas" value={draft.verticals.join(', ')} onChange={v => set({ verticals: csv(v) })} />
           <Text label="Current system" value={draft.currentSystem} onChange={v => set({ currentSystem: v })} placeholder="e.g. Datatrac" />
           <Text label="Deliveries per month" value={draft.deliveriesPerMonth} onChange={v => set({ deliveriesPerMonth: v })} />
         </SimpleGrid>
       </Card>
-      <Card title="Primary contact for the setup">
+      <Card title="Primary setup contact">
         <SimpleGrid cols={2} spacing="sm">
           <Text label="Name" required value={draft.primaryContact.name} onChange={v => setContact({ name: v })} />
           <Text label="Email" required type="email" value={draft.primaryContact.email} onChange={v => setContact({ email: v })} />
@@ -52,10 +52,10 @@ function SystemSettingsNow() {
 
   useEffect(() => {
     if (!sessionId) return
-    api.getTenantSummary(sessionId).then(setData).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load'))
+    api.getTenantSummary(sessionId).then(setData).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load system settings'))
   }, [sessionId])
 
-  if (error) return <Card title="This tenant's system settings now"><MText size="xs" c="var(--mantine-color-red-text)">{error}</MText></Card>
+  if (error) return <Card title="Current system settings"><MText size="xs" c="var(--mantine-color-red-text)">{error}</MText></Card>
   if (!data) return null
   const s = data.settings
   const company = session?.business.companyName?.toLowerCase()
@@ -74,11 +74,11 @@ function SystemSettingsNow() {
         ))}
       </Box>
       <MText fz={11} c="dimmed" mt="xs">
-        New tenant databases can carry another tenant's details. If anything here isn't {session?.business.companyName || 'this tenant'}'s,
-        it needs fixing in System Settings before the "system settings and email wording" item is ticked.
+        New tenants can carry another tenant's details. If anything here isn't {session?.business.companyName || 'this tenant'}'s,
+        fix it in System Settings before ticking "system settings and email wording".
       </MText>
       <MText fz={11} c="dimmed" mt={4}>
-        Already in the system: {data.counts.Clients ?? 0} customers, {data.counts.Team ?? 0} staff, {data.counts.Couriers ?? 0} couriers, {data.counts.Zones ?? 0} zones, {data.counts.Automations ?? 0} active automations.
+        Already in the system: {data.counts.Clients ?? 0} customers, {data.counts.Team ?? 0} staff, {data.counts.Couriers ?? 0} couriers, {data.counts.Zones ?? 0} zones and {data.counts.Automations ?? 0} active automations.
       </MText>
     </Card>
   )

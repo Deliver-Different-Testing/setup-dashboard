@@ -32,11 +32,11 @@ export function RatesStep() {
   return (
     <StepFrame step="rates" title="Rates and zones" sendsTo="Settings" draft={draft} dirty={dirty} onSaved={markSaved}
       intro={<>
-        Written to Settings &gt; Rates &amp; Pricing in order: vehicle sizes, zone groups and zones, fuel surcharges, then rates.
-        A rate with no customer codes is created for <b>every customer</b> - that's Settings' rule, so it's shown on each rate.
+        Sent to Settings &gt; Rates &amp; Pricing in this order: vehicle sizes, zone groups and zones, fuel surcharges, then rates.
+        A rate with no customer codes applies to <b>every customer</b>. That's Settings' rule, so each rate shows it.
         Rate cards and spreadsheet imports are DF Admin only in Settings (see the checklist).
       </>}>
-      <Card title="Vehicle sizes" right={<Btn kind="ghost" onClick={() => set({ vehicleSizes: [...draft.vehicleSizes, {}] })}>+ Vehicle size</Btn>}>
+      <Card title="Vehicle sizes" right={<Btn kind="ghost" onClick={() => set({ vehicleSizes: [...draft.vehicleSizes, {}] })}>Add vehicle size</Btn>}>
         {existingVehicles.data && existingVehicles.data.length > 0 && <MText fz={11} c="dimmed" mb={8}>Already in Settings: {existingVehicles.data.map(v => v.name).join(', ')}</MText>}
         {draft.vehicleSizes.map((v, i) => (
           <Grid key={i} columns={6} gutter={8} align="flex-end" mb={8} overflow="visible">
@@ -51,19 +51,19 @@ export function RatesStep() {
 
       <Card title="Zone groups and zones" right={<Group gap={8}>
         <Btn kind="ghost" disabled={dirty} title={dirty ? 'Save first' : ''} onClick={() => setImporting('zones')}>Import zips</Btn>
-        <Btn kind="ghost" onClick={() => set({ zoneGroups: [...draft.zoneGroups, { zones: [] }] })}>+ Zone group</Btn>
+        <Btn kind="ghost" onClick={() => set({ zoneGroups: [...draft.zoneGroups, { zones: [] }] })}>Add zone group</Btn>
       </Group>}>
         {draft.zoneGroups.map((g, i) => (
           <Paper key={i} withBorder p="sm" mb="sm" radius="md" shadow="none">
             <Group gap={8} align="flex-end" wrap="nowrap">
               <Box style={{ flex: 1 }}><Text label="Zone group" required value={g.name} onChange={x => set({ zoneGroups: patchAt(draft.zoneGroups, i, { name: x }) })} /></Box>
-              <Btn kind="ghost" onClick={() => set({ zoneGroups: patchAt(draft.zoneGroups, i, { zones: [...g.zones, { zips: [] }] }) })}>+ Zone</Btn>
+              <Btn kind="ghost" onClick={() => set({ zoneGroups: patchAt(draft.zoneGroups, i, { zones: [...g.zones, { zips: [] }] }) })}>Add zone</Btn>
               <RemoveBtn onClick={() => set({ zoneGroups: removeAt(draft.zoneGroups, i) })} />
             </Group>
             {g.zones.map((z, j) => (
               <Grid key={j} columns={6} gutter={8} align="flex-end" mt={8} overflow="visible">
                 <Col span={1}><Text label="Zone" required value={z.name} onChange={x => set({ zoneGroups: patchAt(draft.zoneGroups, i, { zones: patchAt(g.zones, j, { name: x }) }) })} /></Col>
-                <Col span={4}><Text label="Zips / post codes" hint={`comma separated · ${z.zips.length}`} value={z.zips.join(', ')}
+                <Col span={4}><Text label="Zips / post codes" hint={`separate with commas · ${z.zips.length}`} value={z.zips.join(', ')}
                   onChange={x => set({ zoneGroups: patchAt(draft.zoneGroups, i, { zones: patchAt(g.zones, j, { zips: csv(x) }) }) })} /></Col>
                 <Col span={1}><RemoveBtn onClick={() => set({ zoneGroups: patchAt(draft.zoneGroups, i, { zones: removeAt(g.zones, j) }) })} /></Col>
               </Grid>
@@ -72,7 +72,7 @@ export function RatesStep() {
         ))}
       </Card>
 
-      <Card title="Fuel surcharges" right={<Btn kind="ghost" onClick={() => set({ fuelSurcharges: [...draft.fuelSurcharges, {}] })}>+ Fuel surcharge</Btn>}>
+      <Card title="Fuel surcharges" right={<Btn kind="ghost" onClick={() => set({ fuelSurcharges: [...draft.fuelSurcharges, {}] })}>Add fuel surcharge</Btn>}>
         {draft.fuelSurcharges.map((f, i) => (
           <Grid key={i} columns={5} gutter={8} align="flex-end" mb={8} overflow="visible">
             <Col span={1}><Text label="Name" value={f.name} onChange={x => set({ fuelSurcharges: patchAt(draft.fuelSurcharges, i, { name: x }) })} /></Col>
@@ -86,7 +86,7 @@ export function RatesStep() {
 
       <Card title="Zone-to-zone rates" right={<Group gap={8}>
         <Btn kind="ghost" disabled={dirty} title={dirty ? 'Save first' : ''} onClick={() => setImporting('rates')}>Import rates</Btn>
-        <Btn kind="ghost" onClick={() => set({ zoneRates: [...draft.zoneRates, { vehicleSizeNames: [], clientCodes: [] }] })}>+ Zone rate</Btn>
+        <Btn kind="ghost" onClick={() => set({ zoneRates: [...draft.zoneRates, { vehicleSizeNames: [], clientCodes: [] }] })}>Add zone rate</Btn>
       </Group>}>
         {draft.zoneRates.map((r, i) => (
           <ZoneRate key={i} r={r} zones={zoneOpts} vehicles={vehicleNames} speeds={asOptions(speeds.data)}
@@ -94,7 +94,7 @@ export function RatesStep() {
         ))}
       </Card>
 
-      <Card title="Distance rates" right={<Btn kind="ghost" onClick={() => set({ distanceRates: [...draft.distanceRates, { vehicleSizeNames: [], depotIds: [], clientCodes: [] }] })}>+ Distance rate</Btn>}>
+      <Card title="Distance rates" right={<Btn kind="ghost" onClick={() => set({ distanceRates: [...draft.distanceRates, { vehicleSizeNames: [], depotIds: [], clientCodes: [] }] })}>Add distance rate</Btn>}>
         {draft.distanceRates.map((r, i) => (
           <DistanceRate key={i} r={r} vehicles={vehicleNames} speeds={asOptions(speeds.data)} depots={depots.data ?? []}
             onChange={p => set({ distanceRates: patchAt(draft.distanceRates, i, p) })} onRemove={() => set({ distanceRates: removeAt(draft.distanceRates, i) })} />
@@ -120,9 +120,9 @@ function ZoneRate({ r, zones, vehicles, speeds, onChange, onRemove }: {
       <Col span={1}><Num label="Charge $" required value={r.chargeRate} onChange={x => onChange({ chargeRate: x })} /></Col>
       <Col span={1}><Num label="Driver $" required value={r.driverRate} onChange={x => onChange({ driverRate: x })} /></Col>
       <Col span={1}><RemoveBtn onClick={onRemove} /></Col>
-      <Col span={4}><Text label="Vehicle sizes" required hint={vehicles.length ? `e.g. ${vehicles.slice(0, 3).join(', ')}` : 'comma separated'}
+      <Col span={4}><Text label="Vehicle sizes" required hint={vehicles.length ? `e.g. ${vehicles.slice(0, 3).join(', ')}` : 'separate with commas'}
         value={r.vehicleSizeNames.join(', ')} onChange={x => onChange({ vehicleSizeNames: csv(x) })} /></Col>
-      <Col span={4}><Text label="Customer codes" hint="comma separated · blank = every customer" value={r.clientCodes.join(', ')} onChange={x => onChange({ clientCodes: csv(x) })} />
+      <Col span={4}><Text label="Customer codes" hint="separate with commas · blank = every customer" value={r.clientCodes.join(', ')} onChange={x => onChange({ clientCodes: csv(x) })} />
         {allCustomers(r.clientCodes)}</Col>
     </Grid>
   )
@@ -152,7 +152,7 @@ function DistanceRate({ r, vehicles, speeds, depots, onChange, onRemove }: {
             <Check key={d.id} label={d.name} checked={r.depotIds.includes(d.id)}
               onChange={v => onChange({ depotIds: v ? [...r.depotIds, d.id] : r.depotIds.filter(x => x !== d.id) })} />
           ))}
-          {depots.length === 0 && <MText size="xs" c="dimmed">No depots yet - DFRNT creates them (Business checklist).</MText>}
+          {depots.length === 0 && <MText size="xs" c="dimmed">No depots yet. DFRNT creates them (see the Business checklist).</MText>}
         </Group>
       </Col>
     </Grid>

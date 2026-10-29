@@ -74,10 +74,10 @@ function App() {
               <Container size="lg" p={0} mt={32}>
                 <Group justify="space-between">
                   {currentStep > 0
-                    ? <Button variant="default" leftSection={<ArrowLeft size={16} strokeWidth={1.5} />} onClick={() => setCurrentStep(currentStep - 1)}>{STEPS[currentStep - 1].short}</Button>
+                    ? <Button variant="default" leftSection={<ArrowLeft size={16} strokeWidth={1.5} />} onClick={() => setCurrentStep(currentStep - 1)}>Back to {STEPS[currentStep - 1].short}</Button>
                     : <div />}
                   {currentStep < STEPS.length - 1 &&
-                    <Button rightSection={<ArrowRight size={16} strokeWidth={1.5} />} onClick={() => setCurrentStep(currentStep + 1)}>{STEPS[currentStep + 1].short}</Button>}
+                    <Button rightSection={<ArrowRight size={16} strokeWidth={1.5} />} onClick={() => setCurrentStep(currentStep + 1)}>Next: {STEPS[currentStep + 1].short}</Button>}
                 </Group>
               </Container>
             </Box>

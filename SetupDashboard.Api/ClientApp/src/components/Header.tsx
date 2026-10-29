@@ -20,8 +20,8 @@ function ColorModeMenu() {
   return (
     <Menu position="bottom-end" withinPortal>
       <Menu.Target>
-        <Tooltip label="Light or dark">
-          <ActionIcon variant="subtle" color="gray" c="white" size="lg" aria-label="Light or dark">
+        <Tooltip label="Appearance">
+          <ActionIcon variant="subtle" color="gray" c="white" size="lg" aria-label="Appearance">
             <Current size={18} strokeWidth={1.5} />
           </ActionIcon>
         </Tooltip>
@@ -60,7 +60,7 @@ export function Header() {
       </Group>
       <Group gap="md" wrap="nowrap">
         {waiting > 0 && (
-          <Tooltip label="Things DFRNT has asked the tenant for">
+          <Tooltip label="Requests DFRNT has sent to the tenant">
             <Badge color="yellow" variant="light" size="lg" tt="none">
               Waiting on {session?.business.companyName || 'tenant'}: {waiting}
             </Badge>

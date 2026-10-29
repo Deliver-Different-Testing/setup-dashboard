@@ -46,14 +46,14 @@ export function ClientsStep() {
   return (
     <StepFrame step="clients" title="Customers and booking contacts" sendsTo="Settings" draft={draft} dirty={dirty} onSaved={markSaved}
       intro={<>
-        Customers are created in Settings &gt; Clients &amp; Customers with exactly what it requires: code, name, a real address, invoice
-        schedule, payment term and a primary contact. Settings <b>emails the primary contact a booking sign-in</b> when the customer is
-        created. Give each customer a map position (or add it in Settings after) before using client-address schedules.
+        Customers are created in Settings &gt; Clients &amp; Customers. Each needs a code, name, real address, invoice schedule,
+        payment term and primary contact. Settings <b>emails the primary contact a booking sign-in</b> when it creates the customer.
+        Add a map position here, or in Settings later, before using client-address schedules.
       </>}>
       <Card title={`Customers (${draft.length})`} right={<Group gap={8}>
         <Btn kind="ghost" disabled={dirty} title={dirty ? 'Save first' : ''} onClick={() => setImporting('clients')}>Import customers</Btn>
         <Btn kind="ghost" disabled={dirty || draft.length === 0} title={dirty ? 'Save first' : ''} onClick={() => setImporting('contacts')}>Import contacts</Btn>
-        <Btn kind="ghost" onClick={() => { setDraft(d => [...d, newClient()]); setOpen(draft.length) }}>+ Customer</Btn>
+        <Btn kind="ghost" onClick={() => { setDraft(d => [...d, newClient()]); setOpen(draft.length) }}>Add customer</Btn>
       </Group>}>
         {draft.length > 0 && (
           <SimpleGrid cols={2} spacing="sm" mb="md" p="sm" bg="var(--dd-surface)" style={INSET}>
@@ -69,7 +69,7 @@ export function ClientsStep() {
               <UnstyledButton type="button" onClick={() => setOpen(open === i ? null : i)} w="100%">
                 <Group justify="space-between" align="center" wrap="nowrap">
                   <MText size="sm" fw={500}>{c.code || '—'} · {c.name || 'New customer'}
-                    <MText span size="xs" c="dimmed" ml={8}>{[c.address, c.suburb, c.city].filter(Boolean).join(', ') || 'no address yet'}</MText></MText>
+                    <MText span size="xs" c="dimmed" ml={8}>{[c.address, c.suburb, c.city].filter(Boolean).join(', ') || 'No address yet'}</MText></MText>
                   <MText size="xs" c="dimmed">{open === i ? '▲' : '▼'}</MText>
                 </Group>
               </UnstyledButton>
@@ -106,13 +106,13 @@ export function ClientsStep() {
                       <Col span={1}><Text label="Mobile" value={c.primaryContact.mobile} onChange={v => patch(i, { primaryContact: { ...c.primaryContact, mobile: v } })} /></Col>
                       <Col span={1}><Text label="Job title" value={c.primaryContact.jobTitle} onChange={v => patch(i, { primaryContact: { ...c.primaryContact, jobTitle: v } })} /></Col>
                       <Col span={5}><Check warn checked={c.inviteConfirmed} onChange={v => patch(i, { inviteConfirmed: v })}
-                        label={<>Email {c.primaryContact.email || 'the primary contact'} a booking sign-in when this customer is created (Settings always does).</>} /></Col>
+                        label={<>Email {c.primaryContact.email || 'the primary contact'} a booking sign-in when this customer is created Settings always sends this email.</>} /></Col>
                     </Grid>
                   </Box>
                   <Box>
                     <Group justify="space-between" align="center">
                       <MText fz={11} fw={600} tt="uppercase" lts={0.5} c="dimmed">Other booking contacts</MText>
-                      <Btn kind="ghost" onClick={() => patch(i, { contacts: [...c.contacts, newContact()] })}>+ Contact</Btn>
+                      <Btn kind="ghost" onClick={() => patch(i, { contacts: [...c.contacts, newContact()] })}>Add contact</Btn>
                     </Group>
                     {c.contacts.map((ct, j) => (
                       <Grid key={j} columns={6} gutter={8} align="flex-end" mt={8} overflow="visible">
@@ -120,7 +120,7 @@ export function ClientsStep() {
                         <Col span={1}><Text label="Surname" value={ct.surname} onChange={v => patch(i, { contacts: patchAt(c.contacts, j, { surname: v }) })} /></Col>
                         <Col span={1}><Text label="Email" required type="email" value={ct.email} onChange={v => patch(i, { contacts: patchAt(c.contacts, j, { email: v }) })} /></Col>
                         <Col span={1}><Text label="Mobile" value={ct.mobile} onChange={v => patch(i, { contacts: patchAt(c.contacts, j, { mobile: v }) })} /></Col>
-                        <Col span={1}><Check checked={ct.createSignIn} onChange={v => patch(i, { contacts: patchAt(c.contacts, j, { createSignIn: v }) })} label="Sign-in + invite" /></Col>
+                        <Col span={1}><Check checked={ct.createSignIn} onChange={v => patch(i, { contacts: patchAt(c.contacts, j, { createSignIn: v }) })} label="Email a sign-in invite to this contact" /></Col>
                         <Col span={1}><RemoveBtn onClick={() => patch(i, { contacts: removeAt(c.contacts, j) })} /></Col>
                       </Grid>
                     ))}

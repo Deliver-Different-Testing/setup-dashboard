@@ -14,7 +14,7 @@ export class ApiError extends Error {
   constructor(message: string, status: number) { super(message); this.status = status }
 }
 
-const SIGN_IN_EXPIRED = 'Your sign-in has expired. Refresh the page.'
+const SIGN_IN_EXPIRED = 'Your sign-in has expired. Refresh the page to sign in again.'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   // /API/Login lives at the app root, beside /api.
@@ -35,7 +35,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   try { body = text ? JSON.parse(text) : null } catch { body = null }
   if (!res.ok) {
     const b = (body ?? {}) as { message?: string; error?: string }
-    const msg = b.message || b.error || (res.status === 401 ? SIGN_IN_EXPIRED : `Request failed (${res.status})`)
+    const msg = b.message || b.error || (res.status === 401 ? SIGN_IN_EXPIRED : `Request failed (${res.status}). Try again, or contact DFRNT if it keeps happening.`)
     throw new ApiError(msg, res.status)
   }
   return body as T

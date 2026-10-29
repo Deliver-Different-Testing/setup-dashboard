@@ -17,7 +17,7 @@ export const STEPS: { key: StepKey; icon: string; short: string; title: string }
   { key: 'partners', icon: '🤝', short: 'Partners', title: 'Agents and network partners' },
   { key: 'automations', icon: '⚡', short: 'Automations', title: 'Automations' },
   { key: 'integrations', icon: '🔌', short: 'Integrations', title: 'Integrations' },
-  { key: 'appconfig', icon: '⚙️', short: 'App config', title: 'App configuration' },
+  { key: 'appconfig', icon: '⚙️', short: 'App setup', title: 'App setup' },
   { key: 'training', icon: '🏋️', short: 'Training', title: 'Training' },
 ]
 
@@ -78,7 +78,7 @@ export const useStore = create<State>((set, get) => {
   }
   const withSession = () => {
     const s = get().session
-    if (!s) throw new Error('No setup session open.')
+    if (!s) throw new Error('No setup is open. Reload the page or choose a setup to continue.')
     return s
   }
 
@@ -110,7 +110,7 @@ export const useStore = create<State>((set, get) => {
         else if (sessions.length > 0) set({ showResumePrompt: true })
         else await get().startNew()
       } catch (e: unknown) {
-        set({ fatal: e instanceof api.ApiError && e.status === 403 ? 'Setup Dashboard is not switched on for your account. Ask DFRNT.' : errorMessage(e, 'Could not start') })
+        set({ fatal: e instanceof api.ApiError && e.status === 403 ? 'Setup Dashboard isn\'t turned on for your account. Ask DFRNT to turn it on.' : errorMessage(e, 'Setup Dashboard couldn\'t start. Reload the page, or contact DFRNT if it keeps happening.') })
       } finally {
         set({ isInitializing: false })
       }

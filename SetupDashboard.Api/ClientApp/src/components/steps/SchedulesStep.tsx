@@ -26,11 +26,11 @@ export function SchedulesStep() {
     <StepFrame step="schedules" title="Schedules" sendsTo="Routed Operations" draft={draft} dirty={dirty} onSaved={markSaved}
       intro={<>
         Created in Routed Operations &gt; Schedules (NEW). Each needs a destination depot and at least one day window. A schedule with no
-        customer codes is the <b>default for every customer</b>; client-address schedules can't be the default, so they need customers and
-        an origin depot. Depots themselves are created by DFRNT for now.
+        customer codes is the <b>default for every customer</b>. Client-address schedules can't be the default, so they need customer codes and
+        an origin depot. DFRNT creates depots for now.
       </>}>
-      <Card title={`Schedules (${draft.length})`} right={<Btn kind="ghost" onClick={() => setDraft(d => [...d, { dayWindows: [], clientCodes: [] }])}>+ Schedule</Btn>}>
-        {depots.data && depots.data.length === 0 && <MText size="xs" c="var(--mantine-color-orange-text)" mb={8}>This tenant has no depots yet - schedules can't be created until DFRNT adds them.</MText>}
+      <Card title={`Schedules (${draft.length})`} right={<Btn kind="ghost" onClick={() => setDraft(d => [...d, { dayWindows: [], clientCodes: [] }])}>Add schedule</Btn>}>
+        {depots.data && depots.data.length === 0 && <MText size="xs" c="var(--mantine-color-orange-text)" mb={8}>This tenant has no depots yet. Schedules can't be created until DFRNT adds them.</MText>}
         <Stack gap="lg">
           {draft.map((s, i) => (
             <Paper key={i} withBorder p="sm" radius="md" shadow="none">
@@ -42,7 +42,7 @@ export function SchedulesStep() {
                 {s.originType === 'depot' && <Col span={1}><Pick label="Pickup depot" required value={s.pickupDepotId} options={depotOpts} onChange={v => patch(i, { pickupDepotId: v })} /></Col>}
                 {s.originType === 'client' && <Col span={1}><Pick label="Origin depot" required value={s.originRegionId} options={depotOpts} onChange={v => patch(i, { originRegionId: v })} /></Col>}
                 <Col span={1}><Pick label="Speed" value={s.speedId} options={asOptions(speeds.data)} loading={speeds.loading} onChange={v => patch(i, { speedId: v })} /></Col>
-                <Col span={3}><Text label="Customer codes" hint={s.originType === 'client' ? 'required for client address' : 'blank = default for every customer'}
+                <Col span={3}><Text label="Customer codes" hint={s.originType === 'client' ? 'required for client-address schedules' : 'blank = default for every customer'}
                   required={s.originType === 'client'} value={s.clientCodes.join(', ')} onChange={v => patch(i, { clientCodes: csv(v) })} /></Col>
               </Grid>
               <DayWindows windows={s.dayWindows} onChange={w => patch(i, { dayWindows: w })} />
@@ -84,7 +84,7 @@ function DayWindows({ windows, onChange }: { windows: DayWindowRow[]; onChange: 
           )
         })}
       </SimpleGrid>
-      <MText fz={11} c="dimmed" mt={4}>Start, end, and an optional booking cutoff per day.</MText>
+      <MText fz={11} c="dimmed" mt={4}>Set a start time, end time and optional booking cutoff for each day.</MText>
     </Box>
   )
 }

@@ -25,10 +25,10 @@ export function CouriersStep() {
     <StepFrame step="couriers" title="Couriers and fleets" sendsTo="Settings" draft={draft} dirty={dirty} onSaved={markSaved}
       intro={<>
         Vehicle fleets and couriers are created in Settings &gt; Driver List. Each courier gets a driver-app login with the initial password
-        you type here (Settings requires one). The password is sent once and then forgotten by this dashboard - it is never shown again.
-        No email is sent to couriers.
+        you enter here, which Settings requires. This dashboard sends the password once, then discards it and never shows it again.
+        Couriers aren't emailed.
       </>}>
-      <Card title="Vehicle fleets" right={<Btn kind="ghost" onClick={() => set({ fleets: [...draft.fleets, {}] })}>+ Fleet</Btn>}>
+      <Card title="Vehicle fleets" right={<Btn kind="ghost" onClick={() => set({ fleets: [...draft.fleets, {}] })}>Add fleet</Btn>}>
         {draft.fleets.map((f, i) => (
           <Grid key={i} columns={5} gutter={8} align="flex-end" mb={8} overflow="visible">
             <Col span={2}><Text label="Fleet name" required value={f.name} onChange={v => set({ fleets: patchAt(draft.fleets, i, { name: v }) })} /></Col>
@@ -39,8 +39,8 @@ export function CouriersStep() {
       </Card>
 
       <Card title={`Couriers (${draft.couriers.length})`} right={<Group gap={8}>
-        <Btn kind="ghost" disabled={dirty} title={dirty ? 'Save first' : ''} onClick={() => setImporting(true)}>Import file</Btn>
-        <Btn kind="ghost" onClick={() => set({ couriers: [...draft.couriers, {}] })}>+ Courier</Btn>
+        <Btn kind="ghost" disabled={dirty} title={dirty ? 'Save first' : ''} onClick={() => setImporting(true)}>Import couriers</Btn>
+        <Btn kind="ghost" onClick={() => set({ couriers: [...draft.couriers, {}] })}>Add courier</Btn>
       </Group>}>
         <Stack gap={8}>
           {draft.couriers.map((c, i) => (
@@ -49,7 +49,7 @@ export function CouriersStep() {
               <Col span={1}><Text label="Surname" required value={c.surName} onChange={v => patchCourier(i, { surName: v })} /></Col>
               <Col span={2}><Text label="Email (app login)" required type="email" value={c.email} onChange={v => patchCourier(i, { email: v })} /></Col>
               <Col span={1}><Text label="Initial password" required={!c.hasInitialPassword} type="password" autoComplete="new-password"
-                hint={c.hasInitialPassword ? 'set' : '8+'} value={c.initialPassword}
+                hint={c.hasInitialPassword ? 'already set' : '8+ characters'} value={c.initialPassword}
                 onChange={v => patchCourier(i, { initialPassword: v })} /></Col>
               <Col span={1}><Text label="Code" hint="blank = next number" value={c.code} onChange={v => patchCourier(i, { code: v })} /></Col>
               <Col span={1}><Pick label="Type" value={c.courierTypeId} options={TYPES} placeholder="Master (default)" onChange={v => patchCourier(i, { courierTypeId: v })} /></Col>

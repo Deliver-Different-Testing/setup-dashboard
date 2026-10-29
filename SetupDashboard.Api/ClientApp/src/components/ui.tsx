@@ -31,7 +31,7 @@ export function Card({ title, children, right }: { title?: ReactNode; children: 
 export function Label({ text, required, hint }: { text: string; required?: boolean; hint?: string }) {
   return (
     <MText component="span" display="block" fz={11} fw={600} tt="uppercase" lts={0.5} c="dimmed" mb={4}>
-      {text}{required && <MText component="span" inherit c="var(--mantine-color-red-text)" ml={2} title="Required by the app this is saved to">*</MText>}
+      {text}{required && <MText component="span" inherit c="var(--mantine-color-red-text)" ml={2} title="Required by the app this is sent to">*</MText>}
       {hint && <MText component="span" inherit tt="none" lts={0} fw={400} c="dimmed" ml={4}>{hint}</MText>}
     </MText>
   )
@@ -61,7 +61,7 @@ export function Num({ label, value, onChange, required, step = 'any', hint }: {
   )
 }
 
-export function Pick({ label, value, onChange, options, required, placeholder = 'Choose…', loading, error }: {
+export function Pick({ label, value, onChange, options, required, placeholder = 'Choose an option…', loading, error }: {
   label: string; value?: number | string; onChange: (v: never) => void; required?: boolean
   options: { value: number | string; label: string }[]; placeholder?: string; loading?: boolean; error?: string | null
 }) {
@@ -70,7 +70,7 @@ export function Pick({ label, value, onChange, options, required, placeholder = 
   return (
     <Select label={label} withAsterisk={required} data={data} size="sm" searchable={data.length > 8} clearable={!required}
       value={value == null || value === '' ? null : String(value)}
-      placeholder={loading ? 'Loading…' : error ? 'Could not load' : placeholder}
+      placeholder={loading ? 'Loading…' : error ? 'Could not load options' : placeholder}
       rightSection={loading ? <Loader size="xs" /> : undefined}
       error={error || undefined}
       onChange={raw => {
@@ -97,7 +97,7 @@ export function Btn({ children, onClick, kind = 'primary', disabled, title }: {
 
 export function RemoveBtn({ onClick }: { onClick: () => void }) {
   return (
-    <ActionIcon variant="subtle" color="red" size="sm" onClick={onClick} title="Remove" aria-label="Remove">
+    <ActionIcon variant="subtle" color="red" size="sm" onClick={onClick} title="Remove row" aria-label="Remove row">
       <X size={14} strokeWidth={1.5} />
     </ActionIcon>
   )
@@ -120,11 +120,11 @@ export function StepPill({ status }: { status: StepStatus }) {
 
 const ROW_PILL: Record<RowStatus, [string, MantineColor]> = {
   pending: ['Not sent', 'gray'],
-  needs_data: ['Needs info', 'yellow'],
+  needs_data: ['Needs details', 'yellow'],
   created: ['Created', 'green'],
   failed: ['Failed', 'red'],
   skipped: ['Skipped', 'gray'],
-  unknown: ['No answer', 'orange'],
+  unknown: ['No reply', 'orange'],
 }
 export function RowPill({ status }: { status: RowStatus }) {
   const [text, color] = ROW_PILL[status] ?? ROW_PILL.pending

@@ -23,7 +23,7 @@ export function ProgressBar() {
             : classes.idle
           return (
             <button key={s.key} type="button" className={classes.step} onClick={() => setCurrentStep(i)}
-              title={waiting ? 'Waiting on the tenant' : undefined}>
+              title={waiting ? 'Waiting on tenant' : undefined}>
               <div className={`${classes.circle} ${ring} ${isCurrent ? classes.current : ''}`}>
                 {status === 'done' ? '✓' : waiting ? '⏳' : s.icon}
               </div>
