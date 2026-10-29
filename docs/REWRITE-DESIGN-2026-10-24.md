@@ -157,7 +157,7 @@ Not fixed here (Settings side): `POST /api/v1/tenant/agents` returns only the DT
 
 ### Before merging - confirm on staging
 
-1. **Base URLs**: set `TenantApps__UrlTemplate` (e.g. `https://{app}.{tenant}.staging.deliverdifferent.com`) or `TenantURL` (Hub style, `app_name`) in the setup-dashboard Helm secrets, per environment. Without either, the fallback is `https://{app}.{Domain}`.
+1. **Base URLs**: nothing to set. The other apps' addresses come from the address the dashboard is opened on (`setup-dashboard.cheetah.staging.deliverdifferent.com` -> `dfrntdriveconfig.cheetah.staging.deliverdifferent.com`; only hosts under `deliverdifferent.com` are used). Check the first Send reaches the right tenant's Settings. `TenantApps__UrlTemplate` stays as an override; `TenantURL` / `Domain` are fallbacks when the request address can't be used.
 2. **Logo**: `S3BucketBulk` env var (Hub's) - the old code derived the bucket from the removed environment key.
 3. **Warm-up**: the forwarded cookie's `GET /` on Settings and Routed Ops returns 200 (not a redirect) for a DF Admin and for a Tenant Staff user.
 4. **Feature switches**: for Tenant Staff (type 4) on the tenant, `cfg-team-users`, `cfg-settings-roles`, `cfg-settings-tile-access`, `cfg-customers`, `cfg-pricing`, `cfg-fleet`, `multi-client`, `ro-schedules-new` are visible, or the pushes 403 with Settings' message. And `hub-tile-setup-dashboard` is opened for Tenant if tenant admins should see the app (closed by migration 20261015100000).

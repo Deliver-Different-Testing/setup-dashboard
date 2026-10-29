@@ -199,7 +199,8 @@ try
             c.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("TenantApps:TimeoutSeconds", 60));
         })
         .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
-    builder.Services.AddSingleton<SetupDashboard.Services.TenantApps.ITenantAppUrls, SetupDashboard.Services.TenantApps.TenantAppUrls>();
+    builder.Services.AddSingleton<SetupDashboard.Services.TenantApps.ITenantAppUrls>(sp => new SetupDashboard.Services.TenantApps.TenantAppUrls(
+        sp.GetRequiredService<IConfiguration>(), sp.GetRequiredService<IHttpContextAccessor>()));
     builder.Services.AddScoped<SetupDashboard.Services.TenantApps.ITenantAppClient, SetupDashboard.Services.TenantApps.TenantAppClient>();
     builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.TeamPusher>();
     builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.ClientsPusher>();
