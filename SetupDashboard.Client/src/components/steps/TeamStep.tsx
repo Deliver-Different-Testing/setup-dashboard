@@ -1,19 +1,16 @@
 import { useState } from 'react'
-import { Box, Grid, Group, Paper, SimpleGrid, Stack, Text as MText } from '@mantine/core'
+import { Alert, Button, Group, Menu, Stack, Text as MText } from '@mantine/core'
 import { useStore } from '../../store'
-import type { PersonRow, RoleRow, TeamStep as Team } from '../../lib/api'
+import type { PersonRow, TeamStep as Team } from '../../lib/api'
 import { StepFrame } from '../StepFrame'
 import { SmartImport } from '../SmartImport'
 import { useDraft } from '../useDraft'
-import { Btn, Card, Check, Pick, RemoveBtn, Text } from '../ui'
-import { patchAt, removeAt, useLookup } from '../../lib/helpers'
+import { Btn, Card } from '../ui'
+import { useLookup } from '../../lib/helpers'
+import { starterRole, teamWarnings, type Tile } from '../../lib/team'
+import { AccessMatrix } from './team/AccessMatrix'
+import { PeopleList } from './team/PeopleList'
 
-const Col = Grid.Col
-const TOP = { borderTop: '1px solid var(--dd-outline-variant)' }
-
-interface Tile { featureKey: string; displayName: string; condition?: string | null }
-
-const newRole = (): RoleRow => ({ tiles: [] })
 const newPerson = (): PersonRow => ({ inviteConfirmed: false })
 
 export function TeamStep() {
@@ -21,78 +18,55 @@ export function TeamStep() {
   const { draft, setDraft, dirty, markSaved } = useDraft<Team>(s => s.team)
   const tiles = useLookup<Tile[]>('tiles')
   const [importing, setImporting] = useState(false)
+  const [editing, setEditing] = useState<number | null>(null)
 
-  const setRoles = (roles: RoleRow[]) => setDraft(d => ({ ...d, roles }))
-  const setPeople = (people: PersonRow[]) => setDraft(d => ({ ...d, people }))
-  const roleOptions = draft.roles.filter(r => r.name?.trim()).map(r => ({ value: r.name!.trim(), label: r.name!.trim() }))
+  const addRole = (kind: 'admin' | 'blank') => {
+    setDraft(d => ({ ...d, roles: [...d.roles, starterRole(kind, tiles.data ?? [])] }))
+    if (kind === 'blank') setEditing(draft.roles.length)
+  }
+  const warnings = teamWarnings(draft)
 
   return (
     <StepFrame step="team" title="Team, roles and access" sendsTo="Settings" draft={draft} dirty={dirty} onSaved={markSaved}
-      intro={<>
-        Roles are created in Settings tagged <b>Tenant Staff</b> with every tile off. Tiles ticked here are switched on in
-        Access Control. People are added to the tenant's own client file with their role, and Settings creates their login and
-        <b> emails them a sign-in invite</b>. No staff file is created.
-      </>}>
-      <Card title="Roles" right={<Btn kind="ghost" onClick={() => setRoles([...draft.roles, newRole()])}>Add role</Btn>}>
-        {draft.roles.length === 0 && <MText size="xs" c="dimmed">No roles yet. Add one, usually a tenant admin and an operations role.</MText>}
-        <Stack gap="lg">
-          {draft.roles.map((r, i) => (
-            <Paper key={i} withBorder p="sm" radius="md" shadow="none">
-              <Group gap="sm" align="flex-end" wrap="nowrap">
-                <Box style={{ flex: 1 }}><Text label="Role name" required value={r.name} onChange={v => setRoles(patchAt(draft.roles, i, { name: v }))} placeholder="e.g. Tenant Admin" /></Box>
-                <Box style={{ flex: 1 }}><Text label="Description" value={r.description} onChange={v => setRoles(patchAt(draft.roles, i, { description: v }))} /></Box>
-                <RemoveBtn onClick={() => setRoles(removeAt(draft.roles, i))} />
-              </Group>
-              <Box mt="sm">
-                <MText fz={11} fw={600} tt="uppercase" lts={0.5} c="dimmed">Tiles this role can open</MText>
-                {tiles.loading && <MText size="xs" c="dimmed">Loading tiles from Access Control…</MText>}
-                {tiles.error && <MText size="xs" c="var(--mantine-color-red-text)">{tiles.error}</MText>}
-                <SimpleGrid cols={3} spacing={6} verticalSpacing={6} mt={4}>
-                  {(tiles.data ?? []).map(t => {
-                    const on = r.tiles.includes(t.featureKey)
-                    return (
-                      <Check key={t.featureKey} checked={on}
-                        label={<>{t.displayName}{t.condition && <MText span inherit c="dimmed"> ({t.condition})</MText>}</>}
-                        onChange={v => setRoles(patchAt(draft.roles, i, { tiles: v ? [...r.tiles, t.featureKey] : r.tiles.filter(x => x !== t.featureKey) }))} />
-                    )
-                  })}
-                </SimpleGrid>
-                <MText fz={11} c="dimmed" mt={4}>
-                  Role actions (View Financial Data, Manage Users, Edit Settings…) follow their tile. DFRNT can switch any off in Settings &gt; Roles.
-                </MText>
-              </Box>
-            </Paper>
-          ))}
+      intro={<>Set up the roles the tenant's staff sign in with, what each role can open in the Hub, and who's on each role.
+        People are only emailed a sign-in invite when you switch it on for them and send.</>}>
+      <Card title="Roles and what they can open" right={
+        <Menu position="bottom-end" withinPortal>
+          <Menu.Target><Button size="xs" variant="default">Add role</Button></Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item onClick={() => addRole('admin')} disabled={!tiles.data}>
+              Tenant admin<MText fz={11} c="dimmed">Every tile switched on</MText>
+            </Menu.Item>
+            <Menu.Item onClick={() => addRole('blank')}>
+              Blank role<MText fz={11} c="dimmed">Name it and pick its tiles</MText>
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+      }>
+        <Stack gap="sm">
+          {draft.roles.length === 0 && <MText size="xs" c="dimmed">No roles yet. Start with a tenant admin, then add a role for operations staff.</MText>}
+          <AccessMatrix team={draft} tiles={tiles} onChange={setDraft} editing={editing} setEditing={setEditing} />
+          {draft.roles.length > 0 && (
+            <MText fz={11} c="dimmed">
+              Role actions such as View Financial Data and Manage Users follow their tile. DFRNT can switch any of them off in Settings &gt; Roles.
+            </MText>
+          )}
         </Stack>
       </Card>
 
       <Card title="People" right={<Group gap={8}>
         <Btn kind="ghost" disabled={dirty} title={dirty ? 'Save first' : ''} onClick={() => setImporting(true)}>Import people</Btn>
-        <Btn kind="ghost" onClick={() => setPeople([...draft.people, newPerson()])}>Add person</Btn>
+        <Btn kind="ghost" onClick={() => setDraft(d => ({ ...d, people: [...d.people, newPerson()] }))}>Add person</Btn>
       </Group>}>
-        {draft.people.length === 0 && <MText size="xs" c="dimmed">No people yet. Add the staff who will sign in to DFRNT.</MText>}
-        <Stack gap="sm">
-          {draft.people.map((p, i) => (
-            <Grid key={i} columns={6} gutter={8} align="flex-end" pt="sm" style={TOP} overflow="visible">
-              <Col span={1}><Text label="Email" required type="email" value={p.email} onChange={v => setPeople(patchAt(draft.people, i, { email: v }))} /></Col>
-              <Col span={1}><Text label="First name" required value={p.firstName} onChange={v => setPeople(patchAt(draft.people, i, { firstName: v }))} /></Col>
-              <Col span={1}><Text label="Last name" value={p.lastName} onChange={v => setPeople(patchAt(draft.people, i, { lastName: v }))} /></Col>
-              <Col span={1}><Text label="Job title" value={p.jobTitle} onChange={v => setPeople(patchAt(draft.people, i, { jobTitle: v }))} /></Col>
-              <Col span={1}><Pick label="Role" required value={p.roleName} options={roleOptions} onChange={v => setPeople(patchAt(draft.people, i, { roleName: v }))} /></Col>
-              <Col span={1}>
-                <Group gap={8} align="flex-end" wrap="nowrap">
-                  <Text label="Mobile" value={p.mobile} onChange={v => setPeople(patchAt(draft.people, i, { mobile: v }))} />
-                  <RemoveBtn onClick={() => setPeople(removeAt(draft.people, i))} />
-                </Group>
-              </Col>
-              <Col span={6}>
-                <Check warn checked={p.inviteConfirmed} onChange={v => setPeople(patchAt(draft.people, i, { inviteConfirmed: v }))}
-                  label={<>Send {p.email || 'them'} a sign-in invite now. <MText span inherit c="dimmed">Settings always emails new people, so nothing is sent until you tick this.</MText></>} />
-              </Col>
-            </Grid>
-          ))}
-        </Stack>
+        {draft.people.length === 0 && <MText size="xs" c="dimmed">No people yet. Add the staff who will sign in to DFRNT, or import them from a spreadsheet.</MText>}
+        <PeopleList people={draft.people} roles={draft.roles} onChange={people => setDraft(d => ({ ...d, people }))} />
       </Card>
+
+      {warnings.length > 0 && (
+        <Alert variant="light" color="orange" py="xs" px="md">
+          <Stack gap={2}>{warnings.map(w => <MText key={w} fz="xs">{w}</MText>)}</Stack>
+        </Alert>
+      )}
 
       {importing && <SmartImport entityType="team" onClose={() => setImporting(false)} onComplete={() => { setImporting(false); markSaved(); reload() }} />}
     </StepFrame>
