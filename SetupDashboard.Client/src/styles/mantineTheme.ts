@@ -102,7 +102,7 @@ const dark: MantineColorsTuple = [
 /**
  * Shell (AppBar + sidebar): the tenant's primary when set, else Ink Blue. Content on it is Ink when the fill
  * is light (the luminance threshold the colour validation and autoContrast use) and white when it is dark;
- * `inkContent` also tells the logo which artwork to use.
+ * `logoSrc` is the matching DFRNT wordmark (DespatchWeb's pair): the standard one on a light bar, reversed on a dark one.
  */
 export function getSidebarColors(primary?: string) {
   const appBar = primary ?? ink[9];
@@ -111,6 +111,7 @@ export function getSidebarColors(primary?: string) {
         appBar,
         bg: ink[8],
         inkContent: true,
+        logoSrc: 'logos/dfrnt_logo.png',
         // Ink at the white set's alphas would fade out on a bright fill, so the steps sit a little stronger.
         border: 'rgba(13, 12, 44, 0.14)',
         textPrimary: 'rgba(13, 12, 44, 0.95)',
@@ -122,6 +123,7 @@ export function getSidebarColors(primary?: string) {
         appBar,
         bg: ink[8], // drawer panel, one tier lighter than the Ink bar
         inkContent: false,
+        logoSrc: 'logos/dfrnt_logo_reversed.png',
         border: 'rgba(255, 255, 255, 0.10)',
         textPrimary: 'rgba(255, 255, 255, 0.95)',
         textSecondary: 'rgba(255, 255, 255, 0.60)',

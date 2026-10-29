@@ -53,7 +53,7 @@ export function Header() {
   return (
     <Group component="header" bg={shell.appBar} c={scrim.text} px="lg" py="sm" justify="space-between" wrap="nowrap" pos="relative" style={{ zIndex: 50 }}>
       <Group gap="md" wrap="nowrap">
-        <img src={`${import.meta.env.BASE_URL}${shell.inkContent ? 'logos/DFRNT_HorizLogo_RGB.png' : 'dfrnt-logo.png'}`} alt="DFRNT - Deliver Different" style={{ height: 28 }} />
+        <img src={`${import.meta.env.BASE_URL}${shell.logoSrc}`} alt="DFRNT - Deliver Different" style={{ height: 28 }} />
         <Box w={1} h={24} bg={scrim.fillStrong} />
         {logo && <img src={logo} alt="" style={{ height: 28, borderRadius: 4, background: 'rgba(255,255,255,0.9)', padding: '0 4px' }} />}
         <div>

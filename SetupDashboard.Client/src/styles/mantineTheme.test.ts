@@ -14,6 +14,7 @@ describe('DFRNT theme', () => {
     expect(dfrntTheme.colors?.brand?.[5]?.toLowerCase()).toBe('#3bc7f4')
     expect(other(dfrntTheme).shell.appBar.toLowerCase()).toBe('#0d0c2c')
     expect(other(dfrntTheme).shell.inkContent).toBe(false)
+    expect(other(dfrntTheme).shell.logoSrc).toBe('logos/dfrnt_logo_reversed.png')
   })
 
   it('puts readable text on the primary in both modes', () => {
@@ -44,6 +45,7 @@ describe('tenant Branding', () => {
   it('puts Ink content on a light tenant primary', () => {
     const theme = createDfrntTheme({ highContrast: false, primary: '#ffeb3b' })
     expect(other(theme).shell.inkContent).toBe(true)
+    expect(other(theme).shell.logoSrc).toBe('logos/dfrnt_logo.png')
     expect(other(theme).scrim.text).toBe('#0d0c2c')
   })
 
