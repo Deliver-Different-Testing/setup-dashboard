@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Button } from '@mantine/core'
+import { Avatar, Badge, Box, Button, CloseButton, Container, Group, Paper, Progress, SegmentedControl, SimpleGrid, Stack, Text, ThemeIcon, Title } from '@mantine/core'
 import { FileUp } from 'lucide-react'
 import { useStore } from '../../store'
 import * as api from '../../lib/api'
 import { SmartImport } from '../SmartImport'
+import classes from './TrainingStep.module.css'
 
 const CHALLENGES: Record<string, { id: string; title: string; desc: string; xp: number; prereqs: string[] }[]> = {
   dispatcher: [
@@ -157,176 +158,165 @@ export function TrainingStep() {
   const [showSmartImport, setShowSmartImport] = useState(false)
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-ink">🏋️ Training Arena</h2>
-        <p className="text-dimmed mt-1">Level up your team with gamified challenges and track progress</p>
-      </div>
-
-      <Button fullWidth size="md" leftSection={<FileUp size={18} strokeWidth={1.5} />} onClick={() => setShowSmartImport(true)}>
-        Smart Import training roster from your old TMS
-      </Button>
-      {showSmartImport && (
-        <SmartImport entityType="team" onComplete={() => { setShowSmartImport(false); useStore.getState().reload() }} onClose={() => setShowSmartImport(false)} />
-      )}
-
-      {/* Stats Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Team Progress', value: `${teamCompletionPct}%`, sub: 'challenges completed' },
-          { label: 'Total XP', value: totalXp.toLocaleString(), sub: 'earned by team' },
-          { label: 'Team Members', value: leaderboard.length.toString(), sub: 'in training' },
-          { label: 'Next Milestone', value: '🎯', sub: getNextMilestone() },
-        ].map((stat, i) => (
-          <div key={i} className="bg-surface rounded-2xl p-4 shadow-sm border border-line">
-            <div className="text-xs text-dimmed font-medium uppercase tracking-wide">{stat.label}</div>
-            <div className="text-2xl font-bold text-ink mt-1">{stat.value}</div>
-            <div className="text-xs text-dimmed mt-0.5">{stat.sub}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Leaderboard */}
-      <div className="bg-surface rounded-2xl shadow-sm border border-line p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-ink">🏆 Leaderboard</h3>
-          <div className="flex bg-surface-sunken rounded-md p-0.5">
-            {(['week', 'all'] as const).map(tab => (
-              <button key={tab} onClick={() => setLeaderboardTab(tab)}
-                className={`px-4 py-1.5 rounded-sm text-xs font-semibold transition ${leaderboardTab === tab ? 'bg-surface text-ink shadow-sm' : 'text-dimmed'}`}>
-                {tab === 'week' ? 'This Week' : 'All Time'}
-              </button>
-            ))}
-          </div>
+    <Container size="lg" p={0}>
+      <Stack gap={32}>
+        <div>
+          <Title order={2}>🏋️ Training Arena</Title>
+          <Text c="dimmed" mt={4}>Level up your team with gamified challenges and track progress</Text>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {leaderboard.map((member, i) => {
-            const level = getLevel(member.xp)
-            const nextLevel = LEVELS[LEVELS.indexOf(level) + 1]
-            const progress = nextLevel ? ((member.xp - level.min) / (nextLevel.min - level.min)) * 100 : 100
-            return (
-              <div key={member.email} className={`relative rounded-2xl p-4 border-2 transition-all ${i === 0 ? 'border-warn shadow-[0_0_20px_rgba(250,204,21,0.15)]' : 'border-line'}`}>
-                {i === 0 && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-2xl">👑</div>}
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-shell text-white flex items-center justify-center text-sm font-bold">{getInitials(member.name)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-ink text-sm truncate">{member.name}</div>
-                    <div className="text-xs text-dimmed">{member.role}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg">{level.emoji}</div>
-                    <div className="text-[10px] text-dimmed">{level.name}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="flex-1 h-2 bg-surface-sunken rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-brand transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />
-                  </div>
-                  <span className="text-xs font-bold text-ink">{member.xp} XP</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-dimmed">
-                  <span>{member.completedChallenges.length} challenges</span>
-                  {member.streak > 0 && <span className="animate-pulse">🔥 {member.streak} day streak</span>}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
 
-      {/* Skill Paths */}
-      <div className="bg-surface rounded-2xl shadow-sm border border-line p-6">
-        <h3 className="text-lg font-bold text-ink mb-4">🎮 Skill Paths</h3>
-        <div className="flex gap-2 mb-6">
-          {ROLE_TABS.map(tab => (
-            <button key={tab.key} onClick={() => { setActiveRole(tab.key); setSelectedChallenge(null) }}
-              className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeRole === tab.key ? 'bg-shell text-white' : 'bg-surface-sunken text-dimmed hover:bg-surface-raised'}`}>
-              {tab.label}
-            </button>
+        <Button fullWidth size="md" leftSection={<FileUp size={18} strokeWidth={1.5} />} onClick={() => setShowSmartImport(true)}>
+          Smart Import training roster from your old TMS
+        </Button>
+        {showSmartImport && (
+          <SmartImport entityType="team" onComplete={() => { setShowSmartImport(false); useStore.getState().reload() }} onClose={() => setShowSmartImport(false)} />
+        )}
+
+        {/* Stats Bar */}
+        <SimpleGrid cols={{ base: 2, md: 4 }} spacing="md">
+          {[
+            { label: 'Team Progress', value: `${teamCompletionPct}%`, sub: 'challenges completed' },
+            { label: 'Total XP', value: totalXp.toLocaleString(), sub: 'earned by team' },
+            { label: 'Team Members', value: leaderboard.length.toString(), sub: 'in training' },
+            { label: 'Next Milestone', value: '🎯', sub: getNextMilestone() },
+          ].map((stat, i) => (
+            <Paper key={i} p="md" withBorder>
+              <Text size="xs" c="dimmed" fw={500} tt="uppercase" lts={0.5}>{stat.label}</Text>
+              <Text fz={24} fw={700} mt={4}>{stat.value}</Text>
+              <Text size="xs" c="dimmed" mt={2}>{stat.sub}</Text>
+            </Paper>
           ))}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {CHALLENGES[activeRole]?.map((challenge, i) => {
-            const status = getChallengeStatus(challenge.id, activeRole)
-            return (
-              <div key={challenge.id} className="relative">
-                {/* Connector line */}
-                {i > 0 && i < (CHALLENGES[activeRole]?.length || 0) && (
-                  <div className="hidden lg:block absolute -left-4 top-1/2 w-4 border-t-2 border-dashed border-line" />
-                )}
-                <div onClick={() => status !== 'locked' && setSelectedChallenge(challenge.id)}
-                  className={`rounded-2xl p-4 border-2 cursor-pointer transition-all h-full ${
-                    status === 'completed' ? 'border-ink bg-ink/5' :
-                    status === 'available' ? 'border-brand/50 bg-surface hover:border-brand hover:shadow-md' :
-                    'border-line bg-surface-sunken opacity-60 cursor-not-allowed'
-                  } ${selectedChallenge === challenge.id ? 'ring-2 ring-brand ring-offset-2' : ''}`}>
-                  <div className="flex items-start justify-between mb-2">
-                    <span className="text-2xl">{challenge.title.split(' ')[0]}</span>
-                    {status === 'completed' && <span className="text-ok">✅</span>}
-                    {status === 'locked' && <span>🔒</span>}
-                  </div>
-                  <div className="font-semibold text-sm text-ink mb-1">{challenge.title.split(' ').slice(1).join(' ')}</div>
-                  <p className="text-xs text-dimmed mb-3">{challenge.desc}</p>
-                  <div className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${
-                    status === 'completed' ? 'bg-ink/10 text-ink' : 'bg-brand/10 text-brand-text'
-                  }`}>
-                    ⭐ {challenge.xp} XP
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
+        </SimpleGrid>
 
-      {/* Active Challenge Detail */}
-      {selectedChallengeData && (
-        <div className="bg-surface rounded-2xl shadow-sm border-2 border-brand/30 p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-ink">{selectedChallengeData.title}</h3>
-              <p className="text-sm text-dimmed">{selectedChallengeData.desc}</p>
-            </div>
-            <button onClick={() => setSelectedChallenge(null)} className="text-dimmed hover:text-ink text-xl">×</button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-semibold text-sm text-ink mb-3">📋 Steps</h4>
-              <div className="space-y-2">
-                {(CHALLENGE_INSTRUCTIONS[selectedChallengeData.id] || ['Complete the challenge to earn XP!']).map((step, i) => (
-                  <div key={i} className="flex items-start gap-2 text-sm text-dimmed">
-                    <span className="w-5 h-5 rounded-full bg-surface-sunken flex items-center justify-center text-[10px] font-bold text-dimmed flex-shrink-0 mt-0.5">{i + 1}</span>
-                    <span>{step.replace(/^\d+\.\s*/, '')}</span>
+        {/* Leaderboard */}
+        <Paper p="lg" withBorder>
+          <Group justify="space-between" mb="md">
+            <Title order={3} fz="lg">🏆 Leaderboard</Title>
+            <SegmentedControl
+              size="xs"
+              value={leaderboardTab}
+              onChange={v => setLeaderboardTab(v as 'week' | 'all')}
+              data={[{ value: 'week', label: 'This Week' }, { value: 'all', label: 'All Time' }]}
+            />
+          </Group>
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+            {leaderboard.map((member, i) => {
+              const level = getLevel(member.xp)
+              const nextLevel = LEVELS[LEVELS.indexOf(level) + 1]
+              const progress = nextLevel ? ((member.xp - level.min) / (nextLevel.min - level.min)) * 100 : 100
+              return (
+                <Paper key={member.email} p="md" pos="relative"
+                  style={{ border: `2px solid ${i === 0 ? 'var(--mantine-color-orange-filled)' : 'var(--dd-outline-variant)'}` }}>
+                  {i === 0 && <div className={classes.crown}>👑</div>}
+                  <Group gap="sm" mb="sm" wrap="nowrap">
+                    <Avatar size={40} bg="var(--mantine-color-black)" c="white" fw={700}>{getInitials(member.name)}</Avatar>
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                      <Text size="sm" fw={600} truncate>{member.name}</Text>
+                      <Text size="xs" c="dimmed">{member.role}</Text>
+                    </Box>
+                    <Box ta="right">
+                      <Text fz="lg" lh={1.4}>{level.emoji}</Text>
+                      <Text fz={10} c="dimmed">{level.name}</Text>
+                    </Box>
+                  </Group>
+                  <Group gap="xs" mb={4} wrap="nowrap">
+                    <Progress value={progress} size="sm" style={{ flex: 1 }} aria-label={`${member.name} level progress`} />
+                    <Text size="xs" fw={700}>{member.xp} XP</Text>
+                  </Group>
+                  <Group justify="space-between" fz={10} c="dimmed">
+                    <span>{member.completedChallenges.length} challenges</span>
+                    {member.streak > 0 && <span className={classes.pulse}>🔥 {member.streak} day streak</span>}
+                  </Group>
+                </Paper>
+              )
+            })}
+          </SimpleGrid>
+        </Paper>
+
+        {/* Skill Paths */}
+        <Paper p="lg" withBorder>
+          <Title order={3} fz="lg" mb="md">🎮 Skill Paths</Title>
+          <SegmentedControl
+            mb="lg"
+            value={activeRole}
+            onChange={v => { setActiveRole(v); setSelectedChallenge(null) }}
+            data={ROLE_TABS.map(t => ({ value: t.key, label: t.label }))}
+          />
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+            {CHALLENGES[activeRole]?.map((challenge, i) => {
+              const status = getChallengeStatus(challenge.id, activeRole)
+              return (
+                <Box key={challenge.id} pos="relative">
+                  {/* Connector line */}
+                  {i > 0 && i < (CHALLENGES[activeRole]?.length || 0) && <div className={classes.connector} />}
+                  <div onClick={() => status !== 'locked' && setSelectedChallenge(challenge.id)}
+                    className={`${classes.challenge} ${classes[status]} ${selectedChallenge === challenge.id ? classes.selected : ''}`}>
+                    <Group justify="space-between" align="flex-start" mb={8} wrap="nowrap">
+                      <Text fz={24}>{challenge.title.split(' ')[0]}</Text>
+                      {status === 'completed' && <Text c="var(--mantine-color-green-text)">✅</Text>}
+                      {status === 'locked' && <span>🔒</span>}
+                    </Group>
+                    <Text size="sm" fw={600} mb={4}>{challenge.title.split(' ').slice(1).join(' ')}</Text>
+                    <Text size="xs" c="dimmed" mb="sm">{challenge.desc}</Text>
+                    <Badge variant="light" tt="none" color={status === 'completed' ? 'gray' : undefined}>
+                      ⭐ {challenge.xp} XP
+                    </Badge>
                   </div>
-                ))}
+                </Box>
+              )
+            })}
+          </SimpleGrid>
+        </Paper>
+
+        {/* Active Challenge Detail */}
+        {selectedChallengeData && (
+          <Paper p="lg" style={{ border: '2px solid color-mix(in srgb, var(--mantine-primary-color-filled) 30%, transparent)' }}>
+            <Group justify="space-between" align="flex-start" mb="md" wrap="nowrap">
+              <div>
+                <Title order={3} fz="lg">{selectedChallengeData.title}</Title>
+                <Text size="sm" c="dimmed">{selectedChallengeData.desc}</Text>
               </div>
-            </div>
-            <div className="space-y-4">
-              <div className="bg-surface-sunken rounded-xl p-4">
-                <div className="text-xs text-dimmed mb-1">Reward</div>
-                <div className="text-2xl font-bold text-ink">⭐ {selectedChallengeData.xp} XP</div>
+              <CloseButton aria-label="Close challenge" onClick={() => setSelectedChallenge(null)} />
+            </Group>
+            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
+              <div>
+                <Title order={4} fz="sm" mb="sm">📋 Steps</Title>
+                <Stack gap={8}>
+                  {(CHALLENGE_INSTRUCTIONS[selectedChallengeData.id] || ['Complete the challenge to earn XP!']).map((step, i) => (
+                    <Group key={i} gap={8} align="flex-start" wrap="nowrap">
+                      <ThemeIcon radius="xl" size={20} variant="light" color="gray" fz={10} fw={700} mt={2}>{i + 1}</ThemeIcon>
+                      <Text size="sm" c="dimmed">{step.replace(/^\d+\.\s*/, '')}</Text>
+                    </Group>
+                  ))}
+                </Stack>
               </div>
-              {getChallengeStatus(selectedChallengeData.id, activeRole) === 'completed' ? (
-                <div className="bg-ok-light rounded-xl p-4 text-center">
-                  <div className="text-2xl mb-1">✅</div>
-                  <div className="text-sm font-semibold text-ok">Challenge Complete!</div>
-                </div>
-              ) : (
-                <Button onClick={() => {
-                  const email = leaderboard[0]?.email
-                  if (email) {
-                    completeChallenge(email, selectedChallengeData.id)
-                    setSelectedChallenge(null)
-                  }
-                }} fullWidth size="md">
-                  Start challenge
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+              <Stack gap="md">
+                <Box bg="var(--dd-surface)" p="md" bdrs="md">
+                  <Text size="xs" c="dimmed" mb={4}>Reward</Text>
+                  <Text fz={24} fw={700}>⭐ {selectedChallengeData.xp} XP</Text>
+                </Box>
+                {getChallengeStatus(selectedChallengeData.id, activeRole) === 'completed' ? (
+                  <Box bg="var(--mantine-color-green-light)" p="md" bdrs="md" ta="center">
+                    <Text fz={24} mb={4}>✅</Text>
+                    <Text size="sm" fw={600} c="var(--mantine-color-green-text)">Challenge Complete!</Text>
+                  </Box>
+                ) : (
+                  <Button onClick={() => {
+                    const email = leaderboard[0]?.email
+                    if (email) {
+                      completeChallenge(email, selectedChallengeData.id)
+                      setSelectedChallenge(null)
+                    }
+                  }} fullWidth size="md">
+                    Start challenge
+                  </Button>
+                )}
+              </Stack>
+            </SimpleGrid>
+          </Paper>
+        )}
+      </Stack>
+    </Container>
   )
 }
 

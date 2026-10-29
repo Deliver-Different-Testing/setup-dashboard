@@ -1,0 +1,18 @@
+.bubble {
+  max-width: 240px;
+  padding: 10px 16px;
+  font-size: var(--mantine-font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.bot {
+  background: var(--mantine-color-grape-light);
+  color: var(--mantine-color-text);
+  border-radius: 16px 16px 16px 4px;
+}
+
+.user {
+  background: var(--mantine-color-black);
+  color: var(--mantine-color-white);
+  border-radius: 16px 16px 4px 16px;
+}

@@ -1,6 +1,5 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 
 // `vite build --mode demo` (npm run build:demo): the real screens with src/demo/mockApi.ts in
@@ -23,7 +22,7 @@ function demoApi(): Plugin {
 export default defineConfig(({ mode }) => {
   const demo = mode === 'demo'
   return {
-    plugins: [react(), tailwindcss(), ...(demo ? [demoApi()] : [])],
+    plugins: [react(), ...(demo ? [demoApi()] : [])],
     base: demo ? './' : '/setup-dashboard/',
     build: {
       outDir: demo ? 'dist-demo' : '../wwwroot/setup-dashboard',

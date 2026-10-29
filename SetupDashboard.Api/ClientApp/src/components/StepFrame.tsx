@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { Alert, Box, Checkbox, Group, Paper, Stack, Table, Text, TextInput, Title } from '@mantine/core'
 import { useStore } from '../store'
 import type { StepKey } from '../lib/api'
 import { Btn, Card, RowPill, StepPill } from './ui'
@@ -46,36 +47,36 @@ export function StepFrame({ step, title, intro, sendsTo, draft, dirty, onSaved, 
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-ink">{title}</h2>
-            <StepPill status={state.status} />
-          </div>
-          <div className="text-sm text-dimmed mt-1 max-w-3xl">{intro}</div>
-          {state.status === 'done' && state.completedBy && (
-            <p className="text-xs text-ok mt-1">Marked done by {state.completedBy}{state.completedAt ? ` on ${new Date(state.completedAt).toLocaleDateString()}` : ''}.</p>
-          )}
-        </div>
-      </div>
+    <Stack maw={1024} mx="auto" gap="md">
+      <Box>
+        <Group gap="sm" align="center">
+          <Title order={2} fz={24} fw={700}>{title}</Title>
+          <StepPill status={state.status} />
+        </Group>
+        <Text size="sm" c="dimmed" mt={4} maw={768} component="div">{intro}</Text>
+        {state.status === 'done' && state.completedBy && (
+          <Text size="xs" c="var(--mantine-color-green-text)" mt={4}>Marked done by {state.completedBy}{state.completedAt ? ` on ${new Date(state.completedAt).toLocaleDateString()}` : ''}.</Text>
+        )}
+      </Box>
 
       <Requests step={step} />
       <Checklist step={step} isDf={isDf} />
 
       {children}
 
-      {error && <div className="px-4 py-2 rounded-lg bg-danger-light border border-danger/40 text-danger text-xs">{error}</div>}
+      {error && <Alert variant="light" color="red" py="xs" px="md" fz="xs">{error}</Alert>}
       {lastPush && (
-        <div className="px-4 py-2 rounded-lg bg-surface border border-line text-xs text-dimmed">
-          Last send: <b className="text-ok">{lastPush.created} created</b>
-          {lastPush.needsData > 0 && <>, <b className="text-warn">{lastPush.needsData} need info</b></>}
-          {lastPush.failed > 0 && <>, <b className="text-danger">{lastPush.failed} failed</b></>}
-          {lastPush.signInExpired && <> - <b>your sign-in expired; refresh the page and send again.</b></>}
-        </div>
+        <Paper withBorder px="md" py="xs">
+          <Text size="xs" c="dimmed">
+            Last send: <Text span inherit fw={700} c="var(--mantine-color-green-text)">{lastPush.created} created</Text>
+            {lastPush.needsData > 0 && <>, <Text span inherit fw={700} c="var(--mantine-color-orange-text)">{lastPush.needsData} need info</Text></>}
+            {lastPush.failed > 0 && <>, <Text span inherit fw={700} c="var(--mantine-color-red-text)">{lastPush.failed} failed</Text></>}
+            {lastPush.signInExpired && <> - <Text span inherit fw={700}>your sign-in expired; refresh the page and send again.</Text></>}
+          </Text>
+        </Paper>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <Group gap="xs" align="center">
         {draft !== undefined && <Btn kind="ghost" onClick={save} disabled={!!busy || !dirty}>{busy === 'saving' ? 'Saving…' : dirty ? 'Save' : 'Saved'}</Btn>}
         {sendsTo && (
           <Btn onClick={saveAndSend} disabled={!!busy}
@@ -86,11 +87,11 @@ export function StepFrame({ step, title, intro, sendsTo, draft, dirty, onSaved, 
         {state.status !== 'done'
           ? <Btn kind="ghost" onClick={markDone} disabled={!!busy || dirty}>Mark step done</Btn>
           : isDf && <Btn kind="ghost" onClick={() => quiet(reopen(step))} disabled={!!busy}>Reopen</Btn>}
-        {completeMsg && <span className="text-xs text-warn">{completeMsg}</span>}
-      </div>
+        {completeMsg && <Text size="xs" c="var(--mantine-color-orange-text)">{completeMsg}</Text>}
+      </Group>
 
       <RowResults step={step} />
-    </div>
+    </Stack>
   )
 }
 
@@ -107,32 +108,32 @@ function Requests({ step }: { step: StepKey }) {
   if (reqs.length === 0 && !me?.isDfAdmin) return null
   return (
     <Card title={open.length > 0 ? `Waiting on ${session.business.companyName || 'the tenant'} (${open.length})` : 'Requests to the tenant'}>
-      {reqs.length === 0 && <p className="text-xs text-dimmed">Nothing asked for yet.</p>}
-      <ul className="space-y-1.5">
+      {reqs.length === 0 && <Text size="xs" c="dimmed">Nothing asked for yet.</Text>}
+      <Stack gap={6}>
         {reqs.map(r => {
           const days = Math.max(0, Math.floor((now - new Date(r.requestedAt).getTime()) / 86400000))
           return (
-            <li key={r.id} className="flex items-center justify-between gap-3 text-sm">
-              <span className={r.fulfilledAt ? 'line-through text-dimmed' : 'text-ink'}>
+            <Group key={r.id} justify="space-between" align="center" gap="sm" wrap="nowrap">
+              <Text size="sm" td={r.fulfilledAt ? 'line-through' : undefined} c={r.fulfilledAt ? 'dimmed' : undefined}>
                 {r.item}
-                <span className="text-[11px] text-dimmed ml-2">
+                <Text span fz={11} c="dimmed" ml="xs">
                   asked {days === 0 ? 'today' : `${days} day${days === 1 ? '' : 's'} ago`}{r.requestedBy ? ` by ${r.requestedBy}` : ''}
                   {r.dueBy ? ` · due ${new Date(r.dueBy).toLocaleDateString()}` : ''}
                   {r.fulfilledAt ? ` · supplied${r.fulfilledBy ? ` by ${r.fulfilledBy}` : ''}` : ''}
-                </span>
-              </span>
+                </Text>
+              </Text>
               {!r.fulfilledAt && <Btn kind="ghost" onClick={() => quiet(fulfilRequest(step, r.id))}>Supplied</Btn>}
-            </li>
+            </Group>
           )
         })}
-      </ul>
+      </Stack>
       {me?.isDfAdmin && (
-        <div className="flex gap-2 mt-3">
-          <input value={item} onChange={e => setItem(e.target.value)} placeholder="Ask the tenant for… (e.g. customer list with addresses)"
-            className="flex-1 px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:border-brand" />
-          <input type="date" value={due} onChange={e => setDue(e.target.value)} className="px-3 py-2 rounded-lg border border-line text-sm" />
+        <Group gap="xs" mt="sm" wrap="nowrap">
+          <TextInput style={{ flex: 1 }} size="sm" value={item} onChange={e => setItem(e.currentTarget.value)} aria-label="Ask the tenant for"
+            placeholder="Ask the tenant for… (e.g. customer list with addresses)" />
+          <TextInput size="sm" type="date" value={due} onChange={e => setDue(e.currentTarget.value)} aria-label="Due date" />
           <Btn onClick={async () => { if (item.trim()) { try { await addRequest(step, item.trim(), due || undefined); setItem(''); setDue('') } catch { /* shown on the step */ } } }} disabled={!item.trim()}>Ask</Btn>
-        </div>
+        </Group>
       )}
     </Card>
   )
@@ -145,23 +146,23 @@ function Checklist({ step, isDf }: { step: StepKey; isDf: boolean }) {
   if (items.length === 0) return null
   return (
     <Card title="Checklist">
-      <ul className="space-y-2">
+      <Stack gap="xs">
         {items.map(c => {
           const canTick = c.owner !== 'DFRNT' || isDf
           return (
-            <li key={c.id} className="flex items-start gap-3 text-sm">
-              <input type="checkbox" checked={!!c.doneAt} disabled={!canTick} onChange={e => quiet(tick(step, c.id, e.target.checked))}
-                className="mt-1 accent-brand" title={canTick ? '' : 'DFRNT ticks this one'} />
-              <div className="flex-1">
-                <span className={c.doneAt ? 'text-dimmed' : 'text-ink'}>{c.item}</span>
-                <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-dimmed">{c.owner}{c.required ? ' · required' : ''}</span>
-                {c.link && <a href={c.link} target="_blank" rel="noreferrer" className="ml-2 text-xs text-brand-text hover:underline">Open ↗</a>}
-                {c.doneAt && <span className="block text-[11px] text-dimmed">Done {new Date(c.doneAt).toLocaleDateString()}{c.doneBy ? ` by ${c.doneBy}` : ''}</span>}
-              </div>
-            </li>
+            <Group key={c.id} align="flex-start" gap="sm" wrap="nowrap">
+              <Checkbox size="xs" mt={3} checked={!!c.doneAt} disabled={!canTick} onChange={e => quiet(tick(step, c.id, e.currentTarget.checked))}
+                title={canTick ? '' : 'DFRNT ticks this one'} aria-label={c.item} />
+              <Box style={{ flex: 1 }}>
+                <Text span size="sm" c={c.doneAt ? 'dimmed' : undefined}>{c.item}</Text>
+                <Text span fz={10} fw={600} tt="uppercase" lts={0.5} c="dimmed" ml="xs">{c.owner}{c.required ? ' · required' : ''}</Text>
+                {c.link && <Text component="a" href={c.link} target="_blank" rel="noreferrer" size="xs" c="var(--mantine-color-brand-text)" ml="xs">Open ↗</Text>}
+                {c.doneAt && <Text fz={11} c="dimmed">Done {new Date(c.doneAt).toLocaleDateString()}{c.doneBy ? ` by ${c.doneBy}` : ''}</Text>}
+              </Box>
+            </Group>
           )
         })}
-      </ul>
+      </Stack>
     </Card>
   )
 }
@@ -175,28 +176,28 @@ function RowResults({ step }: { step: StepKey }) {
   const sorted = [...rows].sort((a, b) => order[a.status] - order[b.status])
   return (
     <Card title="What happened to each record">
-      <table className="w-full text-xs">
-        <tbody>
+      <Table fz="xs" verticalSpacing={6} withRowBorders>
+        <Table.Tbody>
           {sorted.map(r => (
-            <tr key={`${r.kind}:${r.key}`} className="border-t border-line align-top">
-              <td className="py-1.5 pr-2 text-dimmed whitespace-nowrap">{r.kind}</td>
-              <td className="py-1.5 pr-2 font-medium text-ink">{r.key}</td>
-              <td className="py-1.5 pr-2"><RowPill status={r.status} /></td>
-              <td className="py-1.5 text-dimmed">
-                {r.needs.length > 0 && <span className="text-warn">Needs: {r.needs.join(' · ')}</span>}
-                {r.errors.length > 0 && <span className="text-danger">{r.errors.join(' ')}</span>}
-                {r.notice && <span className="text-dimmed">{r.notice}</span>}
+            <Table.Tr key={`${r.kind}:${r.key}`} style={{ verticalAlign: 'top' }}>
+              <Table.Td c="dimmed" style={{ whiteSpace: 'nowrap' }}>{r.kind}</Table.Td>
+              <Table.Td fw={500}>{r.key}</Table.Td>
+              <Table.Td><RowPill status={r.status} /></Table.Td>
+              <Table.Td c="dimmed">
+                {r.needs.length > 0 && <Text span inherit c="var(--mantine-color-orange-text)">Needs: {r.needs.join(' · ')}</Text>}
+                {r.errors.length > 0 && <Text span inherit c="var(--mantine-color-red-text)">{r.errors.join(' ')}</Text>}
+                {r.notice && <Text span inherit c="dimmed">{r.notice}</Text>}
                 {r.status === 'unknown' && (
                   <Btn kind="ghost" disabled={!!busy} onClick={() => quiet(retryRow(step, r.kind, r.key))}
                     title="Only once you've checked it isn't there - otherwise it would be created twice.">
                     It isn't there - send again
                   </Btn>
                 )}
-              </td>
-            </tr>
+              </Table.Td>
+            </Table.Tr>
           ))}
-        </tbody>
-      </table>
+        </Table.Tbody>
+      </Table>
     </Card>
   )
 }

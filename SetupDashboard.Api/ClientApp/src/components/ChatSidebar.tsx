@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ActionIcon, TextInput } from '@mantine/core'
+import { ActionIcon, Avatar, Box, Flex, Group, Stack, Text as MText, TextInput } from '@mantine/core'
 import { SendHorizontal } from 'lucide-react'
 import { useStore } from '../store'
 import { CHAT_MESSAGES } from '../data/chatMessages'
+import classes from './ChatSidebar.module.css'
 
 export function ChatSidebar() {
   const { currentStep, chatHistory, addChatMessage, shownChatSteps, markChatStepShown } = useStore()
@@ -32,31 +33,32 @@ export function ChatSidebar() {
   }
 
   return (
-    <aside className="w-[340px] min-w-[340px] bg-surface border-r border-line flex flex-col">
-      <div className="px-4 py-3 border-b border-line flex items-center gap-3">
-        <img src={`${import.meta.env.BASE_URL}auto-mate-icon-light.png`} alt="Auto-Mate" className="w-10 h-10 rounded-full object-cover" />
+    <Flex component="aside" direction="column" w={340} miw={340} bg="var(--dd-surface-container)"
+      style={{ borderRight: '1px solid var(--dd-outline-variant)' }}>
+      <Group gap="sm" px="md" py="sm" wrap="nowrap" style={{ borderBottom: '1px solid var(--dd-outline-variant)' }}>
+        <Avatar src={`${import.meta.env.BASE_URL}auto-mate-icon-light.png`} alt="Auto-Mate" size={40} />
         <div>
-          <div className="font-semibold text-ink text-sm">Auto-Mate</div>
-          <div className="text-[11px] text-dimmed">Your AI setup assistant</div>
+          <MText size="sm" fw={600}>Auto-Mate</MText>
+          <MText fz={11} c="dimmed">Your AI setup assistant</MText>
         </div>
-        <div className="ml-auto w-2 h-2 rounded-full bg-ok" />
-      </div>
-      <div ref={messagesRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+        <Box ml="auto" w={8} h={8} bdrs="50%" bg="var(--mantine-color-green-filled)" />
+      </Group>
+      <Stack ref={messagesRef} flex={1} p="md" gap="sm" style={{ overflowY: 'auto' }}>
         {chatHistory.map((m, i) => m.from === 'bot' ? (
-          <div key={i} className="flex gap-2 items-end">
-            <img src={`${import.meta.env.BASE_URL}auto-mate-icon-light.png`} alt="Auto-Mate" className="w-7 h-7 rounded-full object-cover shrink-0" />
-            <div className="chat-bot px-4 py-2.5 max-w-[240px] text-sm text-ink">{m.text}</div>
-          </div>
+          <Group key={i} gap={8} align="flex-end" wrap="nowrap">
+            <Avatar src={`${import.meta.env.BASE_URL}auto-mate-icon-light.png`} alt="Auto-Mate" size={28} style={{ flexShrink: 0 }} />
+            <div className={`${classes.bubble} ${classes.bot}`}>{m.text}</div>
+          </Group>
         ) : (
-          <div key={i} className="flex justify-end">
-            <div className="chat-user px-4 py-2.5 max-w-[240px] text-sm">{m.text}</div>
-          </div>
+          <Group key={i} justify="flex-end">
+            <div className={`${classes.bubble} ${classes.user}`}>{m.text}</div>
+          </Group>
         ))}
-      </div>
-      <div className="p-3 border-t border-line">
-        <div className="flex gap-2">
+      </Stack>
+      <Box p="sm" style={{ borderTop: '1px solid var(--dd-outline-variant)' }}>
+        <Group gap={8} wrap="nowrap">
           <TextInput
-            className="flex-1"
+            style={{ flex: 1 }}
             value={input}
             onChange={(e) => setInput(e.currentTarget.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendChat()}
@@ -67,8 +69,8 @@ export function ChatSidebar() {
           <ActionIcon onClick={sendChat} color="grape" size="input-sm" aria-label="Send">
             <SendHorizontal size={16} strokeWidth={1.5} />
           </ActionIcon>
-        </div>
-      </div>
-    </aside>
+        </Group>
+      </Box>
+    </Flex>
   )
 }

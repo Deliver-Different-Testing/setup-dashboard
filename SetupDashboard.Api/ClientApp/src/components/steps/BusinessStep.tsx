@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Box, SimpleGrid, Text as MText } from '@mantine/core'
 import { useStore } from '../../store'
 import * as api from '../../lib/api'
 import type { BusinessProfile } from '../../lib/api'
@@ -17,7 +18,7 @@ export function BusinessStep() {
       intro={<>Who the tenant is. This page doesn't write anywhere: the checklist below is what DFRNT confirms in the tenant's own system before anyone is invited.</>}>
       <SystemSettingsNow />
       <Card title="Company">
-        <div className="grid grid-cols-2 gap-3">
+        <SimpleGrid cols={2} spacing="sm">
           <Text label="Trading name" required value={draft.companyName} onChange={v => set({ companyName: v })} />
           <Text label="Legal name" value={draft.legalName} onChange={v => set({ legalName: v })} />
           <Text label="Country" value={draft.country} onChange={v => set({ country: v })} placeholder="e.g. United States" />
@@ -28,15 +29,15 @@ export function BusinessStep() {
           <Text label="What they deliver" hint="comma separated" value={draft.verticals.join(', ')} onChange={v => set({ verticals: csv(v) })} />
           <Text label="Current system" value={draft.currentSystem} onChange={v => set({ currentSystem: v })} placeholder="e.g. Datatrac" />
           <Text label="Deliveries per month" value={draft.deliveriesPerMonth} onChange={v => set({ deliveriesPerMonth: v })} />
-        </div>
+        </SimpleGrid>
       </Card>
       <Card title="Primary contact for the setup">
-        <div className="grid grid-cols-2 gap-3">
+        <SimpleGrid cols={2} spacing="sm">
           <Text label="Name" required value={draft.primaryContact.name} onChange={v => setContact({ name: v })} />
           <Text label="Email" required type="email" value={draft.primaryContact.email} onChange={v => setContact({ email: v })} />
           <Text label="Phone" value={draft.primaryContact.phone} onChange={v => setContact({ phone: v })} />
           <Text label="Title" value={draft.primaryContact.title} onChange={v => setContact({ title: v })} />
-        </div>
+        </SimpleGrid>
       </Card>
     </StepFrame>
   )
@@ -54,7 +55,7 @@ function SystemSettingsNow() {
     api.getTenantSummary(sessionId).then(setData).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load'))
   }, [sessionId])
 
-  if (error) return <Card title="This tenant's system settings now"><p className="text-xs text-danger">{error}</p></Card>
+  if (error) return <Card title="This tenant's system settings now"><MText size="xs" c="var(--mantine-color-red-text)">{error}</MText></Card>
   if (!data) return null
   const s = data.settings
   const company = session?.business.companyName?.toLowerCase()
@@ -62,21 +63,23 @@ function SystemSettingsNow() {
 
   return (
     <Card title="This tenant's system settings now">
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+      <Box component="dl" m={0} fz="xs" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 16, rowGap: 4 }}>
         {[['Company address', s.CompanyAddress], ['Admin email', s.AdminEmail], ['Country code', s.CountryCode], ['Application name', s.ApplicationName]].map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt className="text-dimmed">{k}</dt>
-            <dd className={looksForeign(v) && k !== 'Country code' && k !== 'Application name' ? 'text-warn font-medium' : 'text-ink'}>{v || '—'}</dd>
-          </div>
+          <Box key={k} style={{ display: 'contents' }}>
+            <Box component="dt" c="dimmed">{k}</Box>
+            {looksForeign(v) && k !== 'Country code' && k !== 'Application name'
+              ? <Box component="dd" m={0} c="var(--mantine-color-orange-text)" fw={500}>{v || '—'}</Box>
+              : <Box component="dd" m={0}>{v || '—'}</Box>}
+          </Box>
         ))}
-      </dl>
-      <p className="text-[11px] text-dimmed mt-2">
+      </Box>
+      <MText fz={11} c="dimmed" mt="xs">
         New tenant databases can carry another tenant's details. If anything here isn't {session?.business.companyName || 'this tenant'}'s,
         it needs fixing in System Settings before the "system settings and email wording" item is ticked.
-      </p>
-      <p className="text-[11px] text-dimmed mt-1">
+      </MText>
+      <MText fz={11} c="dimmed" mt={4}>
         Already in the system: {data.counts.Clients ?? 0} customers, {data.counts.Team ?? 0} staff, {data.counts.Couriers ?? 0} couriers, {data.counts.Zones ?? 0} zones, {data.counts.Automations ?? 0} active automations.
-      </p>
+      </MText>
     </Card>
   )
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Box, Grid, Group, Paper, SimpleGrid, Stack, Text as MText } from '@mantine/core'
 import { useStore } from '../../store'
 import type { PersonRow, RoleRow, TeamStep as Team } from '../../lib/api'
 import { StepFrame } from '../StepFrame'
@@ -6,6 +7,9 @@ import { SmartImport } from '../SmartImport'
 import { useDraft } from '../useDraft'
 import { Btn, Card, Check, Pick, RemoveBtn, Text } from '../ui'
 import { patchAt, removeAt, useLookup } from '../../lib/helpers'
+
+const Col = Grid.Col
+const TOP = { borderTop: '1px solid var(--dd-outline-variant)' }
 
 interface Tile { featureKey: string; displayName: string; condition?: string | null }
 
@@ -30,62 +34,64 @@ export function TeamStep() {
         <b> emails them a sign-in invite</b>. No staff file is created.
       </>}>
       <Card title="Roles" right={<Btn kind="ghost" onClick={() => setRoles([...draft.roles, newRole()])}>+ Role</Btn>}>
-        {draft.roles.length === 0 && <p className="text-xs text-dimmed">Usually a tenant admin and an operations role.</p>}
-        <div className="space-y-4">
+        {draft.roles.length === 0 && <MText size="xs" c="dimmed">Usually a tenant admin and an operations role.</MText>}
+        <Stack gap="lg">
           {draft.roles.map((r, i) => (
-            <div key={i} className="border border-line rounded-xl p-3">
-              <div className="flex gap-3 items-end">
-                <div className="flex-1"><Text label="Role name" required value={r.name} onChange={v => setRoles(patchAt(draft.roles, i, { name: v }))} placeholder="e.g. Tenant Admin" /></div>
-                <div className="flex-1"><Text label="Description" value={r.description} onChange={v => setRoles(patchAt(draft.roles, i, { description: v }))} /></div>
+            <Paper key={i} withBorder p="sm" radius="md" shadow="none">
+              <Group gap="sm" align="flex-end" wrap="nowrap">
+                <Box style={{ flex: 1 }}><Text label="Role name" required value={r.name} onChange={v => setRoles(patchAt(draft.roles, i, { name: v }))} placeholder="e.g. Tenant Admin" /></Box>
+                <Box style={{ flex: 1 }}><Text label="Description" value={r.description} onChange={v => setRoles(patchAt(draft.roles, i, { description: v }))} /></Box>
                 <RemoveBtn onClick={() => setRoles(removeAt(draft.roles, i))} />
-              </div>
-              <div className="mt-3">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-dimmed">Tiles this role can open</span>
-                {tiles.loading && <p className="text-xs text-dimmed">Loading tiles from Access Control…</p>}
-                {tiles.error && <p className="text-xs text-danger">{tiles.error}</p>}
-                <div className="grid grid-cols-3 gap-1.5 mt-1">
+              </Group>
+              <Box mt="sm">
+                <MText fz={11} fw={600} tt="uppercase" lts={0.5} c="dimmed">Tiles this role can open</MText>
+                {tiles.loading && <MText size="xs" c="dimmed">Loading tiles from Access Control…</MText>}
+                {tiles.error && <MText size="xs" c="var(--mantine-color-red-text)">{tiles.error}</MText>}
+                <SimpleGrid cols={3} spacing={6} verticalSpacing={6} mt={4}>
                   {(tiles.data ?? []).map(t => {
                     const on = r.tiles.includes(t.featureKey)
                     return (
                       <Check key={t.featureKey} checked={on}
-                        label={<>{t.displayName}{t.condition && <span className="text-dimmed"> ({t.condition})</span>}</>}
+                        label={<>{t.displayName}{t.condition && <MText span inherit c="dimmed"> ({t.condition})</MText>}</>}
                         onChange={v => setRoles(patchAt(draft.roles, i, { tiles: v ? [...r.tiles, t.featureKey] : r.tiles.filter(x => x !== t.featureKey) }))} />
                     )
                   })}
-                </div>
-                <p className="text-[11px] text-dimmed mt-1">
+                </SimpleGrid>
+                <MText fz={11} c="dimmed" mt={4}>
                   Role actions (View Financial Data, Manage Users, Edit Settings…) follow their tile. DFRNT switches any off in Settings &gt; Roles.
-                </p>
-              </div>
-            </div>
+                </MText>
+              </Box>
+            </Paper>
           ))}
-        </div>
+        </Stack>
       </Card>
 
-      <Card title="People" right={<div className="flex gap-2">
+      <Card title="People" right={<Group gap={8}>
         <Btn kind="ghost" disabled={dirty} title={dirty ? 'Save first' : ''} onClick={() => setImporting(true)}>Import file</Btn>
         <Btn kind="ghost" onClick={() => setPeople([...draft.people, newPerson()])}>+ Person</Btn>
-      </div>}>
-        {draft.people.length === 0 && <p className="text-xs text-dimmed">Staff who will sign in to DFRNT.</p>}
-        <div className="space-y-3">
+      </Group>}>
+        {draft.people.length === 0 && <MText size="xs" c="dimmed">Staff who will sign in to DFRNT.</MText>}
+        <Stack gap="sm">
           {draft.people.map((p, i) => (
-            <div key={i} className="grid grid-cols-6 gap-2 items-end border-t border-line pt-3">
-              <Text label="Email" required type="email" value={p.email} onChange={v => setPeople(patchAt(draft.people, i, { email: v }))} />
-              <Text label="First name" required value={p.firstName} onChange={v => setPeople(patchAt(draft.people, i, { firstName: v }))} />
-              <Text label="Last name" value={p.lastName} onChange={v => setPeople(patchAt(draft.people, i, { lastName: v }))} />
-              <Text label="Job title" value={p.jobTitle} onChange={v => setPeople(patchAt(draft.people, i, { jobTitle: v }))} />
-              <Pick label="Role" required value={p.roleName} options={roleOptions} onChange={v => setPeople(patchAt(draft.people, i, { roleName: v }))} />
-              <div className="flex items-center gap-2">
-                <Text label="Mobile" value={p.mobile} onChange={v => setPeople(patchAt(draft.people, i, { mobile: v }))} />
-                <RemoveBtn onClick={() => setPeople(removeAt(draft.people, i))} />
-              </div>
-              <div className="col-span-6">
+            <Grid key={i} columns={6} gutter={8} align="flex-end" pt="sm" style={TOP} overflow="visible">
+              <Col span={1}><Text label="Email" required type="email" value={p.email} onChange={v => setPeople(patchAt(draft.people, i, { email: v }))} /></Col>
+              <Col span={1}><Text label="First name" required value={p.firstName} onChange={v => setPeople(patchAt(draft.people, i, { firstName: v }))} /></Col>
+              <Col span={1}><Text label="Last name" value={p.lastName} onChange={v => setPeople(patchAt(draft.people, i, { lastName: v }))} /></Col>
+              <Col span={1}><Text label="Job title" value={p.jobTitle} onChange={v => setPeople(patchAt(draft.people, i, { jobTitle: v }))} /></Col>
+              <Col span={1}><Pick label="Role" required value={p.roleName} options={roleOptions} onChange={v => setPeople(patchAt(draft.people, i, { roleName: v }))} /></Col>
+              <Col span={1}>
+                <Group gap={8} align="flex-end" wrap="nowrap">
+                  <Text label="Mobile" value={p.mobile} onChange={v => setPeople(patchAt(draft.people, i, { mobile: v }))} />
+                  <RemoveBtn onClick={() => setPeople(removeAt(draft.people, i))} />
+                </Group>
+              </Col>
+              <Col span={6}>
                 <Check warn checked={p.inviteConfirmed} onChange={v => setPeople(patchAt(draft.people, i, { inviteConfirmed: v }))}
-                  label={<>Send {p.email || 'them'} a sign-in invite now. <span className="text-dimmed">Adding a person always emails them; they aren't sent until this is ticked.</span></>} />
-              </div>
-            </div>
+                  label={<>Send {p.email || 'them'} a sign-in invite now. <MText span inherit c="dimmed">Adding a person always emails them; they aren't sent until this is ticked.</MText></>} />
+              </Col>
+            </Grid>
           ))}
-        </div>
+        </Stack>
       </Card>
 
       {importing && <SmartImport entityType="team" onClose={() => setImporting(false)} onComplete={() => { setImporting(false); markSaved(); reload() }} />}

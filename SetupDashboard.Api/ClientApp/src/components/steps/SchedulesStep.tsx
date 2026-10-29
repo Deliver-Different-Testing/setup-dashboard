@@ -1,8 +1,11 @@
+import { Box, Checkbox, Grid, Paper, SimpleGrid, Stack, Text as MText, TextInput } from '@mantine/core'
 import type { DayWindowRow, ScheduleRow } from '../../lib/api'
 import { StepFrame } from '../StepFrame'
 import { useDraft } from '../useDraft'
 import { Btn, Card, Pick, RemoveBtn, Text } from '../ui'
 import { asOptions, csv, patchAt, removeAt, useLookup } from '../../lib/helpers'
+
+const Col = Grid.Col
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const ORIGINS = [
@@ -27,25 +30,25 @@ export function SchedulesStep() {
         an origin depot. Depots themselves are created by DFRNT for now.
       </>}>
       <Card title={`Schedules (${draft.length})`} right={<Btn kind="ghost" onClick={() => setDraft(d => [...d, { dayWindows: [], clientCodes: [] }])}>+ Schedule</Btn>}>
-        {depots.data && depots.data.length === 0 && <p className="text-xs text-warn mb-2">This tenant has no depots yet - schedules can't be created until DFRNT adds them.</p>}
-        <div className="space-y-4">
+        {depots.data && depots.data.length === 0 && <MText size="xs" c="var(--mantine-color-orange-text)" mb={8}>This tenant has no depots yet - schedules can't be created until DFRNT adds them.</MText>}
+        <Stack gap="lg">
           {draft.map((s, i) => (
-            <div key={i} className="border border-line rounded-xl p-3">
-              <div className="grid grid-cols-6 gap-2 items-end">
-                <div className="col-span-2"><Text label="Name" required value={s.name} onChange={v => patch(i, { name: v })} /></div>
-                <Pick label="Destination depot" required value={s.regionId} options={depotOpts} loading={depots.loading} onChange={v => patch(i, { regionId: v })} />
-                <div className="col-span-2"><Pick label="Origin" required value={s.originType} options={ORIGINS} onChange={v => patch(i, { originType: v })} /></div>
-                <RemoveBtn onClick={() => setDraft(d => removeAt(d, i))} />
-                {s.originType === 'depot' && <Pick label="Pickup depot" required value={s.pickupDepotId} options={depotOpts} onChange={v => patch(i, { pickupDepotId: v })} />}
-                {s.originType === 'client' && <Pick label="Origin depot" required value={s.originRegionId} options={depotOpts} onChange={v => patch(i, { originRegionId: v })} />}
-                <Pick label="Speed" value={s.speedId} options={asOptions(speeds.data)} loading={speeds.loading} onChange={v => patch(i, { speedId: v })} />
-                <div className="col-span-3"><Text label="Customer codes" hint={s.originType === 'client' ? 'required for client address' : 'blank = default for every customer'}
-                  required={s.originType === 'client'} value={s.clientCodes.join(', ')} onChange={v => patch(i, { clientCodes: csv(v) })} /></div>
-              </div>
+            <Paper key={i} withBorder p="sm" radius="md" shadow="none">
+              <Grid columns={6} gutter={8} align="flex-end" overflow="visible">
+                <Col span={2}><Text label="Name" required value={s.name} onChange={v => patch(i, { name: v })} /></Col>
+                <Col span={1}><Pick label="Destination depot" required value={s.regionId} options={depotOpts} loading={depots.loading} onChange={v => patch(i, { regionId: v })} /></Col>
+                <Col span={2}><Pick label="Origin" required value={s.originType} options={ORIGINS} onChange={v => patch(i, { originType: v })} /></Col>
+                <Col span={1}><RemoveBtn onClick={() => setDraft(d => removeAt(d, i))} /></Col>
+                {s.originType === 'depot' && <Col span={1}><Pick label="Pickup depot" required value={s.pickupDepotId} options={depotOpts} onChange={v => patch(i, { pickupDepotId: v })} /></Col>}
+                {s.originType === 'client' && <Col span={1}><Pick label="Origin depot" required value={s.originRegionId} options={depotOpts} onChange={v => patch(i, { originRegionId: v })} /></Col>}
+                <Col span={1}><Pick label="Speed" value={s.speedId} options={asOptions(speeds.data)} loading={speeds.loading} onChange={v => patch(i, { speedId: v })} /></Col>
+                <Col span={3}><Text label="Customer codes" hint={s.originType === 'client' ? 'required for client address' : 'blank = default for every customer'}
+                  required={s.originType === 'client'} value={s.clientCodes.join(', ')} onChange={v => patch(i, { clientCodes: csv(v) })} /></Col>
+              </Grid>
               <DayWindows windows={s.dayWindows} onChange={w => patch(i, { dayWindows: w })} />
-            </div>
+            </Paper>
           ))}
-        </div>
+        </Stack>
       </Card>
     </StepFrame>
   )
@@ -58,29 +61,30 @@ function DayWindows({ windows, onChange }: { windows: DayWindowRow[]; onChange: 
     onChange(p === null ? rest : [...rest, { ...(byDay(d) ?? { dayOfWeek: d }), ...p }].sort((a, b) => (a.dayOfWeek ?? 0) - (b.dayOfWeek ?? 0)))
   }
   return (
-    <div className="mt-3">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-dimmed">Day windows<span className="text-danger ml-0.5">*</span></span>
-      <div className="grid grid-cols-7 gap-2 mt-1">
+    <Box mt="sm">
+      <MText fz={11} fw={600} tt="uppercase" lts={0.5} c="dimmed">Day windows<MText span inherit c="var(--mantine-color-red-text)" ml={2}>*</MText></MText>
+      <SimpleGrid cols={7} spacing={8} mt={4}>
         {DAYS.map((name, idx) => {
           const d = idx + 1
           const w = byDay(d)
           return (
-            <div key={d} className={`rounded-lg border p-2 ${w ? 'border-brand/50 bg-brand/5' : 'border-line'}`}>
-              <label className="flex items-center gap-1 text-xs font-semibold text-ink">
-                <input type="checkbox" className="accent-brand" checked={!!w} onChange={e => setDay(d, e.target.checked ? {} : null)} />{name}
-              </label>
+            <Paper key={d} withBorder p={8} radius="sm" shadow="none"
+              bg={w ? 'var(--mantine-primary-color-light)' : undefined}
+              style={w ? { borderColor: 'var(--mantine-primary-color-filled)' } : undefined}>
+              <Checkbox size="xs" label={name} checked={!!w} onChange={e => setDay(d, e.currentTarget.checked ? {} : null)}
+                styles={{ label: { fontSize: 'var(--mantine-font-size-xs)', fontWeight: 600 } }} />
               {w && (
-                <div className="space-y-1 mt-1">
-                  <input type="time" value={w.startTime ?? ''} onChange={e => setDay(d, { startTime: e.target.value || undefined })} className="w-full text-xs border rounded px-1 py-0.5" title="Start" />
-                  <input type="time" value={w.endTime ?? ''} onChange={e => setDay(d, { endTime: e.target.value || undefined })} className="w-full text-xs border rounded px-1 py-0.5" title="End" />
-                  <input type="time" value={w.cutoffTime ?? ''} onChange={e => setDay(d, { cutoffTime: e.target.value || undefined })} className="w-full text-xs border rounded px-1 py-0.5 text-dimmed" title="Booking cutoff (optional)" />
-                </div>
+                <Stack gap={4} mt={4}>
+                  <TextInput type="time" size="xs" value={w.startTime ?? ''} onChange={e => setDay(d, { startTime: e.currentTarget.value || undefined })} title="Start" aria-label={`${name} start`} />
+                  <TextInput type="time" size="xs" value={w.endTime ?? ''} onChange={e => setDay(d, { endTime: e.currentTarget.value || undefined })} title="End" aria-label={`${name} end`} />
+                  <TextInput type="time" size="xs" c="dimmed" value={w.cutoffTime ?? ''} onChange={e => setDay(d, { cutoffTime: e.currentTarget.value || undefined })} title="Booking cutoff (optional)" aria-label={`${name} booking cutoff`} />
+                </Stack>
               )}
-            </div>
+            </Paper>
           )
         })}
-      </div>
-      <p className="text-[11px] text-dimmed mt-1">Start, end, and an optional booking cutoff per day.</p>
-    </div>
+      </SimpleGrid>
+      <MText fz={11} c="dimmed" mt={4}>Start, end, and an optional booking cutoff per day.</MText>
+    </Box>
   )
 }

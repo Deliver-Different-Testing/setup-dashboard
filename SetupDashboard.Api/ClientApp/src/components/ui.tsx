@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ActionIcon, Badge, Button, Checkbox, Loader, NumberInput, Paper, Select, TextInput, Title, type MantineColor } from '@mantine/core'
+import { ActionIcon, Badge, Button, Checkbox, Group, Loader, NumberInput, Paper, Select, Text as MText, TextInput, Title, type MantineColor } from '@mantine/core'
 import { X } from 'lucide-react'
 import type { RowStatus, StepStatus } from '../lib/api'
 
@@ -18,10 +18,10 @@ export function Card({ title, children, right }: { title?: ReactNode; children: 
   return (
     <Paper component="section" p="lg">
       {(title || right) && (
-        <div className="flex items-center justify-between mb-3">
+        <Group justify="space-between" align="center" mb="sm">
           {title && <Title order={3} fz="sm" fw={700}>{title}</Title>}
           {right}
-        </div>
+        </Group>
       )}
       {children}
     </Paper>
@@ -30,10 +30,10 @@ export function Card({ title, children, right }: { title?: ReactNode; children: 
 
 export function Label({ text, required, hint }: { text: string; required?: boolean; hint?: string }) {
   return (
-    <span className="block text-[11px] font-semibold uppercase tracking-wide text-dimmed mb-1">
-      {text}{required && <span className="text-danger ml-0.5" title="Required by the app this is saved to">*</span>}
-      {hint && <span className="normal-case tracking-normal font-normal text-dimmed ml-1">{hint}</span>}
-    </span>
+    <MText component="span" display="block" fz={11} fw={600} tt="uppercase" lts={0.5} c="dimmed" mb={4}>
+      {text}{required && <MText component="span" inherit c="var(--mantine-color-red-text)" ml={2} title="Required by the app this is saved to">*</MText>}
+      {hint && <MText component="span" inherit tt="none" lts={0} fw={400} c="dimmed" ml={4}>{hint}</MText>}
+    </MText>
   )
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ActionIcon, Badge, Menu, Progress, Tooltip } from '@mantine/core'
+import { ActionIcon, Badge, Box, Group, Menu, Progress, Text, Tooltip } from '@mantine/core'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { completionPercent, openRequestCount, useStore } from '../store'
 import * as api from '../lib/api'
@@ -48,17 +48,17 @@ export function Header() {
   useEffect(() => { api.getTenantLogo().then(r => setLogo(r.logoUrl)).catch(() => setLogo(null)) }, [])
 
   return (
-    <header className="bg-shell text-white px-6 py-3 flex items-center justify-between relative z-50">
-      <div className="flex items-center gap-4">
-        <img src={`${import.meta.env.BASE_URL}dfrnt-logo.png`} alt="DFRNT - Deliver Different" className="h-7" />
-        <div className="h-6 w-px bg-white/20" />
-        {logo && <img src={logo} alt="" className="h-7 rounded bg-white/90 px-1" />}
+    <Group component="header" bg="var(--mantine-color-black)" c="white" px="lg" py="sm" justify="space-between" wrap="nowrap" pos="relative" style={{ zIndex: 50 }}>
+      <Group gap="md" wrap="nowrap">
+        <img src={`${import.meta.env.BASE_URL}dfrnt-logo.png`} alt="DFRNT - Deliver Different" style={{ height: 28 }} />
+        <Box w={1} h={24} bg="rgba(255,255,255,0.2)" />
+        {logo && <img src={logo} alt="" style={{ height: 28, borderRadius: 4, background: 'rgba(255,255,255,0.9)', padding: '0 4px' }} />}
         <div>
-          <div className="text-sm font-semibold">{session?.business.companyName || session?.tenantCode || 'New tenant setup'}</div>
-          <div className="text-[11px] text-white/60">{me?.name}{me?.isDfAdmin ? ' · DFRNT' : ''}</div>
+          <Text size="sm" fw={600} c="white">{session?.business.companyName || session?.tenantCode || 'New tenant setup'}</Text>
+          <Text fz={11} c="rgba(255,255,255,0.6)">{me?.name}{me?.isDfAdmin ? ' · DFRNT' : ''}</Text>
         </div>
-      </div>
-      <div className="flex items-center gap-4">
+      </Group>
+      <Group gap="md" wrap="nowrap">
         {waiting > 0 && (
           <Tooltip label="Things DFRNT has asked the tenant for">
             <Badge color="yellow" variant="light" size="lg" tt="none">
@@ -66,13 +66,13 @@ export function Header() {
             </Badge>
           </Tooltip>
         )}
-        <div className="flex items-center gap-2">
+        <Group gap="xs" wrap="nowrap">
           <Progress value={pct} w={112} size="sm" bg="rgba(255,255,255,0.15)" aria-label="Setup progress" />
-          <span className="text-xs text-white/70">{pct}% done</span>
-        </div>
+          <Text size="xs" c="rgba(255,255,255,0.7)">{pct}% done</Text>
+        </Group>
         <PdfSummary />
         <ColorModeMenu />
-      </div>
-    </header>
+      </Group>
+    </Group>
   )
 }

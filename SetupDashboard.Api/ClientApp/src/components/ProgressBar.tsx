@@ -1,4 +1,6 @@
+import { Box, Container } from '@mantine/core'
 import { STEPS, useStore } from '../store'
+import classes from './ProgressBar.module.css'
 
 export function ProgressBar() {
   const session = useStore(s => s.session)
@@ -7,29 +9,29 @@ export function ProgressBar() {
   if (!session) return null
 
   return (
-    <div className="px-8 pt-6 pb-2">
-      <div className="relative flex items-center justify-between max-w-5xl mx-auto">
-        <div className="progress-line" style={{ left: 24, right: 24 }} />
+    <Box px={32} pt={24} pb={8}>
+      <Container size="lg" p={0} className={classes.track} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className={classes.line} />
         {STEPS.map((s, i) => {
           const st = session.steps[s.key]
           const status = st?.status ?? 'not_started'
           const waiting = st?.requests.some(r => !r.fulfilledAt)
           const isCurrent = i === currentStep
-          const ring = status === 'done' ? 'bg-brand text-shell shadow-lg shadow-brand/30'
-            : status === 'waiting_on_tenant' ? 'bg-warn-light border-2 border-warn'
-            : status === 'in_progress' ? 'bg-surface border-2 border-brand/60'
-            : 'bg-surface border-2 border-line'
+          const ring = status === 'done' ? classes.done
+            : status === 'waiting_on_tenant' ? classes.waiting
+            : status === 'in_progress' ? classes.active
+            : classes.idle
           return (
-            <button key={s.key} type="button" className="relative z-10 flex flex-col items-center group" onClick={() => setCurrentStep(i)}
+            <button key={s.key} type="button" className={classes.step} onClick={() => setCurrentStep(i)}
               title={waiting ? 'Waiting on the tenant' : undefined}>
-              <div className={`w-11 h-11 rounded-full flex items-center justify-center text-base transition-all ${ring} ${isCurrent ? 'step-pulse ring-2 ring-brand ring-offset-2 ring-offset-page' : ''}`}>
+              <div className={`${classes.circle} ${ring} ${isCurrent ? classes.current : ''}`}>
                 {status === 'done' ? '✓' : waiting ? '⏳' : s.icon}
               </div>
-              <span className={`text-[11px] mt-1.5 font-medium ${isCurrent ? 'text-brand-text' : 'text-dimmed'} group-hover:text-ink transition`}>{s.short}</span>
+              <span className={`${classes.label} ${isCurrent ? classes.labelCurrent : ''}`}>{s.short}</span>
             </button>
           )
         })}
-      </div>
-    </div>
+      </Container>
+    </Box>
   )
 }

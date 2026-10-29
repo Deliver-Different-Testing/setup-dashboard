@@ -1,5 +1,5 @@
 import { useEffect, type ComponentType } from 'react'
-import { Button, Loader, Paper } from '@mantine/core'
+import { Box, Button, Center, Container, Flex, Group, Loader, Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { STEPS, useStore } from './store'
 import type { StepKey } from './lib/api'
@@ -38,20 +38,22 @@ function App() {
 
   if (isInitializing) {
     return (
-      <div className="fixed inset-0 bg-page flex flex-col items-center justify-center gap-4">
-        <Loader size="lg" />
-        <p className="text-ink font-semibold text-lg">Opening your setup…</p>
-      </div>
+      <Center pos="fixed" inset={0} bg="var(--mantine-color-body)">
+        <Stack align="center" gap="md">
+          <Loader size="lg" />
+          <Title order={3}>Opening your setup…</Title>
+        </Stack>
+      </Center>
     )
   }
   if (fatal) {
     return (
-      <div className="fixed inset-0 bg-page flex items-center justify-center p-6">
+      <Center pos="fixed" inset={0} p="lg" bg="var(--mantine-color-body)">
         <Paper p="lg" maw={448} ta="center">
-          <p className="text-ink font-semibold">Setup Dashboard couldn't start</p>
-          <p className="text-sm text-dimmed mt-2">{fatal}</p>
+          <Text fw={600}>Setup Dashboard couldn't start</Text>
+          <Text size="sm" c="dimmed" mt={8}>{fatal}</Text>
         </Paper>
-      </div>
+      </Center>
     )
   }
 
@@ -59,28 +61,30 @@ function App() {
   const Screen = SCREENS[step.key]
 
   return (
-    <div className="min-h-screen bg-page">
+    <Box mih="100vh" bg="var(--mantine-color-body)">
       <ResumeSession />
       <Header />
-      <div className="flex" style={{ height: 'calc(100vh - 60px)' }}>
+      <Flex h="calc(100vh - 60px)">
         <ChatSidebar />
-        <main className="flex-1 overflow-y-auto">
+        <Box component="main" style={{ flex: 1, overflowY: 'auto' }}>
           <ProgressBar />
           {session && (
-            <div className="px-8 pb-10 pt-4">
+            <Box px={32} pb={40} pt="md">
               <Screen key={step.key} />
-              <div className="max-w-5xl mx-auto flex justify-between mt-8">
-                {currentStep > 0
-                  ? <Button variant="default" leftSection={<ArrowLeft size={16} strokeWidth={1.5} />} onClick={() => setCurrentStep(currentStep - 1)}>{STEPS[currentStep - 1].short}</Button>
-                  : <div />}
-                {currentStep < STEPS.length - 1 &&
-                  <Button rightSection={<ArrowRight size={16} strokeWidth={1.5} />} onClick={() => setCurrentStep(currentStep + 1)}>{STEPS[currentStep + 1].short}</Button>}
-              </div>
-            </div>
+              <Container size="lg" p={0} mt={32}>
+                <Group justify="space-between">
+                  {currentStep > 0
+                    ? <Button variant="default" leftSection={<ArrowLeft size={16} strokeWidth={1.5} />} onClick={() => setCurrentStep(currentStep - 1)}>{STEPS[currentStep - 1].short}</Button>
+                    : <div />}
+                  {currentStep < STEPS.length - 1 &&
+                    <Button rightSection={<ArrowRight size={16} strokeWidth={1.5} />} onClick={() => setCurrentStep(currentStep + 1)}>{STEPS[currentStep + 1].short}</Button>}
+                </Group>
+              </Container>
+            </Box>
           )}
-        </main>
-      </div>
-    </div>
+        </Box>
+      </Flex>
+    </Box>
   )
 }
 
