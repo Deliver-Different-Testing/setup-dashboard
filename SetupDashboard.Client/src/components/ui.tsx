@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { ActionIcon, Autocomplete, Badge, Button, Checkbox, Group, Loader, NumberInput, Paper, Select, TagsInput, Text as MText, TextInput, Title, type MantineColor } from '@mantine/core'
-import { X } from 'lucide-react'
+import { ActionIcon, Autocomplete, Badge, Box, Button, Checkbox, Collapse, Group, Loader, NumberInput, Paper, Select, TagsInput, Text as MText, TextInput, Title, UnstyledButton, type MantineColor } from '@mantine/core'
+import { ChevronDown, X } from 'lucide-react'
 import type { RowStatus, StepStatus } from '../lib/api'
 
 // Small form kit on Mantine and the DFRNT theme. A field marked `required` is one the owning
@@ -14,9 +14,9 @@ const missingStyles = {
   },
 }
 
-export function Card({ title, children, right }: { title?: ReactNode; children: ReactNode; right?: ReactNode }) {
+export function Card({ title, children, right, id }: { title?: ReactNode; children: ReactNode; right?: ReactNode; id?: string }) {
   return (
-    <Paper component="section" p="lg">
+    <Paper component="section" p="lg" id={id} style={id ? { scrollMarginTop: 16 } : undefined}>
       {(title || right) && (
         <Group justify="space-between" align="center" mb="sm">
           {title && <Title order={3} fz="sm" fw={700}>{title}</Title>}
@@ -100,11 +100,13 @@ export function Suggest({ label, value, onChange, options, required, placeholder
 }
 
 /** A list entered as chips. Typing or pasting a comma splits, so "Auckland, Wellington" becomes two. */
-export function Tags({ label, value, onChange, required, placeholder, hint }: {
+export function Tags({ label, value, onChange, required, placeholder, hint, options }: {
   label: string; value: string[]; onChange: (v: string[]) => void; required?: boolean; placeholder?: string; hint?: string
+  /** Suggestions; anything else can still be typed. */
+  options?: string[]
 }) {
   return (
-    <TagsInput label={label} description={hint} withAsterisk={required} value={value} size="sm"
+    <TagsInput label={label} description={hint} withAsterisk={required} value={value} size="sm" data={options}
       placeholder={placeholder} splitChars={[',']} clearable acceptValueOnBlur
       onChange={v => onChange(v.map(x => x.trim()).filter(Boolean))}
       styles={required && value.length === 0 ? missingStyles : undefined} />
@@ -115,6 +117,38 @@ export function Check({ label, checked, onChange, warn }: { label: ReactNode; ch
   return (
     <Checkbox label={label} checked={checked} onChange={e => onChange(e.currentTarget.checked)} size="sm"
       styles={{ label: { fontSize: 'var(--mantine-font-size-xs)', color: warn && !checked ? 'var(--mantine-color-orange-text)' : 'var(--mantine-color-dimmed)' } }} />
+  )
+}
+
+/**
+ * A record that opens in place: a one-line summary with a status badge, the full form below.
+ * `missing` lists what the owning app still needs; none means ready.
+ */
+export function CollapseRow({ id, title, detail, missing, open, onToggle, children, first }: {
+  id: string; title: ReactNode; detail: ReactNode; missing: string[]; open: boolean; onToggle: () => void; children: ReactNode; first?: boolean
+}) {
+  return (
+    <Box id={id} py={8} style={{ scrollMarginTop: 16, ...(first ? {} : { borderTop: '1px solid var(--dd-outline-variant)' }) }}>
+      <UnstyledButton type="button" onClick={onToggle} w="100%" aria-expanded={open} aria-controls={`${id}-body`}>
+        <Group justify="space-between" align="center" wrap="nowrap" gap="sm">
+          <Box style={{ minWidth: 0 }}>
+            <MText size="sm" fw={500} truncate>{title}</MText>
+            <MText size="xs" c={missing.length ? 'var(--mantine-color-orange-text)' : 'dimmed'} truncate>
+              {missing.length ? `Needs ${missing.join(', ')}` : detail}
+            </MText>
+          </Box>
+          <Group gap={8} wrap="nowrap">
+            <Badge variant="light" color={missing.length ? 'yellow' : 'green'} size="sm" tt="none" fw={600}>
+              {missing.length ? `${missing.length} to fill` : 'Ready'}
+            </Badge>
+            <ChevronDown size={16} aria-hidden style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 150ms' }} />
+          </Group>
+        </Group>
+      </UnstyledButton>
+      <Collapse in={open} id={`${id}-body`}>
+        <Box mt="sm">{children}</Box>
+      </Collapse>
+    </Box>
   )
 }
 
