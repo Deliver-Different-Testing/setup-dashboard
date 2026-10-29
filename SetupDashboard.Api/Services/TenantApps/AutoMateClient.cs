@@ -46,7 +46,7 @@ public sealed class AutoMateClient(
         var baseUrl = urls.BaseUrlForHost("csp", caller);
         if (baseUrl == null)
         {
-            return AutoMateReply.Fail("Auto-Mate isn't set up on this tenant yet. Set Environments__<key>__CspUrl.");
+            return AutoMateReply.Fail("Auto-Mate isn't set up on this tenant yet. Open the dashboard on its deliverdifferent.com address, or add Csp to TenantApps:Hosts.");
         }
 
         var request = new HttpRequestMessage(HttpMethod.Post, new Uri(new Uri(baseUrl), ChatPath))

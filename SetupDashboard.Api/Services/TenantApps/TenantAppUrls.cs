@@ -1,5 +1,3 @@
-using SetupDashboard.Models;
-
 namespace SetupDashboard.Services.TenantApps;
 
 public interface ITenantAppUrls
@@ -7,91 +5,85 @@ public interface ITenantAppUrls
     /// <summary>Base URL (scheme + host, no trailing slash) of an app on the caller's tenant, or null if unknown.</summary>
     string? BaseUrl(TenantApp app, CallerContext caller);
 
-    /// <summary>Same rules for any app host on the tenant (adminmanager, hub...), for checklist links.</summary>
-    string? BaseUrlForHost(string host, CallerContext caller);
+    /// <summary>Same rules for any app on the <c>TenantApps:Hosts</c> list (AdminManager, Hub, Csp...), by name.</summary>
+    string? BaseUrlForHost(string app, CallerContext caller);
 }
 
 /// <summary>
-/// App addresses from the deployment's <c>Environments__&lt;key&gt;__*</c> settings, e.g.
-/// <c>Environments__local__SettingsUrl</c> and <c>Environments__local__HubLoginUrl</c>.
+/// An app's address is the address the dashboard was opened on with its first label swapped for the app's
+/// host name from <c>TenantApps:Hosts</c>: <c>setupdashboard.cheetah.staging.deliverdifferent.com</c> becomes
+/// <c>dfrntdriveconfig.cheetah.staging.deliverdifferent.com</c>. Same tenant and environment, nothing to set per deployment.
 /// </summary>
 /// <remarks>
-/// Each pod is one tenant in one environment, so a deployment normally sets exactly one
-/// <c>Environments</c> entry and that one is used. With several, the entry is matched as the
-/// pre-rewrite LoginController did: <c>local</c> when the <c>Domain</c> env var is local, otherwise
-/// <c>&lt;TenantCode&gt;-staging</c> or <c>&lt;TenantCode&gt;-prod</c> by whether <c>Domain</c> is a staging one.
-/// No address is ever built from the request, so a forged Host header can't redirect calls that
-/// carry the person's Hub cookie.
+/// The Host header is the browser's and these calls carry the person's Hub cookie, so a forged host must never
+/// become a target: only hosts under <c>TenantApps:RootDomain</c> and under this pod's cookie <c>Domain</c> are
+/// swapped, and http with <c>TenantApps:LocalPorts</c> (each app's own port) is for Development only, never
+/// chosen from the host name.
 /// </remarks>
-public sealed class TenantAppUrls(IConfiguration configuration) : ITenantAppUrls
+public sealed class TenantAppUrls(IConfiguration configuration, IHttpContextAccessor httpContextAccessor, IHostEnvironment environment)
+    : ITenantAppUrls
 {
-    public string? BaseUrl(TenantApp app, CallerContext caller)
+    private const string DefaultRootDomain = "deliverdifferent.com";
+
+    public string? BaseUrl(TenantApp app, CallerContext caller) => BaseUrlForHost(app.ToString(), caller);
+
+    public string? BaseUrlForHost(string app, CallerContext caller)
     {
-        var env = Resolve(caller);
-        if (env == null)
+        var entry = configuration.GetSection("TenantApps:Hosts").GetChildren()
+            .FirstOrDefault(e => e.Key.Equals(app, StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrWhiteSpace(entry?.Value) || TenantDomain() is not { } domain)
         {
             return null;
         }
 
-        return Clean(app switch
+        var host = $"{entry.Value.Trim().ToLowerInvariant()}.{domain}";
+        if (!environment.IsDevelopment())
         {
-            TenantApp.Settings => env.SettingsUrl,
-            TenantApp.RoutedOps => env.RoutedOpsUrl,
-            TenantApp.IntegrationManager => env.IntegrationManagerUrl,
-            _ => throw new ArgumentOutOfRangeException(nameof(app))
-        });
+            return $"https://{host}";
+        }
+
+        var port = configuration[$"TenantApps:LocalPorts:{entry.Key}"];
+        return string.IsNullOrWhiteSpace(port) ? $"http://{host}" : $"http://{host}:{port.Trim()}";
     }
 
-    public string? BaseUrlForHost(string host, CallerContext caller)
+    /// <summary>
+    /// This request's host without its first label (<c>cheetah.staging.deliverdifferent.com</c>), or null when
+    /// it isn't <c>&lt;app&gt;.&lt;something&gt;.&lt;root domain&gt;</c> (localhost, an IP, a forged host).
+    /// </summary>
+    private string? TenantDomain()
     {
-        var env = Resolve(caller);
-        if (env == null)
+        var host = httpContextAccessor.HttpContext?.Request.Host.Host?.Trim().TrimEnd('.').ToLowerInvariant();
+        if (string.IsNullOrEmpty(host))
         {
             return null;
         }
 
-        return Clean(host.ToLowerInvariant() switch
-        {
-            "adminmanager" => env.BaseUrl,
-            "hub" => env.HubUrl,
-            "despatch" or "despatchweb" => env.DispatchUrl,
-            "api" => env.ApiUrl,
-            "dfrntdriveconfig" => env.SettingsUrl,
-            "routedoperations" => env.RoutedOpsUrl,
-            "integrationmanager" => env.IntegrationManagerUrl,
-            "csp" or "dfrntcrm" => env.CspUrl,
-            _ => null
-        });
-    }
-
-    private DfrntEnvironment? Resolve(CallerContext caller)
-    {
-        var entries = configuration.GetSection("Environments").GetChildren().ToList();
-        if (entries.Count == 0)
+        var root = Clean(configuration["TenantApps:RootDomain"] ?? DefaultRootDomain);
+        if (!Under(host, root))
         {
             return null;
         }
 
-        var entry = entries.Count == 1 ? entries[0] : Match(entries, caller.TenantCode);
-        return entry?.Get<DfrntEnvironment>();
-    }
-
-    private IConfigurationSection? Match(List<IConfigurationSection> entries, string? tenantCode)
-    {
-        var domain = configuration["Domain"] ?? Environment.GetEnvironmentVariable("Domain") ?? string.Empty;
-        if (domain.Contains("local", StringComparison.OrdinalIgnoreCase))
-        {
-            return entries.FirstOrDefault(e => e.Key.Equals("local", StringComparison.OrdinalIgnoreCase));
-        }
-
-        if (string.IsNullOrWhiteSpace(tenantCode))
+        // The app label, then at least the tenant (or "local") label, then the root domain.
+        var labels = host.Split('.');
+        if (labels.Length < root.Split('.').Length + 2)
         {
             return null;
         }
 
-        var suffix = domain.Contains("staging", StringComparison.OrdinalIgnoreCase) ? "-staging" : "-prod";
-        return entries.FirstOrDefault(e => e.Key.Equals(tenantCode + suffix, StringComparison.OrdinalIgnoreCase));
+        var domain = string.Join('.', labels.Skip(1));
+        // A pod is one tenant: its cookie Domain (e.g. .cheetah.staging.deliverdifferent.com) keeps calls on that tenant.
+        var cookieDomain = Clean(configuration["Domain"] ?? Environment.GetEnvironmentVariable("Domain") ?? string.Empty);
+        if (cookieDomain.Length > 0 && cookieDomain != "localhost" && domain != cookieDomain && !Under(domain, cookieDomain))
+        {
+            return null;
+        }
+
+        // A local host outside Development would be http to whatever "local" resolves to; refuse it.
+        return !environment.IsDevelopment() && domain.Split('.').Contains("local") ? null : domain;
     }
 
-    private static string? Clean(string? url) => string.IsNullOrWhiteSpace(url) ? null : url.Trim().TrimEnd('/');
+    private static bool Under(string host, string domain) => host.EndsWith("." + domain, StringComparison.Ordinal);
+
+    private static string Clean(string domain) => domain.Trim().Trim('.').ToLowerInvariant();
 }

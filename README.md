@@ -43,8 +43,9 @@ Set in `SetupDashboard.Api/Properties/launchSettings.json` for dev (gitignored â
 | `RedisConfig` | Redis connection string (in-memory fallback in dev) |
 | `Domain` | Cookie domain for shared auth |
 | `PublicPath` | Hub login redirect URL |
-| `Environments__<key>__CspUrl` | Customer Success Platform (dfrntcrm) base URL. Auto-Mate's sidebar questions go to its `POST /api/v1/chat/messages` as the signed-in person; unset, Auto-Mate says it isn't set up |
 | `ANTHROPIC_API_KEY` | Optional. Turns on Claude suggestions (`claude-opus-5-5`) for Smart Import columns the name match can't place; only column names and 3 masked sample values per column are sent. Unset, Smart Import uses the name match alone |
+
+The other apps (Settings, Routed Ops, Integration Manager, Hub, Admin Manager, the Customer Success Platform for Auto-Mate) need no URL settings. Each is reached at the address the dashboard is on with the first label swapped for its host name from `TenantApps:Hosts` in `appsettings.json`: `setupdashboard.cheetah.staging.deliverdifferent.com` calls `dfrntdriveconfig.cheetah.staging.deliverdifferent.com`. Only hosts under `TenantApps:RootDomain` and under the pod's cookie `Domain` are used (a forged `Host` can't point the calls at another tenant), and http plus local ports apply in Development only, so run locally on `setupdashboard.local.deliverdifferent.com` (the IIS Express profile); `localhost` has no app addresses. Local ports per app are in `appsettings.Development.json` (`TenantApps:LocalPorts`).
 
 ## Documentation
 - `HANDOVER.md` â€” Handover guide (start here)

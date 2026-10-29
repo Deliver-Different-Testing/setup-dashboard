@@ -10,9 +10,9 @@ public class TenantAppClientTests
     private static IConfiguration Config()
         => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["Environments:cheetah-staging:SettingsUrl"] = "https://dfrntdriveconfig.cheetah.staging.deliverdifferent.com",
-            ["Environments:cheetah-staging:RoutedOpsUrl"] = "https://routedoperations.cheetah.staging.deliverdifferent.com",
-            ["Environments:cheetah-staging:IntegrationManagerUrl"] = "https://integrationmanager.cheetah.staging.deliverdifferent.com"
+            ["TenantApps:Hosts:Settings"] = "dfrntdriveconfig",
+            ["TenantApps:Hosts:RoutedOps"] = "routedoperations",
+            ["TenantApps:Hosts:IntegrationManager"] = "integrationmanager"
         }).Build();
 
     private static (TenantAppClient Client, RecordingHandler Handler) Build(Func<HttpRequestMessage, HttpResponseMessage> respond,
@@ -20,8 +20,9 @@ public class TenantAppClientTests
     {
         var handler = new RecordingHandler(respond);
         var config = Config();
-        var client = new TenantAppClient(new SingleClientFactory(handler), Make.Http(Make.User(), cookie),
-            new TenantAppUrls(config), Make.Cache(), config, NullLogger<TenantAppClient>.Instance);
+        var http = Make.Http(Make.User(), cookie);
+        var client = new TenantAppClient(new SingleClientFactory(handler), http,
+            new TenantAppUrls(config, http, Make.Production()), Make.Cache(), config, NullLogger<TenantAppClient>.Instance);
         return (client, handler);
     }
 

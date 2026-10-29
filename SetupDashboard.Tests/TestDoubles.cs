@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
@@ -80,12 +81,16 @@ public static class Make
     public static CallerContext Caller(int clientTypeId = 5, string country = "US")
         => CallerContext.From(User(clientTypeId: clientTypeId, country: country))!;
 
-    public static HttpContextAccessor Http(ClaimsPrincipal user, string cookie)
+    /// <summary>A request to the dashboard on cheetah staging, unless another host is given.</summary>
+    public static HttpContextAccessor Http(ClaimsPrincipal user, string cookie, string host = "setupdashboard.cheetah.staging.deliverdifferent.com")
     {
         var ctx = new DefaultHttpContext { User = user };
         ctx.Request.Headers.Cookie = cookie;
+        ctx.Request.Host = new HostString(host);
         return new HttpContextAccessor { HttpContext = ctx };
     }
+
+    public static IHostEnvironment Production() => new Microsoft.Extensions.Hosting.Internal.HostingEnvironment { EnvironmentName = Environments.Production };
 
     public static IDistributedCache Cache() => new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions()));
 

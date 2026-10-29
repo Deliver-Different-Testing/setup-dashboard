@@ -11,18 +11,18 @@ public class AutoMateClientTests
     private const string Csp = "https://dfrntcrm.cheetah.staging.deliverdifferent.com";
 
     private static (AutoMateClient Client, RecordingHandler Handler) Build(Func<HttpRequestMessage, HttpResponseMessage> respond,
-        string? cspUrl = Csp)
+        bool cspListed = true)
     {
-        var settings = new Dictionary<string, string?> { ["Environments:cheetah-staging:SettingsUrl"] = "https://settings.example" };
-        if (cspUrl != null)
+        var settings = new Dictionary<string, string?> { ["TenantApps:Hosts:Settings"] = "dfrntdriveconfig" };
+        if (cspListed)
         {
-            settings["Environments:cheetah-staging:CspUrl"] = cspUrl;
+            settings["TenantApps:Hosts:Csp"] = "dfrntcrm";
         }
 
         var handler = new RecordingHandler(respond);
-        var client = new AutoMateClient(new SingleClientFactory(handler),
-            Make.Http(Make.User(), ".AspNet.SharedCookie=abc; hub_session=zzz"),
-            new TenantAppUrls(new ConfigurationBuilder().AddInMemoryCollection(settings).Build()),
+        var http = Make.Http(Make.User(), ".AspNet.SharedCookie=abc; hub_session=zzz");
+        var client = new AutoMateClient(new SingleClientFactory(handler), http,
+            new TenantAppUrls(new ConfigurationBuilder().AddInMemoryCollection(settings).Build(), http, Make.Production()),
             NullLogger<AutoMateClient>.Instance);
         return (client, handler);
     }
@@ -48,9 +48,9 @@ public class AutoMateClientTests
     }
 
     [Fact]
-    public async Task No_csp_address_means_auto_mate_is_not_set_up_here()
+    public async Task Csp_off_the_app_list_means_auto_mate_is_not_set_up_here()
     {
-        var (client, handler) = Build(_ => Sse(""), cspUrl: null);
+        var (client, handler) = Build(_ => Sse(""), cspListed: false);
 
         using var reply = await client.AskAsync("Hi", null);
 
