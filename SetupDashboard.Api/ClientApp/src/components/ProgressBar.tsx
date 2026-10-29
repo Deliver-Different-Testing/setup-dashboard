@@ -1,6 +1,9 @@
 import { Box, Container } from '@mantine/core'
+import { Check, Hourglass } from 'lucide-react'
 import { STEPS, useStore } from '../store'
 import classes from './ProgressBar.module.css'
+
+const STATUS_TEXT = { done: 'done', waiting_on_tenant: 'waiting on the tenant', in_progress: 'in progress', not_started: 'not started' } as const
 
 export function ProgressBar() {
   const session = useStore(s => s.session)
@@ -21,11 +24,17 @@ export function ProgressBar() {
             : status === 'waiting_on_tenant' ? classes.waiting
             : status === 'in_progress' ? classes.active
             : classes.idle
+          const Icon = s.icon
           return (
             <button key={s.key} type="button" className={classes.step} onClick={() => setCurrentStep(i)}
+              aria-current={isCurrent ? 'step' : undefined}
+              aria-label={`${s.title}, ${waiting ? 'waiting on the tenant' : STATUS_TEXT[status]}`}
               title={waiting ? 'Waiting on tenant' : undefined}>
+              {/* Every step keeps its own icon in the one colour; state is the ring plus a corner badge. */}
               <div className={`${classes.circle} ${ring} ${isCurrent ? classes.current : ''}`}>
-                {status === 'done' ? '✓' : waiting ? '⏳' : s.icon}
+                <Icon size={20} strokeWidth={1.5} aria-hidden />
+                {status === 'done' && <span className={`${classes.badge} ${classes.badgeDone}`}><Check size={10} strokeWidth={3} aria-hidden /></span>}
+                {status !== 'done' && waiting && <span className={`${classes.badge} ${classes.badgeWaiting}`}><Hourglass size={10} strokeWidth={2.5} aria-hidden /></span>}
               </div>
               <span className={`${classes.label} ${isCurrent ? classes.labelCurrent : ''}`}>{s.short}</span>
             </button>

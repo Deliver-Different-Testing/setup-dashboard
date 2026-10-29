@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { Building2, CalendarClock, Contact, GraduationCap, Handshake, Plug, Settings, Tag, Truck, Users, Zap, type LucideIcon } from 'lucide-react'
 import * as api from './lib/api'
 import type { Me, PushSummary, Session, SessionSummary, StepKey } from './lib/api'
 import { errorMessage } from './lib/helpers'
@@ -7,18 +8,18 @@ import { errorMessage } from './lib/helpers'
 // save it with saveStep; "Send" pushes the saved rows to Settings / Routed Ops.
 // Nothing about the tenant is chosen here - it comes from the Hub cookie on the server.
 
-export const STEPS: { key: StepKey; icon: string; short: string; title: string }[] = [
-  { key: 'business', icon: '🏢', short: 'Business', title: 'Business profile' },
-  { key: 'team', icon: '👥', short: 'Team', title: 'Team, roles and access' },
-  { key: 'clients', icon: '📋', short: 'Customers', title: 'Customers and booking contacts' },
-  { key: 'rates', icon: '💰', short: 'Rates', title: 'Rates and zones' },
-  { key: 'schedules', icon: '🗓️', short: 'Schedules', title: 'Schedules' },
-  { key: 'couriers', icon: '🚗', short: 'Couriers', title: 'Couriers and fleets' },
-  { key: 'partners', icon: '🤝', short: 'Partners', title: 'Agents and network partners' },
-  { key: 'automations', icon: '⚡', short: 'Automations', title: 'Automations' },
-  { key: 'integrations', icon: '🔌', short: 'Integrations', title: 'Integrations' },
-  { key: 'appconfig', icon: '⚙️', short: 'App setup', title: 'App setup' },
-  { key: 'training', icon: '🏋️', short: 'Training', title: 'Training' },
+export const STEPS: { key: StepKey; icon: LucideIcon; short: string; title: string }[] = [
+  { key: 'business', icon: Building2, short: 'Business', title: 'Business profile' },
+  { key: 'team', icon: Users, short: 'Team', title: 'Team, roles and access' },
+  { key: 'clients', icon: Contact, short: 'Customers', title: 'Customers and booking contacts' },
+  { key: 'rates', icon: Tag, short: 'Rates', title: 'Rates and zones' },
+  { key: 'schedules', icon: CalendarClock, short: 'Schedules', title: 'Schedules' },
+  { key: 'couriers', icon: Truck, short: 'Couriers', title: 'Couriers and fleets' },
+  { key: 'partners', icon: Handshake, short: 'Partners', title: 'Agents and network partners' },
+  { key: 'automations', icon: Zap, short: 'Automations', title: 'Automations' },
+  { key: 'integrations', icon: Plug, short: 'Integrations', title: 'Integrations' },
+  { key: 'appconfig', icon: Settings, short: 'App setup', title: 'App setup' },
+  { key: 'training', icon: GraduationCap, short: 'Training', title: 'Training' },
 ]
 
 interface ChatMessage { from: 'bot' | 'user'; text: string }

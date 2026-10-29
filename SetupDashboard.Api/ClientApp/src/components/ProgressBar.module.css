@@ -25,20 +25,46 @@
   font-family: inherit;
 }
 
+/* One icon colour for every step and every state: the brand's text-safe cyan. State is
+   carried by the ring, the fill tint and the corner badge, never by recolouring the icon. */
 .circle {
+  position: relative;
   width: 44px;
   height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--mantine-font-size-md);
+  color: var(--mantine-color-brand-text);
   transition: background-color 150ms ease, border-color 150ms ease;
 }
 
 .done {
+  background: var(--mantine-primary-color-light);
+  border: 2px solid var(--mantine-primary-color-filled);
+}
+
+.badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--mantine-color-body);
+}
+
+.badgeDone {
   background: var(--mantine-primary-color-filled);
   color: var(--mantine-color-black);
+}
+
+.badgeWaiting {
+  background: var(--mantine-color-orange-filled);
+  color: var(--mantine-color-white);
 }
 
 .waiting {
