@@ -23,6 +23,52 @@ public partial class AutomationRule
 
     public string ModifiedBy { get; set; }
 
+    public bool IsDeleted { get; set; }
+
+    public string ConditionMatchMode { get; set; }
+
+    public bool AllCustomers { get; set; }
+
+    public string CustomerIds { get; set; }
+
+    public bool AllSpeeds { get; set; }
+
+    public string SpeedIds { get; set; }
+
+    public bool AllJobStatuses { get; set; }
+
+    public string JobStatusIds { get; set; }
+
+    public bool AllPriorities { get; set; }
+
+    public string PriorityIds { get; set; }
+
+    public bool AllFromSites { get; set; }
+
+    public string FromSiteIds { get; set; }
+
+    public bool AllToSites { get; set; }
+
+    public string ToSiteIds { get; set; }
+
+    public bool AllFromRegions { get; set; }
+
+    public string FromRegionIds { get; set; }
+
+    public bool AllToRegions { get; set; }
+
+    public string ToRegionIds { get; set; }
+
+    public int? TimeThreshold { get; set; }
+
+    public string JobRelationship { get; set; }
+
+    public bool AllCouriers { get; set; }
+
+    public string CourierIds { get; set; }
+
+    public string AddressBasis { get; set; }
+
     public virtual ICollection<AutomationAction> AutomationActions { get; set; } = new List<AutomationAction>();
 
     public virtual ICollection<AutomationCondition> AutomationConditions { get; set; } = new List<AutomationCondition>();

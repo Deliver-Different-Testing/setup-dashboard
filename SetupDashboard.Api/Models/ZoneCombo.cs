@@ -9,8 +9,6 @@ public partial class ZoneCombo
 {
     public int ZoneComboId { get; set; }
 
-    public int? ClientId { get; set; }
-
     public int? FromZoneNameId { get; set; }
 
     public int? ToZoneNameId { get; set; }
@@ -46,6 +44,14 @@ public partial class ZoneCombo
     public decimal? WeightTo { get; set; }
 
     public int? AccessorialChargeGroupId { get; set; }
+
+    public bool IsDefault { get; set; }
+
+    public int? FuelSurchargeId { get; set; }
+
+    public bool? ApplyChargeRateCourierFuel { get; set; }
+
+    public string InternalName { get; set; }
 
     public virtual ExtraCharge ExtraCharge { get; set; }
 

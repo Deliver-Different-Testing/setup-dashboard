@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.7204101">
+
+  <!-- React frontend (Vite). `npm run build` writes into
+       ../SetupDashboard.Api/wwwroot/setup-dashboard/, which the API serves and
+       publishes; the API references this project so building the API builds it. -->
+  <PropertyGroup>
+    <StartupCommand>npm run dev</StartupCommand>
+    <BuildCommand>npm run build</BuildCommand>
+    <TestCommand>npm test</TestCommand>
+    <ShouldRunNpmInstall>true</ShouldRunNpmInstall>
+    <!-- npm audit needs the network and lists advisories as build warnings; run it by hand. -->
+    <ShouldRunNpmAudit>false</ShouldRunNpmAudit>
+  </PropertyGroup>
+
+  <!-- SkipNpm=true (backend tests, quick backend builds) skips npm entirely. -->
+  <PropertyGroup Condition="'$(SkipNpm)' == 'true'">
+    <ShouldRunNpmInstall>false</ShouldRunNpmInstall>
+    <ShouldRunBuildScript>false</ShouldRunBuildScript>
+  </PropertyGroup>
+
+</Project>

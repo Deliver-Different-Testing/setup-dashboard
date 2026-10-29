@@ -1,0 +1,15 @@
+/* Page-wide basics only. Everything else is Mantine (theme in styles/mantineTheme.ts) or a
+   CSS module beside its component, and reads the theme's variables so it follows light/dark. */
+
+body {
+  margin: 0;
+  background: var(--mantine-color-body);
+  color: var(--mantine-color-text);
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--dd-outline-variant); border-radius: 3px; }

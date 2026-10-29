@@ -1,0 +1,14 @@
+# otgcargo production: only what differs from ../auto-deploy-values.yaml.
+# Placement (tenant label, node affinity, toleration) is generated at deploy time.
+replicaCount: 2
+hpa:
+  minReplicas: 2
+  maxReplicas: 5
+ingress:
+  spec:
+    ingressClassName: nginx
+resources:
+  requests:
+    memory: 512Mi
+  limits:
+    memory: 1Gi

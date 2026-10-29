@@ -8,8 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Frontend
-SetupDashboard.Api/ClientApp/node_modules/
-SetupDashboard.Api/ClientApp/dist/
+SetupDashboard.Client/node_modules/
+SetupDashboard.Client/dist/
 *.local
 
 # Editor directories and files
@@ -39,3 +39,7 @@ SetupDashboard.Api/Properties/launchSettings.json
 
 # SQLite data
 SetupDashboard.Api/data/
+
+# build output for every project
+[Bb]in/
+[Oo]bj/

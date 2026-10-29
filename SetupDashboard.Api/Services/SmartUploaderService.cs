@@ -1,21 +1,31 @@
-using System.Globalization;
 using System.Text;
 using ClosedXML.Excel;
 using CsvHelper;
-using CsvHelper.Configuration;
 using ExcelDataReader;
 using FuzzySharp;
+using Serilog;
+using SetupDashboard.Interfaces;
 using SetupDashboard.Models;
+using SetupDashboard.Services.Ai;
 
 namespace SetupDashboard.Services;
 
 /// <summary>
 /// Smart CSV/Excel uploader with fuzzy column matching.
-/// Ported from BulkImport's FieldMappingUtility pattern + AI-assisted fuzzy matching.
+/// Ported from BulkImport's FieldMappingUtility pattern; columns the name match can't place are
+/// offered to the <see cref="IColumnMappingAdvisor"/> (Claude) as suggestions.
 /// </summary>
-public class SmartUploaderService
+public class SmartUploaderService(IColumnMappingAdvisor? advisor = null)
 {
-    private readonly ILogger<SmartUploaderService> _logger;
+    /// <summary>Below the name match's 75, so an AI suggestion never looks as sure as a name match.</summary>
+    internal const int AiConfidence = 70;
+
+    private const int SamplesPerColumn = 3;
+
+    /// <summary>The upload is waiting on this; past it the name match stands alone.</summary>
+    private static readonly TimeSpan AdvisorTimeout = TimeSpan.FromSeconds(30);
+
+    private readonly IColumnMappingAdvisor _advisor = advisor ?? new NoColumnMappingAdvisor();
 
     // Known system signatures for auto-detection
     private static readonly Dictionary<string, string[]> KnownSystems = new()
@@ -26,26 +36,24 @@ public class SmartUploaderService
         ["OnTime"] = ["OrderNumber", "Shipper", "Receiver", "Pieces"],
         ["GetSwift"] = ["booking_id", "pickup_name", "dropoff_name"],
         ["Track-POD"] = ["Order #", "Sender", "Receiver", "Status"],
-        ["DFRNT"] = ["ClientCode", "FromCompany", "ToCompany", "ServiceType"],
+        ["DFRNT"] = ["ClientCode", "FromCompany", "ToCompany", "ServiceType"]
     };
 
     // Store parsed data per session for preview/import flow
-    private readonly Dictionary<string, (List<string[]> Rows, List<string> Headers, string EntityType)> _uploadCache = new();
-
-    public SmartUploaderService(ILogger<SmartUploaderService> logger)
-    {
-        _logger = logger;
-    }
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (List<string[]> Rows, List<string> Headers, string EntityType)> _uploadCache = new();
 
     /// <summary>
     /// Parse file (CSV or Excel), detect system, auto-map columns.
     /// </summary>
-    public async Task<DetectionResult> DetectAndMapAsync(Stream fileStream, string fileName, string entityType, string sessionId)
+    public async Task<DetectionResult> DetectAndMapAsync(Stream fileStream, string fileName, string entityType, string sessionId,
+        CancellationToken ct = default)
     {
         var (headers, rows) = await ParseFileAsync(fileStream, fileName);
 
         if (headers.Count == 0)
+        {
             return new DetectionResult { Success = false, Message = "No headers found in file" };
+        }
 
         // Cache for preview/import
         _uploadCache[sessionId] = (rows, headers, entityType);
@@ -54,11 +62,14 @@ public class SmartUploaderService
         var (system, systemConfidence) = DetectSystem(headers);
 
         // Get target field definitions
-        if (!EntityDefinitions.Fields.TryGetValue(entityType, out var targetFields))
+        if (EntityDefinitions.For(entityType) is not { } targetFields)
+        {
             return new DetectionResult { Success = false, Message = $"Unknown entity type: {entityType}" };
+        }
 
         // Map columns using fuzzy matching
         var mappings = MapColumns(headers, targetFields);
+        await AddAdvisorSuggestionsAsync(mappings, headers, rows, entityType, targetFields, ct);
 
         var matchedMappings = mappings.Where(m => !string.IsNullOrEmpty(m.DfField)).ToList();
         var avgConfidence = matchedMappings.Count > 0
@@ -74,7 +85,7 @@ public class SmartUploaderService
             Headers = headers,
             RowCount = rows.Count,
             SuggestedMappings = mappings,
-            DfFields = targetFields.Select(f => f.FieldName).ToList(),
+            DfFields = targetFields.Select(f => f.FieldName).ToList()
         };
     }
 
@@ -84,7 +95,9 @@ public class SmartUploaderService
     public PreviewResult GeneratePreview(string sessionId, List<FieldMapping> mappings, string entityType, int maxRows = 20)
     {
         if (!_uploadCache.TryGetValue(sessionId, out var cached))
+        {
             return new PreviewResult { Success = false, Message = "No upload found. Upload a file first." };
+        }
 
         var (rows, headers, _) = cached;
         var result = new PreviewResult();
@@ -92,20 +105,19 @@ public class SmartUploaderService
 
         // Build header index
         var headerIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < headers.Count; i++)
+        for (var i = 0; i < headers.Count; i++)
             headerIndex[headers[i]] = i;
 
         // Get required fields
-        var requiredFields = EntityDefinitions.Fields.TryGetValue(entityType, out var defs)
+        var requiredFields = EntityDefinitions.For(entityType) is { } defs
             ? defs.Where(d => d.Required).Select(d => d.FieldName).ToHashSet()
             : new HashSet<string>();
 
         // Check that all required fields are mapped
         var mappedFields = mappings.Where(m => !string.IsNullOrEmpty(m.DfField)).Select(m => m.DfField).ToHashSet();
-        foreach (var req in requiredFields)
+        foreach (var req in requiredFields.Where(req => !mappedFields.Contains(req)))
         {
-            if (!mappedFields.Contains(req))
-                validation.Errors.Add($"Required field '{req}' is not mapped to any CSV column");
+            validation.Warnings.Add($"'{req}' isn't in this file. Rows will come in, but each will need it filled in before it can be sent.");
         }
 
         // Map rows
@@ -129,32 +141,42 @@ public class SmartUploaderService
         }
 
         // Validate data
-        int rowNum = 0;
+        var rowNum = 0;
         foreach (var row in rows)
         {
             rowNum++;
             foreach (var mapping in mappings.Where(m => requiredFields.Contains(m.DfField)))
             {
-                if (headerIndex.TryGetValue(mapping.CsvColumn, out var idx) && idx < row.Length)
+                if (!headerIndex.TryGetValue(mapping.CsvColumn, out var idx) || idx >= row.Length)
                 {
-                    if (string.IsNullOrWhiteSpace(row[idx]))
-                        validation.Warnings.Add($"Row {rowNum}: Required field '{mapping.DfField}' is empty");
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(row[idx]))
+                {
+                    validation.Warnings.Add($"Row {rowNum}: Required field '{mapping.DfField}' is empty");
                 }
             }
 
             // Check for duplicate detection
-            if (rowNum > 1)
+            if (rowNum <= 1)
             {
-                var nameMapping = mappings.FirstOrDefault(m => m.DfField is "Name" or "ClientName" or "ZoneName");
-                if (nameMapping != null && headerIndex.TryGetValue(nameMapping.CsvColumn, out var nameIdx))
-                {
-                    var name = nameIdx < row.Length ? row[nameIdx] : "";
-                    var prevNames = rows.Take(rowNum - 1)
-                        .Select(r => nameIdx < r.Length ? r[nameIdx] : "")
-                        .ToList();
-                    if (prevNames.Contains(name, StringComparer.OrdinalIgnoreCase))
-                        validation.Warnings.Add($"Row {rowNum}: Possible duplicate '{name}'");
-                }
+                continue;
+            }
+
+            var nameMapping = mappings.FirstOrDefault(m => m.DfField is "Name" or "ClientName" or "ZoneName");
+            if (nameMapping == null || !headerIndex.TryGetValue(nameMapping.CsvColumn, out var nameIdx))
+            {
+                continue;
+            }
+
+            var name = nameIdx < row.Length ? row[nameIdx] : string.Empty;
+            var prevNames = rows.Take(rowNum - 1)
+                .Select(r => nameIdx < r.Length ? r[nameIdx] : "")
+                .ToList();
+            if (prevNames.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                validation.Warnings.Add($"Row {rowNum}: Possible duplicate '{name}'");
             }
         }
 
@@ -170,11 +192,13 @@ public class SmartUploaderService
     public List<Dictionary<string, string?>> ExecuteMapping(string sessionId, List<FieldMapping> mappings)
     {
         if (!_uploadCache.TryGetValue(sessionId, out var cached))
+        {
             throw new InvalidOperationException("No upload found. Upload a file first.");
+        }
 
         var (rows, headers, _) = cached;
         var headerIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < headers.Count; i++)
+        for (var i = 0; i < headers.Count; i++)
             headerIndex[headers[i]] = i;
 
         var result = new List<Dictionary<string, string?>>();
@@ -184,9 +208,13 @@ public class SmartUploaderService
             foreach (var mapping in mappings.Where(m => !string.IsNullOrEmpty(m.DfField)))
             {
                 if (headerIndex.TryGetValue(mapping.CsvColumn, out var idx) && idx < row.Length)
+                {
                     mapped[mapping.DfField] = ApplyTransform(row[idx], mapping.Transform)?.ToString();
+                }
                 else
+                {
                     mapped[mapping.DfField] = null;
+                }
             }
             result.Add(mapped);
         }
@@ -197,17 +225,19 @@ public class SmartUploaderService
     /// <summary>
     /// Generate a CSV template for a given entity type.
     /// </summary>
-    public byte[] GenerateTemplate(string entityType)
+    public static byte[] GenerateTemplate(string entityType)
     {
         var headers = EntityDefinitions.GetTemplateHeaders(entityType);
         if (headers.Count == 0)
+        {
             throw new ArgumentException($"Unknown entity type: {entityType}");
+        }
 
         using var ms = new MemoryStream();
         using var writer = new StreamWriter(ms, Encoding.UTF8);
         writer.WriteLine(string.Join(",", headers.Select(h => $"\"{h}\"")));
         // Write an example row
-        var fields = EntityDefinitions.Fields[entityType];
+        var fields = EntityDefinitions.For(entityType) ?? throw new ArgumentException($"Unknown entity type: {entityType}");
         var exampleValues = fields.Select(f => f.FieldName switch
         {
             "Name" or "ClientName" or "ZoneName" => "Example Corp",
@@ -219,7 +249,7 @@ public class SmartUploaderService
             "Billing" => "Monthly",
             "City" or "Location" => "Dallas",
             "State" => "TX",
-            "ZipCode" or "ZipCode" => "75001",
+            "ZipCode" => "75001",
             "Vehicle" => "Van",
             "Zone" => "Downtown",
             "Rate" => "12.50",
@@ -235,11 +265,11 @@ public class SmartUploaderService
     /// <summary>
     /// Remove cached upload data for a session.
     /// </summary>
-    public void ClearCache(string sessionId) => _uploadCache.Remove(sessionId);
+    public void ClearCache(string sessionId) => _uploadCache.TryRemove(sessionId, out _);
 
     // --- Private helpers ---
 
-    private async Task<(List<string> Headers, List<string[]> Rows)> ParseFileAsync(Stream stream, string fileName)
+    internal async Task<(List<string> Headers, List<string[]> Rows)> ParseFileAsync(Stream stream, string fileName)
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
         return ext switch
@@ -247,31 +277,31 @@ public class SmartUploaderService
             ".xlsx" => ParseExcel(stream),
             ".xls" => ParseLegacyExcel(stream),
             ".csv" or ".tsv" or ".txt" => await ParseCsvAsync(stream),
-            _ => throw new ArgumentException($"Unsupported file format: {ext}. Supported formats: .csv, .xlsx, .xls"),
+            _ => throw new ArgumentException($"Unsupported file format: {ext}. Supported formats: .csv, .xlsx, .xls")
         };
     }
 
     private async Task<(List<string> Headers, List<string[]> Rows)> ParseCsvAsync(Stream stream)
     {
-        using var reader = new StreamReader(stream);
-        using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
+        await using var csv = CsvReader.Create(stream, new CsvReaderOptions
         {
-            HasHeaderRecord = true,
-            MissingFieldFound = null,
-            BadDataFound = null,
-            TrimOptions = TrimOptions.Trim,
+            Separator = ',',
+            HasHeader = true,
+            TrimWhitespace = true,
+            MissingField = CsvMissingFieldHandling.ReturnEmpty,
+            FieldCountMismatch = CsvFieldCountHandling.Allow,
+            MalformedData = CsvMalformedDataHandling.Recover
         });
 
-        await csv.ReadAsync();
-        csv.ReadHeader();
-        var headers = csv.HeaderRecord?.ToList() ?? new();
+        await csv.ReadHeaderAsync();
+        var headers = csv.Headers.ToList();
 
         var rows = new List<string[]>();
         while (await csv.ReadAsync())
         {
             var row = new string[headers.Count];
-            for (int i = 0; i < headers.Count; i++)
-                row[i] = csv.GetField(i) ?? "";
+            for (var i = 0; i < headers.Count; i++)
+                row[i] = csv.GetString(i);
             rows.Add(row);
         }
 
@@ -284,7 +314,9 @@ public class SmartUploaderService
         var worksheet = workbook.Worksheets.First();
         var range = worksheet.RangeUsed();
         if (range == null)
+        {
             return (new(), new());
+        }
 
         // Smart header detection: scan up to first 10 rows to find the best header row.
         // The header row is the one with the most non-empty cells (and ideally text-like values).
@@ -294,42 +326,48 @@ public class SmartUploaderService
         var maxNonEmpty = 0;
         var totalColumns = range.ColumnCount();
 
-        for (int i = 0; i < Math.Min(allRows.Count, 10); i++)
+        for (var i = 0; i < Math.Min(allRows.Count, 10); i++)
         {
             var row = allRows[i];
-            int nonEmptyCells = 0;
-            for (int c = 1; c <= totalColumns; c++)
+            var nonEmptyCells = 0;
+            for (var c = 1; c <= totalColumns; c++)
             {
                 var val = row.Cell(c).GetString().Trim();
                 if (!string.IsNullOrEmpty(val))
+                {
                     nonEmptyCells++;
+                }
             }
 
             // Prefer row with most non-empty cells; require at least 2 non-empty columns to be a header
-            if (nonEmptyCells > maxNonEmpty && nonEmptyCells >= 2)
+            if (nonEmptyCells <= maxNonEmpty || nonEmptyCells < 2)
             {
-                maxNonEmpty = nonEmptyCells;
-                headerRowIndex = i;
+                continue;
             }
+
+            maxNonEmpty = nonEmptyCells;
+            headerRowIndex = i;
         }
 
-        _logger.LogInformation("Excel smart header detection: using row {RowIndex} as header (with {NonEmpty}/{Total} non-empty cells)",
+        Log.Information("Excel smart header detection: using row {RowIndex} as header (with {NonEmpty}/{Total} non-empty cells)",
             headerRowIndex + 1, maxNonEmpty, totalColumns);
 
         var headers = new List<string>();
         var headerRow = allRows[headerRowIndex];
-        for (int c = 1; c <= totalColumns; c++)
+        for (var c = 1; c <= totalColumns; c++)
             headers.Add(headerRow.Cell(c).GetString().Trim());
 
         var rows = new List<string[]>();
         foreach (var row in allRows.Skip(headerRowIndex + 1))
         {
             var values = new string[headers.Count];
-            for (int i = 0; i < headers.Count; i++)
+            for (var i = 0; i < headers.Count; i++)
                 values[i] = row.Cell(i + 1).GetString().Trim();
             // Skip completely empty rows
             if (values.Any(v => !string.IsNullOrWhiteSpace(v)))
+            {
                 rows.Add(values);
+            }
         }
 
         return (headers, rows);
@@ -342,7 +380,7 @@ public class SmartUploaderService
     private (List<string> Headers, List<string[]> Rows) ParseLegacyExcel(Stream stream)
     {
         // ExcelDataReader requires encoding provider registration for .xls
-        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
         using var reader = ExcelReaderFactory.CreateReader(stream);
         var headers = new List<string>();
@@ -354,60 +392,72 @@ public class SmartUploaderService
 
         while (reader.Read())
         {
-            if (fieldCount == 0) fieldCount = reader.FieldCount;
+            if (fieldCount == 0)
+            {
+                fieldCount = reader.FieldCount;
+            }
+
             var values = new string[fieldCount];
-            for (int i = 0; i < fieldCount; i++)
-                values[i] = reader.GetValue(i)?.ToString()?.Trim() ?? "";
+            for (var i = 0; i < fieldCount; i++)
+                values[i] = reader.GetValue(i).ToString()?.Trim() ?? string.Empty;
             allRows.Add(values);
         }
 
         if (allRows.Count == 0)
+        {
             return (headers, rows);
+        }
 
         // Smart header detection: find the row (within first 10) with the most non-empty cells
         var headerRowIndex = 0;
         var maxNonEmpty = 0;
 
-        for (int i = 0; i < Math.Min(allRows.Count, 10); i++)
+        for (var i = 0; i < Math.Min(allRows.Count, 10); i++)
         {
-            int nonEmptyCells = allRows[i].Count(v => !string.IsNullOrWhiteSpace(v));
-            if (nonEmptyCells > maxNonEmpty && nonEmptyCells >= 2)
+            var nonEmptyCells = allRows[i].Count(v => !string.IsNullOrWhiteSpace(v));
+            if (nonEmptyCells <= maxNonEmpty || nonEmptyCells < 2)
             {
-                maxNonEmpty = nonEmptyCells;
-                headerRowIndex = i;
+                continue;
             }
+
+            maxNonEmpty = nonEmptyCells;
+            headerRowIndex = i;
         }
 
-        _logger.LogInformation("Legacy Excel smart header detection: using row {RowIndex} as header (with {NonEmpty}/{Total} non-empty cells)",
+        Log.Information("Legacy Excel smart header detection: using row {RowIndex} as header (with {NonEmpty}/{Total} non-empty cells)",
             headerRowIndex + 1, maxNonEmpty, fieldCount);
 
         // Use detected header row
-        for (int i = 0; i < fieldCount; i++)
+        for (var i = 0; i < fieldCount; i++)
         {
             var val = allRows[headerRowIndex][i];
             headers.Add(!string.IsNullOrWhiteSpace(val) ? val : $"Column{i + 1}");
         }
 
         // Data rows are everything after the header row
-        for (int i = headerRowIndex + 1; i < allRows.Count; i++)
+        for (var i = headerRowIndex + 1; i < allRows.Count; i++)
         {
             // Skip completely empty rows
             if (allRows[i].Any(v => !string.IsNullOrWhiteSpace(v)))
+            {
                 rows.Add(allRows[i]);
+            }
         }
 
         return (headers, rows);
     }
 
-    private (string System, int Confidence) DetectSystem(List<string> headers)
+    private static (string System, int Confidence) DetectSystem(List<string> headers)
     {
         var headerSet = new HashSet<string>(headers, StringComparer.OrdinalIgnoreCase);
 
         foreach (var (system, signatures) in KnownSystems)
         {
-            var matches = signatures.Count(s => headerSet.Contains(s));
+            var matches = signatures.Count(headerSet.Contains);
             if (matches >= 2)
+            {
                 return (system, Math.Min(100, matches * 100 / signatures.Length));
+            }
         }
 
         return ("Unknown / Custom CSV", 50);
@@ -417,21 +467,18 @@ public class SmartUploaderService
     /// Map CSV columns to target fields using fuzzy string matching.
     /// Ported from BulkImport FieldMappingUtility + enhanced with FuzzySharp.
     /// </summary>
-    private List<FieldMapping> MapColumns(List<string> csvHeaders, List<EntityFieldDefinition> targetFields)
+    private static List<FieldMapping> MapColumns(List<string> csvHeaders, List<EntityFieldDefinition> targetFields)
     {
         var mappings = new List<FieldMapping>();
         var usedTargets = new HashSet<string>();
 
         foreach (var header in csvHeaders)
         {
-            var bestMatch = "";
+            var bestMatch = string.Empty;
             var bestScore = 0;
 
-            foreach (var target in targetFields)
+            foreach (var target in targetFields.Where(target => !usedTargets.Contains(target.FieldName)))
             {
-                if (usedTargets.Contains(target.FieldName))
-                    continue;
-
                 // Exact match on field name
                 if (header.Equals(target.FieldName, StringComparison.OrdinalIgnoreCase) ||
                     header.Equals(target.DisplayName, StringComparison.OrdinalIgnoreCase))
@@ -456,35 +503,77 @@ public class SmartUploaderService
                     .Select(NormalizeFieldName)
                     .ToList();
 
-                foreach (var candidate in candidates)
+                foreach (var finalScore in from candidate in candidates let score = Fuzz.Ratio(normalizedHeader, candidate) let partialScore = Fuzz.PartialRatio(normalizedHeader, candidate) select Math.Max(score, (int)(partialScore * 0.85)) into finalScore where finalScore > bestScore && finalScore >= 75 select finalScore)
                 {
-                    var score = Fuzz.Ratio(normalizedHeader, candidate);
-                    // Also try partial ratio for substrings, but weight it lower to avoid
-                    // false positives like "country" matching "category" or "regonumber" matching "region"
-                    var partialScore = Fuzz.PartialRatio(normalizedHeader, candidate);
-                    // Use weighted combination: full ratio is more reliable than partial ratio
-                    var finalScore = Math.Max(score, (int)(partialScore * 0.85));
-
-                    if (finalScore > bestScore && finalScore >= 75)
-                    {
-                        bestMatch = target.FieldName;
-                        bestScore = finalScore;
-                    }
+                    bestMatch = target.FieldName;
+                    bestScore = finalScore;
                 }
             }
 
             mappings.Add(new FieldMapping
             {
                 CsvColumn = header,
-                DfField = bestScore >= 75 ? bestMatch : "",
-                Confidence = bestScore >= 75 ? bestScore : 0,
+                DfField = bestScore >= 75 ? bestMatch : string.Empty,
+                Confidence = bestScore >= 75 ? bestScore : 0
             });
 
             if (!string.IsNullOrEmpty(bestMatch) && bestScore >= 75)
+            {
                 usedTargets.Add(bestMatch);
+            }
         }
 
         return mappings;
+    }
+
+    /// <summary>
+    /// Asks the advisor about the columns left unmapped, sending only their names and a few masked
+    /// values. A suggestion is taken only for a field on this step that no column has yet.
+    /// </summary>
+    private async Task AddAdvisorSuggestionsAsync(List<FieldMapping> mappings, List<string> headers, List<string[]> rows,
+        string entityType, List<EntityFieldDefinition> targetFields, CancellationToken ct)
+    {
+        var unmapped = mappings.Where(m => string.IsNullOrEmpty(m.DfField)).ToList();
+        if (unmapped.Count == 0)
+        {
+            return;
+        }
+
+        var samples = unmapped.Select(m =>
+        {
+            var index = headers.IndexOf(m.CsvColumn);
+            var values = rows.Select(r => index < r.Length ? r[index] : string.Empty)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Take(SamplesPerColumn)
+                .Select(SampleMasker.Mask)
+                .ToList();
+            return new ColumnSample(m.CsvColumn, values);
+        }).ToList();
+
+        IReadOnlyDictionary<string, string> suggestions;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(AdvisorTimeout);
+        try
+        {
+            suggestions = await _advisor.SuggestAsync(entityType, samples, targetFields, timeout.Token);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Log.Warning(ex, "Column mapping suggestions failed for {EntityType}; using the name match only", entityType);
+            return;
+        }
+
+        var valid = targetFields.Select(f => f.FieldName).ToHashSet();
+        var taken = mappings.Where(m => !string.IsNullOrEmpty(m.DfField)).Select(m => m.DfField).ToHashSet();
+        foreach (var mapping in unmapped)
+        {
+            if (suggestions.TryGetValue(mapping.CsvColumn, out var field) && valid.Contains(field) && taken.Add(field))
+            {
+                mapping.DfField = field;
+                mapping.Confidence = AiConfidence;
+                mapping.Source = SuggestionSource.Ai;
+            }
+        }
     }
 
     private static string NormalizeFieldName(string name)
@@ -492,7 +581,11 @@ public class SmartUploaderService
 
     private static object? ApplyTransform(string? value, string? transform)
     {
-        if (string.IsNullOrEmpty(value)) return value;
+        if (string.IsNullOrEmpty(value))
+        {
+            return value;
+        }
+
         return transform?.ToLower() switch
         {
             "uppercase" => value.ToUpperInvariant(),
@@ -500,7 +593,7 @@ public class SmartUploaderService
             "trim" => value.Trim(),
             "boolean" => value.Trim().ToLower() is "true" or "yes" or "1" or "y",
             "number" => decimal.TryParse(value, out var n) ? n : value,
-            _ => value,
+            _ => value
         };
     }
 }

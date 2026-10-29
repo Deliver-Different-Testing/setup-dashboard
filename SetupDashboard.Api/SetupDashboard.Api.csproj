@@ -5,68 +5,69 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>SetupDashboard</RootNamespace>
-    <SpaRoot>ClientApp\</SpaRoot>
+    <SpaRoot>..\SetupDashboard.Client\</SpaRoot>
     <SpaProxyServerUrl>http://localhost:5173</SpaProxyServerUrl>
     <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- Existing -->
-    <PackageReference Include="AWSSDK.S3" Version="4.0.19" />
-    <PackageReference Include="CsvHelper" Version="31.0.2" />
-    <PackageReference Include="ClosedXML" Version="0.105.0" />
-    <PackageReference Include="ExcelDataReader" Version="3.7.0" />
-    <PackageReference Include="ExcelDataReader.DataSet" Version="3.7.0" />
-    <PackageReference Include="FuzzySharp" Version="2.0.2" />
-    <PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="10.0.*" />
+    <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="CsvHelper" />
+    <PackageReference Include="ClosedXML" />
+    <PackageReference Include="ExcelDataReader" />
+    <PackageReference Include="ExcelDataReader.DataSet" />
+    <PackageReference Include="Anthropic" />
+    <PackageReference Include="FuzzySharp" />
+    <PackageReference Include="Microsoft.AspNetCore.SpaProxy" />
 
     <!-- Entity Framework Core -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.6" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.6" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.6">
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
 
     <!-- Redis distributed cache -->
-    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.6" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
 
     <!-- Health checks (Microsoft.Extensions.Diagnostics.HealthChecks is implicit on net10) -->
-    <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="9.0.0" />
+    <PackageReference Include="AspNetCore.HealthChecks.SqlServer" />
 
     <!-- Data Protection (shared cookie auth) -->
-    <PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" Version="4.0.2" />
+    <PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" />
 
     <!-- Logging -->
-    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
-    <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.0" />
-    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Settings.Configuration" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+
+    <!-- Access Control switch (hub-tile-setup-dashboard) via [RequireFeature].
+         Private feed, see nuget.config. -->
+    <PackageReference Include="DeliverDifferent.AccessControl" />
   </ItemGroup>
 
-  <!-- Show ClientApp files in Solution Explorer -->
   <ItemGroup>
-    <None Include="ClientApp\**" Exclude="ClientApp\node_modules\**;ClientApp\dist\**" />
+    <InternalsVisibleTo Include="SetupDashboard.Tests" />
   </ItemGroup>
 
-  <!-- Exclude ClientApp from .NET compilation -->
-  <ItemGroup>
-    <Content Remove="ClientApp\**" />
-  </ItemGroup>
   <ItemGroup>
     <None Include="efpt.config.json.user" />
   </ItemGroup>
 
-  <!-- Pre-build: install + build frontend into wwwroot/setup-dashboard/ -->
-  <Target Name="NpmBuild" BeforeTargets="Build">
-    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install --prefer-offline --no-audit" />
-    <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build" />
-  </Target>
+  <!-- Frontend: building the Client project runs npm install + npm run build,
+       which writes wwwroot/setup-dashboard/. SkipNpm=true leaves it out. -->
+  <ItemGroup Condition="'$(SkipNpm)' != 'true'">
+    <ProjectReference Include="..\SetupDashboard.Client\SetupDashboard.Client.esproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
 
-  <!-- Publish: always rebuild frontend -->
+  <!-- Publish: include the frontend the Client build just wrote (it isn't in
+       the static web assets computed before the build). -->
   <Target Name="PublishSpa" AfterTargets="ComputeFilesToPublish">
-    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install" />
-    <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build" />
     <ItemGroup>
       <DistFiles Include="wwwroot\setup-dashboard\**" />
       <ResolvedFileToPublish Include="@(DistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">

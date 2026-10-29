@@ -1,5 +1,8 @@
 # Setup Dashboard — Implementation Guide
 
+> **Superseded 24 Oct 2026.** This describes the Admin Manager write path that the `feat/settings-rewrite` branch removes. Current design, build status and staging checks: [`docs/REWRITE-DESIGN-2026-10-24.md`](docs/REWRITE-DESIGN-2026-10-24.md).
+
+
 > **Last updated:** 12 March 2026
 > **Owner:** Kevin (frontend + backend)
 > **Status:** VS solution, EF Core + SQL Server multi-tenant, hub auth, smart uploader on every step
