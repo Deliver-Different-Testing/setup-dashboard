@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text;
 using ClosedXML.Excel;
 using CsvHelper;
-using CsvHelper.Configuration;
 using ExcelDataReader;
 using FuzzySharp;
 using Serilog;
@@ -256,7 +255,7 @@ public class SmartUploaderService
 
     // --- Private helpers ---
 
-    private async Task<(List<string> Headers, List<string[]> Rows)> ParseFileAsync(Stream stream, string fileName)
+    internal async Task<(List<string> Headers, List<string[]> Rows)> ParseFileAsync(Stream stream, string fileName)
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
         return ext switch
@@ -270,25 +269,25 @@ public class SmartUploaderService
 
     private async Task<(List<string> Headers, List<string[]> Rows)> ParseCsvAsync(Stream stream)
     {
-        using var reader = new StreamReader(stream);
-        using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
+        await using var csv = CsvReader.Create(stream, new CsvReaderOptions
         {
-            HasHeaderRecord = true,
-            MissingFieldFound = null,
-            BadDataFound = null,
-            TrimOptions = TrimOptions.Trim
+            Separator = ',',
+            HasHeader = true,
+            TrimWhitespace = true,
+            MissingField = CsvMissingFieldHandling.ReturnEmpty,
+            FieldCountMismatch = CsvFieldCountHandling.Allow,
+            MalformedData = CsvMalformedDataHandling.Recover
         });
 
-        await csv.ReadAsync();
-        csv.ReadHeader();
-        var headers = csv.HeaderRecord?.ToList() ?? new();
+        await csv.ReadHeaderAsync();
+        var headers = csv.Headers.ToList();
 
         var rows = new List<string[]>();
         while (await csv.ReadAsync())
         {
             var row = new string[headers.Count];
             for (var i = 0; i < headers.Count; i++)
-                row[i] = csv.GetField(i) ?? string.Empty;
+                row[i] = csv.GetString(i);
             rows.Add(row);
         }
 

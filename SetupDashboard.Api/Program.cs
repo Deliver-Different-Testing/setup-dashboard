@@ -1,6 +1,7 @@
 using Amazon;
 using Amazon.Runtime;
 using Amazon.Runtime.CredentialManagement;
+using Amazon.Runtime.Credentials;
 using Amazon.S3;
 using DeliverDifferent.AccessControl;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -237,7 +238,7 @@ try
             break;
         }
 
-        credentials ??= FallbackCredentialsFactory.GetCredentials();
+        credentials ??= DefaultAWSCredentialsIdentityResolver.GetCredentials();
 
         return new AmazonS3Client(credentials, new AmazonS3Config
         {

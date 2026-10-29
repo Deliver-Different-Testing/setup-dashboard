@@ -14,7 +14,7 @@ RUN apt-get install -y nodejs
 # into an image layer.
 ARG GITLAB_NUGET_USERNAME
 ARG GITLAB_NUGET_TOKEN
-COPY nuget.config ./
+COPY nuget.config Directory.Packages.props ./
 COPY SetupDashboard.Api/SetupDashboard.Api.csproj SetupDashboard.Api/
 RUN GITLAB_NUGET_USERNAME=${GITLAB_NUGET_USERNAME} GITLAB_NUGET_TOKEN=${GITLAB_NUGET_TOKEN} dotnet restore SetupDashboard.Api/SetupDashboard.Api.csproj
 
