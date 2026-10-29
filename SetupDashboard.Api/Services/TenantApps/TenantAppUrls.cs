@@ -59,6 +59,7 @@ public sealed class TenantAppUrls(IConfiguration configuration) : ITenantAppUrls
             "dfrntdriveconfig" => env.SettingsUrl,
             "routedoperations" => env.RoutedOpsUrl,
             "integrationmanager" => env.IntegrationManagerUrl,
+            "csp" or "dfrntcrm" => env.CspUrl,
             _ => null
         });
     }

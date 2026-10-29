@@ -48,7 +48,7 @@ public class ImportController(
         try
         {
             await using var stream = file.OpenReadStream();
-            return Ok(await uploader.DetectAndMapAsync(stream, file.FileName, type, CacheKey(session)));
+            return Ok(await uploader.DetectAndMapAsync(stream, file.FileName, type, CacheKey(session), ct));
         }
         catch (ArgumentException ex)
         {

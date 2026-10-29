@@ -193,6 +193,21 @@ try
     // ── Application Services ──
     // Onboarding sessions live in the distributed cache (Redis when RedisConfig is set).
     builder.Services.AddSingleton<ISessionStore, DistributedSessionStore>();
+
+    // ── Smart Import column suggestions (Claude) ──
+    // Off unless ANTHROPIC_API_KEY is set; without it the import runs on the name match alone.
+    var anthropicKey = builder.Configuration["ANTHROPIC_API_KEY"];
+    if (!string.IsNullOrWhiteSpace(anthropicKey))
+    {
+        builder.Services.AddSingleton(new Anthropic.AnthropicClient { ApiKey = anthropicKey, MaxRetries = 1 });
+        builder.Services.AddSingleton<SetupDashboard.Services.Ai.IColumnMappingAdvisor, SetupDashboard.Services.Ai.ClaudeColumnMappingAdvisor>();
+    }
+    else
+    {
+        Log.Information("ANTHROPIC_API_KEY not set - Smart Import column suggestions are off");
+        builder.Services.AddSingleton<SetupDashboard.Services.Ai.IColumnMappingAdvisor, SetupDashboard.Services.Ai.NoColumnMappingAdvisor>();
+    }
+
     builder.Services.AddSingleton<SmartUploaderService>();
 
     // ── Writes go to the apps that own the data, as the signed-in person ──
@@ -204,6 +219,16 @@ try
         .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             { AllowAutoRedirect = false, UseCookies = false });
     builder.Services.AddSingleton<SetupDashboard.Services.TenantApps.ITenantAppUrls, SetupDashboard.Services.TenantApps.TenantAppUrls>();
+
+    // ── Auto-Mate: questions go to the Customer Success Platform, as the signed-in person ──
+    // Same rules as the tenant apps (no redirects, no cookie jar). The timeout covers until CSP starts
+    // answering; the streamed answer itself isn't cut off by it.
+    builder.Services.AddHttpClient(SetupDashboard.Services.TenantApps.AutoMateClient.HttpClientName,
+            c => { c.Timeout = TimeSpan.FromSeconds(60); })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            { AllowAutoRedirect = false, UseCookies = false });
+    builder.Services
+        .AddScoped<SetupDashboard.Services.TenantApps.IAutoMateClient, SetupDashboard.Services.TenantApps.AutoMateClient>();
     builder.Services
         .AddScoped<SetupDashboard.Services.TenantApps.ITenantAppClient,
             SetupDashboard.Services.TenantApps.TenantAppClient>();

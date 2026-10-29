@@ -6,15 +6,27 @@ using ExcelDataReader;
 using FuzzySharp;
 using Serilog;
 using SetupDashboard.Models;
+using SetupDashboard.Services.Ai;
 
 namespace SetupDashboard.Services;
 
 /// <summary>
 /// Smart CSV/Excel uploader with fuzzy column matching.
-/// Ported from BulkImport's FieldMappingUtility pattern + AI-assisted fuzzy matching.
+/// Ported from BulkImport's FieldMappingUtility pattern; columns the name match can't place are
+/// offered to the <see cref="IColumnMappingAdvisor"/> (Claude) as suggestions.
 /// </summary>
-public class SmartUploaderService
+public class SmartUploaderService(IColumnMappingAdvisor? advisor = null)
 {
+    /// <summary>Below the name match's 75, so an AI suggestion never looks as sure as a name match.</summary>
+    internal const int AiConfidence = 70;
+
+    private const int SamplesPerColumn = 3;
+
+    /// <summary>The upload is waiting on this; past it the name match stands alone.</summary>
+    private static readonly TimeSpan AdvisorTimeout = TimeSpan.FromSeconds(30);
+
+    private readonly IColumnMappingAdvisor _advisor = advisor ?? new NoColumnMappingAdvisor();
+
     // Known system signatures for auto-detection
     private static readonly Dictionary<string, string[]> KnownSystems = new()
     {
@@ -33,7 +45,8 @@ public class SmartUploaderService
     /// <summary>
     /// Parse file (CSV or Excel), detect system, auto-map columns.
     /// </summary>
-    public async Task<DetectionResult> DetectAndMapAsync(Stream fileStream, string fileName, string entityType, string sessionId)
+    public async Task<DetectionResult> DetectAndMapAsync(Stream fileStream, string fileName, string entityType, string sessionId,
+        CancellationToken ct = default)
     {
         var (headers, rows) = await ParseFileAsync(fileStream, fileName);
 
@@ -56,6 +69,7 @@ public class SmartUploaderService
 
         // Map columns using fuzzy matching
         var mappings = MapColumns(headers, targetFields);
+        await AddAdvisorSuggestionsAsync(mappings, headers, rows, entityType, targetFields, ct);
 
         var matchedMappings = mappings.Where(m => !string.IsNullOrEmpty(m.DfField)).ToList();
         var avgConfidence = matchedMappings.Count > 0
@@ -510,6 +524,56 @@ public class SmartUploaderService
         }
 
         return mappings;
+    }
+
+    /// <summary>
+    /// Asks the advisor about the columns left unmapped, sending only their names and a few masked
+    /// values. A suggestion is taken only for a field on this step that no column has yet.
+    /// </summary>
+    private async Task AddAdvisorSuggestionsAsync(List<FieldMapping> mappings, List<string> headers, List<string[]> rows,
+        string entityType, List<EntityFieldDefinition> targetFields, CancellationToken ct)
+    {
+        var unmapped = mappings.Where(m => string.IsNullOrEmpty(m.DfField)).ToList();
+        if (unmapped.Count == 0)
+        {
+            return;
+        }
+
+        var samples = unmapped.Select(m =>
+        {
+            var index = headers.IndexOf(m.CsvColumn);
+            var values = rows.Select(r => index < r.Length ? r[index] : string.Empty)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Take(SamplesPerColumn)
+                .Select(SampleMasker.Mask)
+                .ToList();
+            return new ColumnSample(m.CsvColumn, values);
+        }).ToList();
+
+        IReadOnlyDictionary<string, string> suggestions;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(AdvisorTimeout);
+        try
+        {
+            suggestions = await _advisor.SuggestAsync(entityType, samples, targetFields, timeout.Token);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Log.Warning(ex, "Column mapping suggestions failed for {EntityType}; using the name match only", entityType);
+            return;
+        }
+
+        var valid = targetFields.Select(f => f.FieldName).ToHashSet();
+        var taken = mappings.Where(m => !string.IsNullOrEmpty(m.DfField)).Select(m => m.DfField).ToHashSet();
+        foreach (var mapping in unmapped)
+        {
+            if (suggestions.TryGetValue(mapping.CsvColumn, out var field) && valid.Contains(field) && taken.Add(field))
+            {
+                mapping.DfField = field;
+                mapping.Confidence = AiConfidence;
+                mapping.Source = SuggestionSource.Ai;
+            }
+        }
     }
 
     private static string NormalizeFieldName(string name)

@@ -22,4 +22,7 @@ public class DfrntEnvironment
 
     public string RoutedOpsUrl { get; set; } = string.Empty;
     public string IntegrationManagerUrl { get; set; } = string.Empty;
+
+    /// <summary>Customer Success Platform (dfrntcrm), which answers Auto-Mate questions.</summary>
+    public string CspUrl { get; set; } = string.Empty;
 }

@@ -405,3 +405,19 @@ window.fetch = (input, init) => {
     return Promise.resolve(new Response(JSON.stringify({ success: false, message: "File import isn't available in this demo - in the real app it maps your file's columns and loads the rows into this step." }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
   return realFetch(input, init)
 }
+
+// ── Auto-Mate: the real answers come from CSP; the demo answers with a pointer to the help centre ──
+
+export function parseSseFrames(buffer: string) {
+  return { events: [] as import('../lib/api').AutoMateEvent[], rest: buffer }
+}
+
+export async function askAutoMate(_message: string, sessionId: string | null, onEvent: (e: import('../lib/api').AutoMateEvent) => void) {
+  onEvent({ sessionId: sessionId ?? 'demo-session', status: 'Searching the knowledge base…' })
+  const answer = "In the live dashboard I answer from the DFRNT help centre. This demo can't reach it - try the step's own help text for now."
+  for (const word of answer.split(' ')) {
+    await wait(null, 40)
+    onEvent({ delta: `${word} ` })
+  }
+  onEvent({ done: true, sources: [] })
+}

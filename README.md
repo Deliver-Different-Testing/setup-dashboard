@@ -43,6 +43,8 @@ Set in `Properties/launchSettings.json` for dev (gitignored — contains local D
 | `RedisConfig` | Redis connection string (in-memory fallback in dev) |
 | `Domain` | Cookie domain for shared auth |
 | `PublicPath` | Hub login redirect URL |
+| `Environments__<key>__CspUrl` | Customer Success Platform (dfrntcrm) base URL. Auto-Mate's sidebar questions go to its `POST /api/v1/chat/messages` as the signed-in person; unset, Auto-Mate says it isn't set up |
+| `ANTHROPIC_API_KEY` | Optional. Turns on Claude suggestions (`claude-opus-5-5`) for Smart Import columns the name match can't place; only column names and 3 masked sample values per column are sent. Unset, Smart Import uses the name match alone |
 
 ## Documentation
 - `HANDOVER.md` — Handover guide (start here)

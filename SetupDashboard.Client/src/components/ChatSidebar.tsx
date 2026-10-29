@@ -2,12 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import { ActionIcon, Avatar, Box, Flex, Group, Stack, Text as MText, TextInput } from '@mantine/core'
 import { SendHorizontal } from 'lucide-react'
 import { useStore } from '../store'
+import * as api from '../lib/api'
 import { CHAT_MESSAGES } from '../data/chatMessages'
 import classes from './ChatSidebar.module.css'
 
 export function ChatSidebar() {
-  const { currentStep, chatHistory, addChatMessage, shownChatSteps, markChatStepShown } = useStore()
+  const {
+    currentStep, chatHistory, addChatMessage, patchChatMessage, shownChatSteps, markChatStepShown,
+    autoMateSessionId, setAutoMateSessionId,
+  } = useStore()
   const [input, setInput] = useState('')
+  const [asking, setAsking] = useState(false)
   const messagesRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -25,11 +30,23 @@ export function ChatSidebar() {
     }
   }, [chatHistory])
 
-  const sendChat = () => {
-    if (!input.trim()) return
-    addChatMessage({ from: 'user', text: input.trim() })
+  // Questions are answered from the Knowledge Base by the Customer Success Platform, streamed in as they're written.
+  const sendChat = async () => {
+    const text = input.trim()
+    if (!text || asking) return
+    addChatMessage({ from: 'user', text })
     setInput('')
-    setTimeout(() => addChatMessage({ from: 'bot', text: "Thanks. I'm a scripted guide, so I can't act on messages yet. Use the form on this step to continue." }), 800)
+    setAsking(true)
+    addChatMessage({ from: 'bot', text: '', status: 'Thinking…' })
+    const index = useStore.getState().chatHistory.length - 1
+    await api.askAutoMate(text, autoMateSessionId, e => {
+      if (e.sessionId) setAutoMateSessionId(e.sessionId)
+      if (e.status) patchChatMessage(index, m => ({ ...m, status: e.status }))
+      if (e.delta) patchChatMessage(index, m => ({ ...m, text: m.text + e.delta, status: undefined }))
+      if (e.error) patchChatMessage(index, m => ({ ...m, text: m.text ? `${m.text}\n\n${e.error}` : e.error!, status: undefined, error: true }))
+    })
+    patchChatMessage(index, m => ({ ...m, status: undefined }))
+    setAsking(false)
   }
 
   return (
@@ -47,7 +64,9 @@ export function ChatSidebar() {
         {chatHistory.map((m, i) => m.from === 'bot' ? (
           <Group key={i} gap={8} align="flex-end" wrap="nowrap">
             <Avatar src={`${import.meta.env.BASE_URL}auto-mate-icon-light.png`} alt="Auto-Mate" size={28} style={{ flexShrink: 0 }} />
-            <div className={`${classes.bubble} ${classes.bot}`}>{m.text}</div>
+            <div className={`${classes.bubble} ${classes.bot}`} aria-live={m.status ? 'polite' : undefined}>
+              {m.text || <MText span size="sm" c="dimmed" fs="italic">{m.status}</MText>}
+            </div>
           </Group>
         ) : (
           <Group key={i} justify="flex-end">
@@ -62,11 +81,11 @@ export function ChatSidebar() {
             value={input}
             onChange={(e) => setInput(e.currentTarget.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendChat()}
-            placeholder="Type a message"
+            placeholder="Ask a setup question"
             aria-label="Message Auto-Mate"
           />
           {/* Auto-Mate is an AI surface: the grape accent, not the brand cyan. */}
-          <ActionIcon onClick={sendChat} color="grape" size="input-sm" aria-label="Send message">
+          <ActionIcon onClick={sendChat} loading={asking} color="grape" size="input-sm" aria-label="Send message">
             <SendHorizontal size={16} strokeWidth={1.5} />
           </ActionIcon>
         </Group>

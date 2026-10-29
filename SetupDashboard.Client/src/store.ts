@@ -22,7 +22,8 @@ export const STEPS: { key: StepKey; icon: LucideIcon; short: string; title: stri
   { key: 'training', icon: GraduationCap, short: 'Training', title: 'Training' },
 ]
 
-interface ChatMessage { from: 'bot' | 'user'; text: string }
+/** `status` is what Auto-Mate is doing while no text has arrived yet; `error` marks a failed answer. */
+interface ChatMessage { from: 'bot' | 'user'; text: string; status?: string; error?: boolean }
 
 interface State {
   me: Me | null
@@ -36,10 +37,15 @@ interface State {
   lastPush: Partial<Record<StepKey, PushSummary | null>>
   fatal: string | null
 
-  // Auto-Mate sidebar (scripted)
+  // Auto-Mate sidebar: scripted step intros; typed questions are answered by CSP
   chatHistory: ChatMessage[]
   shownChatSteps: Set<number>
+  /** CSP's chat session, so follow-up questions keep their context. */
+  autoMateSessionId: string | null
   addChatMessage: (m: ChatMessage) => void
+  /** By index: a step intro can land after the answer that is still streaming. */
+  patchChatMessage: (index: number, patch: (m: ChatMessage) => ChatMessage) => void
+  setAutoMateSessionId: (id: string) => void
   markChatStepShown: (i: number) => void
 
   init: () => Promise<void>
@@ -97,7 +103,10 @@ export const useStore = create<State>((set, get) => {
 
     chatHistory: [],
     shownChatSteps: new Set(),
+    autoMateSessionId: null,
     addChatMessage: m => set(s => ({ chatHistory: [...s.chatHistory, m] })),
+    patchChatMessage: (index, patch) => set(s => ({ chatHistory: s.chatHistory.map((m, i) => i === index ? patch(m) : m) })),
+    setAutoMateSessionId: id => set({ autoMateSessionId: id }),
     markChatStepShown: i => set(s => ({ shownChatSteps: new Set(s.shownChatSteps).add(i) })),
 
     init: async () => {

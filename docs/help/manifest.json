@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25T10:54:35.772Z",
+  "generatedAt": "2026-10-29T02:11:15.360Z",
   "source": "Deliver-Different-Testing/setup-dashboard docs/help",
   "layer": "shipped",
   "isManaged": true,
@@ -738,13 +738,14 @@
         "xlsx",
         "column mapping",
         "confidence",
+        "ai suggestion",
         "preview",
         "warnings",
         "load rows",
         "bulk"
       ],
       "layer": "shipped",
-      "words": 290,
+      "words": 364,
       "leadChars": 364,
       "leadOver400": false
     },

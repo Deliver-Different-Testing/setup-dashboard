@@ -96,3 +96,58 @@ describe('progress', () => {
     expect(completionPercent(session({ business: step('done'), team: step('in_progress') }))).toBe(Math.round(100 / STEPS.length))
   })
 })
+
+describe('Auto-Mate stream', () => {
+  function stubStream(chunks: string[], init: { status?: number; contentType?: string } = {}) {
+    const encoder = new TextEncoder()
+    const body = new ReadableStream<Uint8Array>({
+      start(c) { chunks.forEach(x => c.enqueue(encoder.encode(x))); c.close() },
+    })
+    const fn = vi.fn().mockResolvedValue({
+      ok: (init.status ?? 200) < 400, status: init.status ?? 200, type: 'basic', body,
+      headers: { get: () => init.contentType ?? 'text/event-stream' },
+    })
+    vi.stubGlobal('fetch', fn)
+    return fn
+  }
+
+  it('splits complete frames and keeps the partial one for later', () => {
+    const { events, rest } = api.parseSseFrames('data: {"delta":"Hel"}\n\ndata: {"delta":"lo"}\r\n\r\ndata: {"del')
+    expect(events).toEqual([{ delta: 'Hel' }, { delta: 'lo' }])
+    expect(rest).toBe('data: {"del')
+  })
+
+  it('ignores frames that are not data or not JSON', () => {
+    expect(api.parseSseFrames(': ping\n\ndata: oops\n\n').events).toEqual([])
+  })
+
+  it('asks this app, not CSP, and hands over each frame as it arrives, even when split across chunks', async () => {
+    const fetch = stubStream(['data: {"sessionId":"s1","status":"Searching"}\n\ndata: {"delta":"Zones ', 'group zips."}\n\n', 'data: {"done":true}\n\n'])
+    const events: api.AutoMateEvent[] = []
+    await api.askAutoMate('What is a zone?', 's0', e => events.push(e))
+    const [url, init] = fetch.mock.calls[0]
+    expect(url).toBe('/api/setup/automate/messages')
+    expect(init.credentials).toBe('include')
+    expect(JSON.parse(init.body)).toEqual({ message: 'What is a zone?', sessionId: 's0' })
+    expect(events).toEqual([{ sessionId: 's1', status: 'Searching' }, { delta: 'Zones group zips.' }, { done: true }])
+  })
+
+  it('a stream that stops without its last frame ends with an error', async () => {
+    stubStream(['data: {"delta":"Half"}\n\n'])
+    const events: api.AutoMateEvent[] = []
+    await api.askAutoMate('Hi', null, e => events.push(e))
+    expect(events.at(-1)).toMatchObject({ done: true, error: expect.stringContaining('cut off') })
+  })
+
+  it('an expired sign-in or a failed request is one error frame, never a throw', async () => {
+    stubStream([], { contentType: 'text/html' })
+    const events: api.AutoMateEvent[] = []
+    await api.askAutoMate('Hi', null, e => events.push(e))
+    expect(events).toEqual([{ error: expect.stringContaining('sign-in has expired'), done: true }])
+
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')))
+    const more: api.AutoMateEvent[] = []
+    await api.askAutoMate('Hi', null, e => more.push(e))
+    expect(more).toEqual([{ error: expect.stringContaining("couldn't reach"), done: true }])
+  })
+})

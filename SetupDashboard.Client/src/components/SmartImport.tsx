@@ -12,6 +12,8 @@ interface FieldMapping {
   dfField: string
   confidence: number
   transform?: string
+  /** 'ai': suggested by Claude for a column the name match couldn't place. */
+  source?: 'ai'
 }
 
 interface DetectionResult {
@@ -35,7 +37,9 @@ interface Props {
 
 const STEPS = ['Upload', 'Detect', 'Map', 'Preview and import']
 
-function ConfidenceBadge({ value }: { value: number }) {
+function ConfidenceBadge({ value, source }: { value: number; source?: 'ai' }) {
+  // AI surfaces use the grape accent, not the brand cyan.
+  if (source === 'ai') return <Badge variant="light" color="grape" tt="none" fw={600}>AI suggestion - check it</Badge>
   const color = value >= 80 ? 'green' : value >= 50 ? 'yellow' : 'red'
   return <Badge variant="light" color={color} tt="none" fw={600}>{value}%</Badge>
 }
@@ -129,7 +133,7 @@ export function SmartImport({ entityType, onComplete, onClose }: Props) {
   }
 
   const updateMapping = (idx: number, dfField: string) => {
-    setMappings(prev => prev.map((m, i) => i === idx ? { ...m, dfField, confidence: dfField ? 100 : 0 } : m))
+    setMappings(prev => prev.map((m, i) => i === idx ? { ...m, dfField, confidence: dfField ? 100 : 0, source: undefined } : m))
   }
 
   return (
@@ -222,7 +226,7 @@ export function SmartImport({ entityType, onComplete, onClose }: Props) {
                             aria-label={`DFRNT field for ${m.csvColumn}`}
                             data={[{ value: '', label: 'Skip this column' }, ...detection.dfFields]} />
                         </Table.Td>
-                        <Table.Td ta="center"><ConfidenceBadge value={m.confidence} /></Table.Td>
+                        <Table.Td ta="center"><ConfidenceBadge value={m.confidence} source={m.source} /></Table.Td>
                       </Table.Tr>
                     ))}
                   </Table.Tbody>

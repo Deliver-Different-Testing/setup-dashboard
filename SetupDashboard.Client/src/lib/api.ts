@@ -175,3 +175,59 @@ export const validate = (what: 'contact-email' | 'client-name' | 'client-code' |
 export const saveTraining = (id: string, members: TrainingMember[]) => request(`/setup/session/${id}/training`, { method: 'PUT', body: json(members) })
 export const completeChallenge = (id: string, userEmail: string, challengeId: string, xpEarned: number) =>
   request(`/setup/session/${id}/training/complete-challenge`, { method: 'POST', body: json({ userEmail, challengeId, xpEarned }) })
+
+// ── Auto-Mate ────────────────────────────────────────────────────────────────
+// Answers come from the Customer Success Platform's Knowledge Base, through this app's backend
+// (which forwards the Hub cookie). The answer streams as Server-Sent Events: `data: {json}` frames.
+
+export interface AutoMateSource { articleId: string; title: string; isFaq: boolean }
+export interface AutoMateEvent { sessionId?: string; delta?: string; status?: string; error?: string; done?: boolean; sources?: AutoMateSource[] }
+
+/** Complete frames out of buffered stream text; `rest` is the partial frame still arriving. */
+export function parseSseFrames(buffer: string): { events: AutoMateEvent[]; rest: string } {
+  const frames = buffer.replace(/\r\n/g, '\n').split('\n\n')
+  const rest = frames.pop() ?? ''
+  const events: AutoMateEvent[] = []
+  for (const frame of frames) {
+    const data = frame.split('\n').filter(l => l.startsWith('data:')).map(l => l.slice(5).trim()).join('')
+    if (!data) continue
+    try { events.push(JSON.parse(data) as AutoMateEvent) } catch { /* not ours */ }
+  }
+  return { events, rest }
+}
+
+/** Never throws: every failure arrives as a final `{ error, done: true }` event. */
+export async function askAutoMate(message: string, sessionId: string | null, onEvent: (e: AutoMateEvent) => void, signal?: AbortSignal) {
+  const fail = (error: string) => onEvent({ error, done: true })
+  let res: Response
+  try {
+    res = await fetch(`${BASE_URL}/setup/automate/messages`, {
+      method: 'POST', credentials: 'include', redirect: 'manual', signal,
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: json({ message, sessionId }),
+    })
+  } catch {
+    if (!signal?.aborted) fail("Auto-Mate couldn't reach the server. Check your connection and try again.")
+    return
+  }
+  const html = res.headers?.get('content-type')?.includes('text/html')
+  if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400) || html) return fail(SIGN_IN_EXPIRED)
+  if (!res.ok || !res.body) return fail(`Auto-Mate couldn't answer (${res.status}). Try again in a moment.`)
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let done = false
+  try {
+    for (;;) {
+      const chunk = await reader.read()
+      if (chunk.done) break
+      const parsed = parseSseFrames(buffer + decoder.decode(chunk.value, { stream: true }))
+      buffer = parsed.rest
+      for (const e of parsed.events) { onEvent(e); if (e.done) done = true }
+    }
+  } catch {
+    if (signal?.aborted) return
+  }
+  if (!done) fail('The answer was cut off. Please try again.')
+}

@@ -3,6 +3,8 @@
   padding: 10px 16px;
   font-size: var(--mantine-font-size-sm);
   overflow-wrap: anywhere;
+  /* Auto-Mate answers can carry a numbered list. */
+  white-space: pre-wrap;
 }
 
 .bot {

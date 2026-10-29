@@ -6,6 +6,14 @@ public class FieldMapping
     public string DfField { get; set; } = string.Empty;
     public int Confidence { get; set; }
     public string? Transform { get; set; }
+
+    /// <summary>Where a suggested match came from: null for the name match, <see cref="SuggestionSource.Ai"/> for Claude.</summary>
+    public string? Source { get; set; }
+}
+
+public static class SuggestionSource
+{
+    public const string Ai = "ai";
 }
 
 public class DetectionResult
