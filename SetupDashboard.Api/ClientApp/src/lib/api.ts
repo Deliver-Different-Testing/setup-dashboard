@@ -14,20 +14,28 @@ export class ApiError extends Error {
   constructor(message: string, status: number) { super(message); this.status = status }
 }
 
+const SIGN_IN_EXPIRED = 'Your sign-in has expired. Refresh the page.'
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   // /API/Login lives at the app root, beside /api.
   const url = path.startsWith('/API/') ? `${BASE_URL.replace(/\/api$/i, '')}${path}` : `${BASE_URL}${path}`
   const res = await fetch(url, {
     credentials: 'include',
+    // An expired Hub cookie answers with a redirect to the sign-in page. Followed, that is either
+    // a cross-origin failure or a 200 HTML page - neither of which says "sign in again".
+    redirect: 'manual',
     ...options,
     headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...(options.headers || {}) },
   })
+  const html = res.headers?.get('content-type')?.includes('text/html')
+  if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400) || (res.ok && html))
+    throw new ApiError(SIGN_IN_EXPIRED, 401)
   const text = await res.text()
   let body: unknown = null
   try { body = text ? JSON.parse(text) : null } catch { body = null }
   if (!res.ok) {
     const b = (body ?? {}) as { message?: string; error?: string }
-    const msg = b.message || b.error || (res.status === 401 ? 'Your sign-in has expired. Refresh the page.' : `Request failed (${res.status})`)
+    const msg = b.message || b.error || (res.status === 401 ? SIGN_IN_EXPIRED : `Request failed (${res.status})`)
     throw new ApiError(msg, res.status)
   }
   return body as T
@@ -42,7 +50,7 @@ export type StepKey =
   | 'partners' | 'automations' | 'integrations' | 'appconfig' | 'training'
 
 export type StepStatus = 'not_started' | 'waiting_on_tenant' | 'in_progress' | 'done'
-export type RowStatus = 'pending' | 'needs_data' | 'created' | 'failed' | 'skipped'
+export type RowStatus = 'pending' | 'needs_data' | 'created' | 'failed' | 'skipped' | 'unknown'
 
 export interface DataRequest { id: string; item: string; requestedAt: string; requestedBy?: string; dueBy?: string; fulfilledAt?: string; fulfilledBy?: string }
 export interface RowResult { key: string; kind: string; status: RowStatus; entityId?: number; needs: string[]; errors: string[]; notice?: string; updatedAt: string }
@@ -139,6 +147,9 @@ export const saveStepData = (id: string, step: StepKey, data: unknown) =>
   request<{ session: Session }>(`/setup/session/${id}/steps/${step}/data`, { method: 'PUT', body: json(data) })
 export const pushStep = (id: string, step: StepKey) =>
   request<{ session: Session; summary: PushSummary }>(`/setup/session/${id}/steps/${step}/push`, { method: 'POST' })
+/** An "unknown" row (sent, no answer) is only sent again once someone has checked it isn't there. */
+export const retryRow = (id: string, step: StepKey, kind: string, key: string) =>
+  request<{ session: Session }>(`/setup/session/${id}/steps/${step}/rows/retry`, { method: 'POST', body: json({ kind, key }) })
 
 export const addRequest = (id: string, step: StepKey, item: string, dueBy?: string) =>
   request<{ session: Session }>(`/setup/session/${id}/steps/${step}/requests`, { method: 'POST', body: json({ item, dueBy: dueBy || null }) })

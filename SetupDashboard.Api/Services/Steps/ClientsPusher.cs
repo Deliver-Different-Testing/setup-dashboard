@@ -49,6 +49,7 @@ public sealed class ClientsPusher(ITenantAppClient apps) : IStepPusher
             var row = ledger.Row(ClientKind, code.Length > 0 ? code : c.Name?.Trim() ?? "(no code)");
 
             int? clientId;
+            if (ledger.IsUnknown(ClientKind, row.Key)) continue;
             if (ledger.AlreadyCreated(ClientKind, row.Key, out var created)) clientId = created;
             else
             {
@@ -101,6 +102,7 @@ public sealed class ClientsPusher(ITenantAppClient apps) : IStepPusher
                 var email = contact.Email?.Trim() ?? "";
                 var cKey = $"{code} / {(email.Length > 0 ? email : "(no email)")}";
                 if (ledger.AlreadyCreated(ContactKind, cKey, out _)) continue;
+                if (ledger.IsUnknown(ContactKind, cKey)) continue;
                 var cRow = ledger.Row(ContactKind, cKey);
 
                 var needs = Validate(contact);

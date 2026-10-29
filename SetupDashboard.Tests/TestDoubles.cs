@@ -19,17 +19,20 @@ public sealed class FakeApps : ITenantAppClient
     public List<Call> Calls { get; } = new();
     public Func<Call, ApiResult> Respond { get; set; } = c => ApiResult.Success(c.App, 200, new JsonObject { ["id"] = 100 + 1 });
 
+    public Func<Task>? BeforeWrite { get; set; }
+
     private int _next = 100;
 
     public Task<ApiResult> GetAsync(TenantApp app, string path, CancellationToken ct = default)
         => SendAsync(app, HttpMethod.Get, path, null, ct);
 
-    public Task<ApiResult> SendAsync(TenantApp app, HttpMethod method, string path, object? body = null, CancellationToken ct = default)
+    public async Task<ApiResult> SendAsync(TenantApp app, HttpMethod method, string path, object? body = null, CancellationToken ct = default)
     {
+        if (method != HttpMethod.Get && BeforeWrite != null) await BeforeWrite();
         var node = body == null ? null : JsonNode.Parse(JsonSerializer.Serialize(body, TenantAppClient.Json));
         var call = new Call(app, method.Method, path, node);
         Calls.Add(call);
-        return Task.FromResult(Respond(call));
+        return Respond(call);
     }
 
     public int NextId() => ++_next;

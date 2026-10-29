@@ -35,6 +35,12 @@ public interface ITenantAppClient
 {
     Task<ApiResult> SendAsync(TenantApp app, HttpMethod method, string path, object? body = null, CancellationToken ct = default);
     Task<ApiResult> GetAsync(TenantApp app, string path, CancellationToken ct = default);
+
+    /// <summary>
+    /// Runs before every write (not reads). A push sets it to save the session, so the ids of
+    /// rows already created are stored before the next record is sent.
+    /// </summary>
+    Func<Task>? BeforeWrite { get; set; }
 }
 
 public sealed class TenantAppClient(
@@ -54,11 +60,16 @@ public sealed class TenantAppClient(
         PropertyNameCaseInsensitive = true,
     };
 
+    public Func<Task>? BeforeWrite { get; set; }
+
     public Task<ApiResult> GetAsync(TenantApp app, string path, CancellationToken ct = default)
         => SendAsync(app, HttpMethod.Get, path, null, ct);
 
     public async Task<ApiResult> SendAsync(TenantApp app, HttpMethod method, string path, object? body = null, CancellationToken ct = default)
     {
+        var isWrite = method != HttpMethod.Get;
+        if (isWrite && BeforeWrite != null) await BeforeWrite();
+
         var http = httpContextAccessor.HttpContext
             ?? throw new InvalidOperationException("TenantAppClient needs the caller's request.");
         var caller = CallerContext.From(http.User);
@@ -76,6 +87,24 @@ public sealed class TenantAppClient(
         var warm = await EnsureWarmAsync(client, app, caller, baseUrl, cookie, ct);
         if (!warm.Ok) return warm;
 
+        var result = await SendOnceAsync(client, app, method, baseUrl, path, cookie, body, ct);
+
+        // The app lost its cached tenant connection (restart, cache eviction) while our warm-up
+        // flag still says it's warm. Nothing was written, so warm it again and retry once.
+        if (result.Status == 500 && app != TenantApp.IntegrationManager
+            && result.Messages.Any(m => m.Contains("Connection string", StringComparison.OrdinalIgnoreCase)))
+        {
+            await cache.RemoveAsync(WarmKey(caller, app), ct);
+            warm = await EnsureWarmAsync(client, app, caller, baseUrl, cookie, ct);
+            if (!warm.Ok) return warm;
+            result = await SendOnceAsync(client, app, method, baseUrl, path, cookie, body, ct);
+        }
+        return result;
+    }
+
+    private async Task<ApiResult> SendOnceAsync(HttpClient client, TenantApp app, HttpMethod method, string baseUrl, string path,
+        string cookie, object? body, CancellationToken ct)
+    {
         using var request = new HttpRequestMessage(method, new Uri(new Uri(baseUrl), path));
         request.Headers.Add("Cookie", cookie);
         request.Headers.Add("X-Requested-With", "XMLHttpRequest");
@@ -83,6 +112,7 @@ public sealed class TenantAppClient(
         if (body != null)
             request.Content = new StringContent(JsonSerializer.Serialize(body, Json), Encoding.UTF8, "application/json");
 
+        var isWrite = method != HttpMethod.Get;
         try
         {
             using var response = await client.SendAsync(request, ct);
@@ -90,14 +120,19 @@ public sealed class TenantAppClient(
         }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested)
         {
-            return ApiResult.Fail(app, 0, $"{Label(app)} did not answer in time.");
+            // A write that timed out may well have been saved - the app just didn't answer in time.
+            return isWrite ? ApiResult.NoAnswer(app) : ApiResult.Fail(app, 0, $"{Label(app)} did not answer in time.");
         }
         catch (HttpRequestException ex)
         {
             logger.LogWarning(ex, "{App} call {Method} {Path} failed", app, method, path);
-            return ApiResult.Fail(app, 0, $"Could not reach {Label(app)}: {ex.Message}");
+            return isWrite && ex.HttpRequestError == HttpRequestError.ResponseEnded
+                ? ApiResult.NoAnswer(app)
+                : ApiResult.Fail(app, 0, $"Could not reach {Label(app)}: {ex.Message}");
         }
     }
+
+    private static string WarmKey(CallerContext caller, TenantApp app) => $"setup-warm:{caller.TenantId}:{app}";
 
     /// <summary>
     /// Loads the app's SPA shell once per tenant so it caches the tenant's DB connection.
@@ -107,7 +142,7 @@ public sealed class TenantAppClient(
     {
         if (app == TenantApp.IntegrationManager) return ApiResult.Success(app, 200, null); // fetches from Hub on a miss
 
-        var key = $"setup-warm:{caller.TenantId}:{app}";
+        var key = WarmKey(caller, app);
         if (await cache.GetStringAsync(key, ct) != null) return ApiResult.Success(app, 200, null);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(new Uri(baseUrl), "/"));
@@ -166,6 +201,9 @@ public sealed class ApiResult
     public List<string> Messages { get; init; } = new();
     public bool SignInExpired { get; init; }
 
+    /// <summary>A write that got no answer: the app may have saved it, so it must not simply be sent again.</summary>
+    public bool MayHaveSaved { get; init; }
+
     /// <summary>The created row's id, from whichever envelope the app uses.</summary>
     public int? Id => FindId(Body);
 
@@ -174,6 +212,13 @@ public sealed class ApiResult
 
     public static ApiResult Fail(TenantApp app, int status, string message)
         => new() { App = app, Ok = false, Status = status, Messages = [message] };
+
+    public static ApiResult NoAnswer(TenantApp app)
+        => new()
+        {
+            App = app, Ok = false, Status = 0, MayHaveSaved = true,
+            Messages = [$"{TenantAppClient.Label(app)} didn't answer in time, so this may have been saved. Check {TenantAppClient.Label(app)}, then choose Send again if it isn't there."],
+        };
 
     public static ApiResult AuthExpired(TenantApp app)
         => new() { App = app, Ok = false, Status = 401, SignInExpired = true, Messages = ["Your sign-in has expired. Refresh the page and sign in again."] };

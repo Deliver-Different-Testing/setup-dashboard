@@ -93,6 +93,61 @@ public class TenantAppClientTests
         Assert.Equal(["A valid invoice schedule is required."], res.Messages);
     }
 
+    [Fact]
+    public async Task A_write_that_times_out_may_have_saved_and_says_so()
+    {
+        var (client, _) = Build(r => r.RequestUri!.AbsolutePath == "/"
+            ? Make.Json(HttpStatusCode.OK, "{}")
+            : throw new TaskCanceledException("timeout"));
+
+        var res = await client.SendAsync(TenantApp.Settings, HttpMethod.Post, "/api/v1/tenant/clients", new { });
+
+        Assert.False(res.Ok);
+        Assert.True(res.MayHaveSaved);
+    }
+
+    [Fact]
+    public async Task A_read_that_times_out_is_a_plain_failure()
+    {
+        var (client, _) = Build(r => r.RequestUri!.AbsolutePath == "/"
+            ? Make.Json(HttpStatusCode.OK, "{}")
+            : throw new TaskCanceledException("timeout"));
+
+        var res = await client.GetAsync(TenantApp.Settings, "/api/admin/roles");
+
+        Assert.False(res.Ok);
+        Assert.False(res.MayHaveSaved);
+    }
+
+    [Fact]
+    public async Task A_cold_connection_string_is_rewarmed_and_the_call_retried_once()
+    {
+        var calls = 0;
+        var (client, handler) = Build(r => r.RequestUri!.AbsolutePath == "/"
+            ? Make.Json(HttpStatusCode.OK, "{}")
+            : ++calls == 1
+                ? Make.Json(HttpStatusCode.InternalServerError, "{\"message\":\"Connection string is not set\"}")
+                : Make.Json(HttpStatusCode.OK, "{\"id\":5}"));
+
+        var res = await client.SendAsync(TenantApp.Settings, HttpMethod.Post, "/api/admin/roles", new { name = "x" });
+
+        Assert.True(res.Ok);
+        Assert.Equal(["/", "/api/admin/roles", "/", "/api/admin/roles"], handler.Requests.Select(r => r.RequestUri!.AbsolutePath));
+    }
+
+    [Fact]
+    public async Task Writes_run_the_checkpoint_first_and_reads_do_not()
+    {
+        var (client, _) = Build(_ => Make.Json(HttpStatusCode.OK, "{}"));
+        var checkpoints = 0;
+        client.BeforeWrite = () => { checkpoints++; return Task.CompletedTask; };
+
+        await client.GetAsync(TenantApp.Settings, "/api/admin/roles");
+        await client.SendAsync(TenantApp.Settings, HttpMethod.Post, "/api/admin/roles", new { });
+
+        Assert.Equal(1, checkpoints);
+    }
+
     [Theory]
     [InlineData("{\"id\":12}", 12)]
     [InlineData("{\"contactRoleId\":9,\"name\":\"x\"}", 9)]

@@ -38,6 +38,7 @@ public sealed class PartnersPusher(ITenantAppClient apps) : IStepPusher
         {
             var key = p.Name?.Trim() ?? "";
             if (ledger.AlreadyCreated(PartnerKind, key, out _)) continue;
+            if (ledger.IsUnknown(PartnerKind, key)) continue;
             var row = ledger.Row(PartnerKind, key.Length > 0 ? key : "(unnamed partner)");
 
             var needs = Validate(p);

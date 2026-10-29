@@ -53,6 +53,7 @@ interface State {
   tick: (step: StepKey, itemId: string, done: boolean) => Promise<void>
   complete: (step: StepKey) => Promise<void>
   reopen: (step: StepKey) => Promise<void>
+  retryRow: (step: StepKey, kind: string, key: string) => Promise<void>
   removeSession: (id: string) => Promise<void>
 }
 
@@ -183,6 +184,10 @@ export const useStore = create<State>((set, get) => {
     reopen: async step => {
       const s = withSession()
       await guard(step, 'saving', async () => set({ session: (await api.reopenStep(s.id, step)).session }))
+    },
+    retryRow: async (step, kind, key) => {
+      const s = withSession()
+      await guard(step, 'saving', async () => set({ session: (await api.retryRow(s.id, step, kind, key)).session }))
     },
 
     removeSession: async id => {

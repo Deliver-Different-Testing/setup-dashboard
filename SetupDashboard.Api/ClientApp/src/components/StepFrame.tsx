@@ -4,6 +4,9 @@ import type { StepKey } from '../lib/api'
 import { Btn, Card, RowPill, StepPill } from './ui'
 import { errorMessage } from '../lib/helpers'
 
+/** The store shows a failed action's message on the step; nothing else needs the rejection. */
+const quiet = (p: Promise<unknown>) => { p.catch(() => { /* shown on the step */ }) }
+
 interface Props {
   step: StepKey
   title: string
@@ -82,7 +85,7 @@ export function StepFrame({ step, title, intro, sendsTo, draft, dirty, onSaved, 
         )}
         {state.status !== 'done'
           ? <Btn kind="ghost" onClick={markDone} disabled={!!busy || dirty}>Mark step done</Btn>
-          : isDf && <Btn kind="ghost" onClick={() => reopen(step)} disabled={!!busy}>Reopen</Btn>}
+          : isDf && <Btn kind="ghost" onClick={() => quiet(reopen(step))} disabled={!!busy}>Reopen</Btn>}
         {completeMsg && <span className="text-xs text-amber-700">{completeMsg}</span>}
       </div>
 
@@ -118,7 +121,7 @@ function Requests({ step }: { step: StepKey }) {
                   {r.fulfilledAt ? ` · supplied${r.fulfilledBy ? ` by ${r.fulfilledBy}` : ''}` : ''}
                 </span>
               </span>
-              {!r.fulfilledAt && <Btn kind="ghost" onClick={() => fulfilRequest(step, r.id)}>Supplied</Btn>}
+              {!r.fulfilledAt && <Btn kind="ghost" onClick={() => quiet(fulfilRequest(step, r.id))}>Supplied</Btn>}
             </li>
           )
         })}
@@ -128,7 +131,7 @@ function Requests({ step }: { step: StepKey }) {
           <input value={item} onChange={e => setItem(e.target.value)} placeholder="Ask the tenant for… (e.g. customer list with addresses)"
             className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-cyan" />
           <input type="date" value={due} onChange={e => setDue(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 text-sm" />
-          <Btn onClick={async () => { if (item.trim()) { await addRequest(step, item.trim(), due || undefined); setItem(''); setDue('') } }} disabled={!item.trim()}>Ask</Btn>
+          <Btn onClick={async () => { if (item.trim()) { try { await addRequest(step, item.trim(), due || undefined); setItem(''); setDue('') } catch { /* shown on the step */ } } }} disabled={!item.trim()}>Ask</Btn>
         </div>
       )}
     </Card>
@@ -147,7 +150,7 @@ function Checklist({ step, isDf }: { step: StepKey; isDf: boolean }) {
           const canTick = c.owner !== 'DFRNT' || isDf
           return (
             <li key={c.id} className="flex items-start gap-3 text-sm">
-              <input type="checkbox" checked={!!c.doneAt} disabled={!canTick} onChange={e => tick(step, c.id, e.target.checked)}
+              <input type="checkbox" checked={!!c.doneAt} disabled={!canTick} onChange={e => quiet(tick(step, c.id, e.target.checked))}
                 className="mt-1 accent-cyan" title={canTick ? '' : 'DFRNT ticks this one'} />
               <div className="flex-1">
                 <span className={c.doneAt ? 'text-gray-400' : 'text-navy'}>{c.item}</span>
@@ -165,8 +168,10 @@ function Checklist({ step, isDf }: { step: StepKey; isDf: boolean }) {
 
 function RowResults({ step }: { step: StepKey }) {
   const rows = useStore(s => s.session?.steps[step].rows ?? [])
+  const retryRow = useStore(s => s.retryRow)
+  const busy = useStore(s => s.busy[step])
   if (rows.length === 0) return null
-  const order = { failed: 0, needs_data: 1, pending: 2, skipped: 3, created: 4 } as const
+  const order = { unknown: 0, failed: 1, needs_data: 2, pending: 3, skipped: 4, created: 5 } as const
   const sorted = [...rows].sort((a, b) => order[a.status] - order[b.status])
   return (
     <Card title="What happened to each record">
@@ -181,6 +186,12 @@ function RowResults({ step }: { step: StepKey }) {
                 {r.needs.length > 0 && <span className="text-amber-700">Needs: {r.needs.join(' · ')}</span>}
                 {r.errors.length > 0 && <span className="text-red-600">{r.errors.join(' ')}</span>}
                 {r.notice && <span className="text-gray-500">{r.notice}</span>}
+                {r.status === 'unknown' && (
+                  <Btn kind="ghost" disabled={!!busy} onClick={() => quiet(retryRow(step, r.kind, r.key))}
+                    title="Only once you've checked it isn't there - otherwise it would be created twice.">
+                    It isn't there - send again
+                  </Btn>
+                )}
               </td>
             </tr>
           ))}

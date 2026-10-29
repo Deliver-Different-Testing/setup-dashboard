@@ -51,14 +51,11 @@ export function ClientsStep() {
         <Btn kind="ghost" onClick={() => { setDraft(d => [...d, newClient()]); setOpen(draft.length) }}>+ Customer</Btn>
       </div>}>
         {draft.length > 0 && (
-          <div className="grid grid-cols-3 gap-3 mb-4 p-3 rounded-xl bg-lgrey/60">
+          <div className="grid grid-cols-2 gap-3 mb-4 p-3 rounded-xl bg-lgrey/60">
             <Pick label="Invoice schedule for all" value={undefined} options={schedules.options} loading={schedules.loading} error={schedules.error}
               onChange={v => v != null && applyAll({ invoiceScheduleId: v })} placeholder="Apply to every customer…" />
             <Pick label="Payment term for all" value={undefined} options={terms.options} loading={terms.loading} error={terms.error}
-              onChange={v => v != null && applyAll({ paymentTermId: v })} placeholder="Apply to every customer…" />
-            <div className="flex items-end"><Check warn checked={draft.every(c => c.inviteConfirmed)} onChange={v => applyAll({ inviteConfirmed: v })}
-              label="Invite every primary contact when sent" /></div>
-          </div>
+              onChange={v => v != null && applyAll({ paymentTermId: v })} placeholder="Apply to every customer…" />          </div>
         )}
         <div className="divide-y divide-gray-100">
           {draft.map((c, i) => (

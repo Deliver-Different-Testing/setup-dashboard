@@ -113,6 +113,8 @@ public static class RowStatus
     public const string Created = "created";
     public const string Failed = "failed";
     public const string Skipped = "skipped";
+    /// <summary>Sent, but no answer came back: it may exist in the target app. Not re-sent until someone chooses Send again.</summary>
+    public const string Unknown = "unknown";
 }
 
 /// <summary>Work that has no API yet, or is done in another app's screens. Ticked by a person.</summary>

@@ -132,6 +132,25 @@ Steve, 24 Oct: flag these; they can probably be added as part of the agent-acces
 
 Guarantees with a test behind them: no anonymous endpoints; tenant DbContext throws on save (no `tucStaff` / `tblUser` can be written); sessions invisible across tenants; courier passwords never in a response and cleared after create; no invented values in a customer push; a failed row never causes a later row to be re-sent; nobody is invited before the Business "system settings and email wording" item is ticked; rates always carry `clientIds`.
 
+### Review fixes (29 Oct 2026, Jacob)
+
+Rebased onto GitLab `develop` `9e9c1da`. Fixed from review; each has a test (xUnit 49, vitest 11):
+
+| # | Fix |
+|---|---|
+| R1 | **Team never reuses a Global Default role.** Settings' role list includes the platform-wide defaults; matching one by name and switching its tiles on changed every tenant. Only roles owned by the tenant's client are reused. |
+| R2 | **DF Admin never creates a global role.** No tenant client file means the role row waits ("needs") instead of sending `tenantClientId: null`. |
+| R3 | **A push saves as it goes and runs one at a time.** `StepPushRunner`: Redis lock per session (409 "a send is running" to a second push and to any edit meanwhile), session saved before every write, writes not cancelled when the browser closes, session saved even if the push throws. |
+| R4 | **A write with no answer is "No answer", not "Failed".** A timeout on a POST may have saved; the row is not re-sent until someone checks and chooses "It isn't there - send again" (`POST .../rows/retry`). It blocks completing the step. |
+| R5 | **Cold connection string re-warmed.** A 500 "Connection string is not set" clears the warm-up flag, warms the app and retries once. |
+| R6 | **Zones keyed by group.** "Downtown" in two groups is two zones; a rate naming an ambiguous zone needs "Group / Zone". |
+| R7 | **Stale rows dropped.** Rows a push didn't touch and that never reached Settings (the record was renamed or removed) no longer block completion. |
+| R8 | **Courier password used once.** Cleared after any send, not only a successful one. |
+| R9 | **Expired sign-in in the browser.** No redirect following; a redirect or HTML page shows "Your sign-in has expired". |
+| R10 | Bulk "invite every primary contact" tick removed - each customer is ticked on its own. |
+
+Not fixed here (Settings side): `POST /api/v1/tenant/agents` returns only the DTO, so a failed partner invite warning is lost and the row shows Created.
+
 ### Click-through demo (the reference for "does the build match")
 
 **https://deliver-different-testing.github.io/setup-dashboard/rewrite/** (public, sample data). The real screens from this branch on an in-browser mock API (`src/demo/mockApi.ts`), built with `npm run build:demo` and published to `gh-pages` under `rewrite/`. The mock applies the same required-field rules as the step pushers. When the staging deploy is up, walk the same path on both and check they match: step order and status pills, the Business "system settings now" warning and checklist, invites held until the tenant-identity item is ticked, Customers' required fields and "Needs: …" rows, rates showing "Applies to every customer", schedules' day-window grid, couriers' password never shown back, requests to the tenant and the "Waiting on" header. Differences that come from real Settings data (lookup contents, real messages) are expected; differences in behaviour aren't. Rebuild the demo from the merged code with `npm run build:demo` if the screens change.

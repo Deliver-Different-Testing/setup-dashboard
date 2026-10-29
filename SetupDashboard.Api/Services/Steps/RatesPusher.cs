@@ -62,6 +62,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
         {
             var key = v.Name?.Trim() ?? "";
             if (ledger.AlreadyCreated(VehicleKind, key, out _)) continue;
+            if (ledger.IsUnknown(VehicleKind, key)) continue;
             var row = ledger.Row(VehicleKind, key.Length > 0 ? key : "(unnamed vehicle size)");
             var needs = new Needs().Text(v.Name, "name");
             if (needs.Any) { RowLedger.NeedsData(row, needs.Items); continue; }
@@ -85,6 +86,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
             var gRow = ledger.Row(ZoneGroupKind, gKey.Length > 0 ? gKey : "(unnamed zone group)");
             if (gKey.Length == 0) { RowLedger.NeedsData(gRow, ["name"]); continue; }
 
+            if (ledger.IsUnknown(ZoneGroupKind, gKey)) continue;
             int? groupId = ledger.IdOf(ZoneGroupKind, gKey);
             if (groupId == null)
             {
@@ -96,10 +98,13 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
             foreach (var z in g.Zones)
             {
                 var zName = z.Name?.Trim() ?? "";
-                var zRow = ledger.Row(ZoneKind, zName.Length > 0 ? zName : $"(unnamed zone in {gKey})");
+                // Keyed by group as well: two groups can each have a "Downtown".
+                var zKey = ZoneKey(gKey, zName);
+                var zRow = ledger.Row(ZoneKind, zName.Length > 0 ? zKey : $"(unnamed zone in {gKey})");
                 if (zName.Length == 0) { RowLedger.NeedsData(zRow, ["name"]); continue; }
 
-                int? zoneId = ledger.IdOf(ZoneKind, zName);
+                if (ledger.IsUnknown(ZoneKind, zKey)) continue;
+                int? zoneId = ledger.IdOf(ZoneKind, zKey);
                 if (zoneId == null)
                 {
                     var res = await apps.SendAsync(TenantApp.Settings, HttpMethod.Post, "/api/v1/tenant/pricing/zone-names",
@@ -110,8 +115,9 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
 
                 foreach (var zip in z.Zips.Select(x => x?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct())
                 {
-                    var zipKey = $"{zName} / {zip}";
+                    var zipKey = $"{zKey} / {zip}";
                     if (ledger.AlreadyCreated(ZipKind, zipKey, out _)) continue;
+                    if (ledger.IsUnknown(ZipKind, zipKey)) continue;
                     var res = await apps.SendAsync(TenantApp.Settings, HttpMethod.Post, "/api/v1/tenant/pricing/zone-zips",
                         new { zip, zoneNameId = zoneId }, ct);
                     Record(ledger.Row(ZipKind, zipKey), res);
@@ -125,6 +131,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
         {
             var key = f.Name?.Trim() is { Length: > 0 } n ? n : $"Fuel {f.RatePercent}% from {f.Start:yyyy-MM-dd}";
             if (ledger.AlreadyCreated(FuelKind, key, out _)) continue;
+            if (ledger.IsUnknown(FuelKind, key)) continue;
             var row = ledger.Row(FuelKind, key);
             var needs = Validate(f);
             int? clientId = null;
@@ -151,10 +158,11 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
         {
             var key = r.Name?.Trim() ?? "";
             if (ledger.AlreadyCreated(ZoneRateKind, key, out _)) continue;
+            if (ledger.IsUnknown(ZoneRateKind, key)) continue;
             var row = ledger.Row(ZoneRateKind, key.Length > 0 ? key : "(unnamed zone rate)");
             var needs = Validate(r);
-            var from = Resolve(zones, ledger, ZoneKind, r.FromZone, needs, "zone");
-            var to = Resolve(zones, ledger, ZoneKind, r.ToZone, needs, "zone");
+            var from = ResolveZone(zones, ledger, r.FromZone, needs);
+            var to = ResolveZone(zones, ledger, r.ToZone, needs);
             var vehicleIds = ResolveAll(vehicles, ledger, VehicleKind, r.VehicleSizeNames, needs, "vehicle size");
             var clientIds = ResolveClients(session, r.ClientCodes, needs);
             if (needs.Any) { RowLedger.NeedsData(row, needs.Items); continue; }
@@ -179,6 +187,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
         {
             var key = r.Name?.Trim() ?? "";
             if (ledger.AlreadyCreated(DistanceRateKind, key, out _)) continue;
+            if (ledger.IsUnknown(DistanceRateKind, key)) continue;
             var row = ledger.Row(DistanceRateKind, key.Length > 0 ? key : "(unnamed distance rate)");
             var needs = Validate(r);
             var vehicleIds = ResolveAll(vehicles, ledger, VehicleKind, r.VehicleSizeNames, needs, "vehicle size");
@@ -228,6 +237,31 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
         if (string.IsNullOrWhiteSpace(name)) return null;
         var id = ledger.IdOf(kind, name) ?? (lookup.TryGetValue(name.Trim(), out var l) ? l : null);
         needs.When(id == null, $"{label} \"{name}\" in Settings");
+        return id;
+    }
+
+    internal static string ZoneKey(string group, string zone) => $"{group} / {zone}";
+
+    /// <summary>
+    /// A rate names its zone either as "Zone" or "Group / Zone". A bare name that this session
+    /// created in more than one group is ambiguous, so it becomes a need rather than a guess.
+    /// </summary>
+    private static int? ResolveZone(Dictionary<string, int> lookup, RowLedger ledger, string? name, Needs needs)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        var n = name.Trim();
+        var id = ledger.IdOf(ZoneKind, n);
+        if (id == null)
+        {
+            var created = ledger.CreatedIds(ZoneKind, key => key.EndsWith(" / " + n, StringComparison.OrdinalIgnoreCase));
+            if (created.Count > 1)
+            {
+                needs.When(true, $"zone \"{n}\" named with its group (\"Group / {n}\") - it is in more than one group");
+                return null;
+            }
+            id = created.Count == 1 ? created[0] : lookup.TryGetValue(n, out var l) ? l : null;
+        }
+        needs.When(id == null, $"zone \"{n}\" in Settings");
         return id;
     }
 

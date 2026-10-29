@@ -117,6 +117,7 @@ const ROW_PILL: Record<RowStatus, [string, string]> = {
   created: ['Created', 'bg-green-100 text-green-700'],
   failed: ['Failed', 'bg-red-100 text-red-600'],
   skipped: ['Skipped', 'bg-gray-100 text-gray-500'],
+  unknown: ['No answer', 'bg-orange-100 text-orange-700'],
 }
 export function RowPill({ status }: { status: RowStatus }) {
   const [text, cls] = ROW_PILL[status] ?? ROW_PILL.pending

@@ -52,6 +52,7 @@ public sealed class SchedulesPusher(ITenantAppClient apps) : IStepPusher
         {
             var key = s.Name?.Trim() ?? "";
             if (ledger.AlreadyCreated(ScheduleKind, key, out _)) continue;
+            if (ledger.IsUnknown(ScheduleKind, key)) continue;
             var row = ledger.Row(ScheduleKind, key.Length > 0 ? key : "(unnamed schedule)");
 
             var needs = Validate(s);

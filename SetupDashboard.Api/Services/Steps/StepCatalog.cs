@@ -119,7 +119,7 @@ public static class StepCatalog
     {
         var step = session.Step(stepKey);
         if (step.Requests.Any(r => r.FulfilledAt == null)) return "There are open requests to the tenant.";
-        var bad = step.Rows.Where(r => r.Status is RowStatus.Pending or RowStatus.NeedsData or RowStatus.Failed).ToList();
+        var bad = step.Rows.Where(r => r.Status is RowStatus.Pending or RowStatus.NeedsData or RowStatus.Failed or RowStatus.Unknown).ToList();
         if (bad.Count > 0) return $"{bad.Count} record(s) are not created yet.";
         var open = step.Checklist.Where(c => c.Required && c.DoneAt == null).Select(c => c.Item).ToList();
         if (open.Count > 0) return $"Required checklist items are open: {open.Count}.";

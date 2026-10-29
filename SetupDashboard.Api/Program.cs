@@ -130,17 +130,21 @@ try
         {
             var redis = ConnectionMultiplexer.Connect(redisConfigurationOptions);
             Log.Information("Redis connection successful");
+            builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+            builder.Services.AddSingleton<IPushLock, RedisPushLock>();
         }
         catch (Exception ex)
         {
             Log.Warning(ex, "Redis connection failed — falling back to in-memory distributed cache");
             builder.Services.AddDistributedMemoryCache();
+            builder.Services.AddSingleton<IPushLock, InMemoryPushLock>();
         }
     }
     else
     {
         Log.Warning("RedisConfig env var not set — using in-memory distributed cache (development only)");
         builder.Services.AddDistributedMemoryCache();
+        builder.Services.AddSingleton<IPushLock, InMemoryPushLock>();
     }
 
     // ── Connection String Manager (Redis-backed) ──
@@ -203,6 +207,7 @@ try
     builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.SchedulesPusher>();
     builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.CouriersPusher>();
     builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.PartnersPusher>();
+    builder.Services.AddScoped<SetupDashboard.Services.Steps.StepPushRunner>();
 
     // AWS S3 for tenant logo (same pattern as Hub)
     builder.Services.AddMemoryCache();

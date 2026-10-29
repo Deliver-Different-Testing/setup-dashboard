@@ -26,6 +26,8 @@ namespace SetupDashboard.Controllers;
 public class SetupController(
     ISessionStore sessions,
     IEnumerable<IStepPusher> pushers,
+    StepPushRunner pushRunner,
+    IPushLock pushLock,
     ITenantAppUrls urls,
     IDbContextFactory<DynamicDespatchDbContext> dbFactory,
     ITenantLogoService logoService,
@@ -86,6 +88,7 @@ public class SetupController(
     public async Task<IActionResult> SetCurrentStep(string id, [FromBody] CurrentStepRequest req, CancellationToken ct)
     {
         if (await Load(id, ct) is not { } loaded) return NotFound();
+        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
         loaded.Session.CurrentStep = Math.Clamp(req.Step, 0, StepKeys.All.Length - 1);
         await sessions.UpdateAsync(loaded.Session, ct);
         return Ok(new { success = true });
@@ -98,6 +101,7 @@ public class SetupController(
     public async Task<IActionResult> SaveStepData(string id, string step, [FromBody] JsonElement body, CancellationToken ct)
     {
         if (await Load(id, ct) is not { } loaded) return NotFound();
+        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
         var s = loaded.Session;
         var opts = DistributedSessionStore.Json;
         try
@@ -136,9 +140,8 @@ public class SetupController(
         var pusher = pushers.FirstOrDefault(p => p.StepKey == step);
         if (pusher == null) return BadRequest(new { message = $"Step '{step}' is a checklist; there is nothing to send." });
 
-        await pusher.PushAsync(loaded.Session, loaded.Caller, ct);
-        StepCatalog.Recompute(loaded.Session, step, hasData: true);
-        await sessions.UpdateAsync(loaded.Session, ct);
+        if (!(await pushRunner.RunAsync(loaded.Session, loaded.Caller, pusher)).Ran)
+            return Conflict(new { message = SendInProgress });
 
         var rows = loaded.Session.Step(step).Rows;
         return Ok(new
@@ -154,12 +157,28 @@ public class SetupController(
         });
     }
 
+    /// <summary>
+    /// A row sent with no answer back stays "unknown" and is never re-sent on its own. Once a person
+    /// has checked it isn't in Settings / Routed Ops, this lets the next push send it again.
+    /// </summary>
+    [HttpPost("session/{id}/steps/{step}/rows/retry")]
+    public async Task<IActionResult> RetryRow(string id, string step, [FromBody] RowRef req, CancellationToken ct)
+    {
+        if (await Load(id, ct) is not { } loaded) return NotFound();
+        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
+        if (!RowLedger.Retry(loaded.Session.Step(step), req.Kind, req.Key)) return NotFound(new { message = "No unanswered record with that key." });
+        StepCatalog.Recompute(loaded.Session, step, hasData: false);
+        await sessions.UpdateAsync(loaded.Session, ct);
+        return Ok(new { session = View(loaded.Session) });
+    }
+
     // ── Progress: requests to the tenant, checklist, completion ─────────────
 
     [HttpPost("session/{id}/steps/{step}/requests")]
     public async Task<IActionResult> AddRequest(string id, string step, [FromBody] DataRequestCreate req, CancellationToken ct)
     {
         if (await Load(id, ct) is not { } loaded) return NotFound();
+        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
         if (!loaded.Caller.IsDfAdmin) return Forbid();
         if (string.IsNullOrWhiteSpace(req.Item)) return BadRequest(new { message = "Say what you're asking the tenant for." });
 
@@ -174,6 +193,7 @@ public class SetupController(
     public async Task<IActionResult> FulfilRequest(string id, string step, string requestId, CancellationToken ct)
     {
         if (await Load(id, ct) is not { } loaded) return NotFound();
+        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
         var r = loaded.Session.Step(step).Requests.FirstOrDefault(x => x.Id == requestId);
         if (r == null) return NotFound();
         r.FulfilledAt ??= DateTime.UtcNow;
@@ -188,6 +208,7 @@ public class SetupController(
     public async Task<IActionResult> TickChecklist(string id, string step, string itemId, [FromBody] ChecklistTick req, CancellationToken ct)
     {
         if (await Load(id, ct) is not { } loaded) return NotFound();
+        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
         var item = loaded.Session.Step(step).Checklist.FirstOrDefault(c => c.Id == itemId);
         if (item == null) return NotFound();
         if (item.Owner == "DFRNT" && !loaded.Caller.IsDfAdmin)
@@ -204,6 +225,7 @@ public class SetupController(
     public async Task<IActionResult> CompleteStep(string id, string step, CancellationToken ct)
     {
         if (await Load(id, ct) is not { } loaded) return NotFound();
+        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
         if (StepCatalog.CompleteBlocker(loaded.Session, step) is { } why) return Conflict(new { message = why });
 
         var st = loaded.Session.Step(step);
@@ -219,6 +241,7 @@ public class SetupController(
     public async Task<IActionResult> ReopenStep(string id, string step, CancellationToken ct)
     {
         if (await Load(id, ct) is not { } loaded) return NotFound();
+        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
         if (!loaded.Caller.IsDfAdmin) return Forbid();
         var st = loaded.Session.Step(step);
         st.Status = StepStatus.InProgress;
@@ -286,6 +309,14 @@ public class SetupController(
 
     // ── helpers ─────────────────────────────────────────────────────────────
 
+    private const string SendInProgress = "A send is running on this session. Wait for it to finish, then try again.";
+
+    /// <summary>
+    /// A send saves the whole session as it goes, so any other change made meanwhile would be
+    /// overwritten (or would overwrite the send's record of what it created). Refuse it instead.
+    /// </summary>
+    private Task<bool> Busy(SetupSession session) => pushLock.IsHeldAsync(StepPushRunner.LockKey(session));
+
     private sealed record Loaded(SetupSession Session, CallerContext Caller);
 
     private async Task<Loaded?> Load(string id, CancellationToken ct)
@@ -345,3 +376,4 @@ public class SetupController(
 public sealed record CurrentStepRequest(int Step);
 public sealed record DataRequestCreate(string Item, DateTime? DueBy);
 public sealed record ChecklistTick(bool Done);
+public sealed record RowRef(string Kind, string Key);

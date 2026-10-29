@@ -48,12 +48,18 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
         var tenantClient = await FindTenantClientAsync(session, caller, ct);
 
         // ── Roles + tiles ──
-        var existingRoles = await ExistingRolesAsync(ct);
+        // The role's owner: Settings takes it from a tenant caller's own client and from the body
+        // for DF Admin, where a null owner would make a Global Default role for every tenant.
+        var owner = caller.IsDfAdmin ? tenantClient.Id : caller.ClientId;
+        var existingRoles = owner is { } ownerId ? await ExistingRolesAsync(ownerId, ct) : new();
         foreach (var role in team.Roles)
         {
             var key = role.Name?.Trim() ?? "";
             var row = ledger.Row(RoleKind, key.Length > 0 ? key : "(unnamed role)");
+            if (ledger.IsUnknown(RoleKind, key)) continue;
             var needs = Validate(role);
+            if (owner == null && ledger.IdOf(RoleKind, key) == null)
+                needs.When(true, tenantClient.Error ?? "the tenant's own client file (client type Tenant)");
             if (needs.Any) { RowLedger.NeedsData(row, needs.Items); continue; }
 
             int? roleId = ledger.IdOf(RoleKind, key);
@@ -80,7 +86,7 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
             foreach (var tile in role.Tiles.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).Distinct())
             {
                 var tileRow = ledger.Row(TileKind, $"{key} / {tile}");
-                if (tileRow.Status == RowStatus.Created) continue;
+                if (tileRow.Status is RowStatus.Created or RowStatus.Unknown) continue;
                 if (!tile.StartsWith("hub-tile-", StringComparison.Ordinal))
                 {
                     RowLedger.Failed(tileRow, $"\"{tile}\" is not a hub tile.");
@@ -100,6 +106,7 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
         {
             var key = person.Email?.Trim() ?? "";
             if (ledger.AlreadyCreated(PersonKind, key, out _)) continue;
+            if (ledger.IsUnknown(PersonKind, key)) continue;
             var row = ledger.Row(PersonKind, key.Length > 0 ? key : "(no email)");
 
             var needs = Validate(person, roleNames);
@@ -159,7 +166,11 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
         return new(null, $"one tenant client file - this tenant has {list.Count} ({string.Join(", ", list.Select(c => c.Name))}); set the company name on the Business step to the right one");
     }
 
-    private async Task<Dictionary<string, int>> ExistingRolesAsync(CancellationToken ct)
+    /// <summary>
+    /// Roles this tenant already owns, by name. The list Settings returns also holds the Global
+    /// Default roles, shared by every tenant: reusing one by name would switch its tiles on everywhere.
+    /// </summary>
+    private async Task<Dictionary<string, int>> ExistingRolesAsync(int ownerClientId, CancellationToken ct)
     {
         var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var res = await apps.GetAsync(TenantApp.Settings, $"/api/admin/roles?clientType={CallerContext.TenantClientType}", ct);
@@ -169,7 +180,8 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
             var name = o["name"]?.GetValue<string>();
             var id = o["contactRoleId"]?.GetValue<int>();
             var active = o["isActive"]?.GetValue<bool>() ?? true;
-            if (!string.IsNullOrWhiteSpace(name) && id > 0 && active) map.TryAdd(name.Trim(), id.Value);
+            var roleOwner = o["tenantClientId"] is JsonValue v && v.TryGetValue<int>(out var t) ? t : (int?)null;
+            if (!string.IsNullOrWhiteSpace(name) && id > 0 && active && roleOwner == ownerClientId) map.TryAdd(name.Trim(), id.Value);
         }
         return map;
     }

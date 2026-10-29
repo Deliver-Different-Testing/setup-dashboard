@@ -36,6 +36,7 @@ public sealed class CouriersPusher(ITenantAppClient apps) : IStepPusher
         {
             var key = f.Name?.Trim() ?? "";
             if (ledger.AlreadyCreated(FleetKind, key, out _)) continue;
+            if (ledger.IsUnknown(FleetKind, key)) continue;
             var row = ledger.Row(FleetKind, key.Length > 0 ? key : "(unnamed fleet)");
             var needs = new Needs().Text(f.Name, "name").When(key.Length > 50, "name of 50 characters or fewer");
             if (needs.Any) { RowLedger.NeedsData(row, needs.Items); continue; }
@@ -48,7 +49,7 @@ public sealed class CouriersPusher(ITenantAppClient apps) : IStepPusher
         foreach (var c in session.Couriers.Couriers)
         {
             var key = c.Email?.Trim() ?? "";
-            if (ledger.AlreadyCreated(CourierKind, key, out _)) { c.InitialPassword = null; continue; }
+            if (ledger.AlreadyCreated(CourierKind, key, out _) || ledger.IsUnknown(CourierKind, key)) { c.InitialPassword = null; continue; }
             var row = ledger.Row(CourierKind, key.Length > 0 ? key : $"{c.FirstName} {c.SurName}".Trim() is { Length: > 0 } n ? n : "(unnamed courier)");
 
             var needs = Validate(c);
@@ -66,8 +67,9 @@ public sealed class CouriersPusher(ITenantAppClient apps) : IStepPusher
                 courierTypeId = c.CourierTypeId,
             }, ct);
 
+            // Used once: cleared whether or not the create worked. A retry needs the password typed again.
+            c.InitialPassword = null;
             if (!res.Ok) { RowLedger.Failed(row, res); continue; }
-            c.InitialPassword = null; // never kept once the login exists
             RowLedger.Created(row, res.Id,
                 string.IsNullOrWhiteSpace(c.FleetName) ? null : $"Assign to fleet \"{c.FleetName}\" in Settings > Driver List.");
         }

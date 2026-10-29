@@ -34,6 +34,30 @@ describe('api client', () => {
     await expect(api.getSession('abc')).rejects.toThrow(/sign-in has expired/)
   })
 
+  it('does not follow the redirect to Hub sign-in, and says the sign-in expired', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: false, status: 0, type: 'opaqueredirect', text: () => Promise.resolve('') })
+    vi.stubGlobal('fetch', fetch)
+    await expect(api.getSession('abc')).rejects.toMatchObject({ message: expect.stringMatching(/sign-in has expired/), status: 401 })
+    expect(fetch.mock.calls[0][1].redirect).toBe('manual')
+  })
+
+  it('treats an HTML page where JSON was expected as an expired sign-in', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200, headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+      text: () => Promise.resolve('<!doctype html><title>Sign in</title>'),
+    }))
+    await expect(api.listSessions('active')).rejects.toThrow(/sign-in has expired/)
+  })
+
+  it('asks for an unanswered row to be sent again by kind and key', async () => {
+    const fetch = stubFetch(200, { session: { id: 'abc' } })
+    await api.retryRow('abc', 'rates', 'zone', 'KC / Downtown')
+    const [url, init] = fetch.mock.calls[0]
+    expect(url).toBe('/api/setup/session/abc/steps/rates/rows/retry')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual({ kind: 'zone', key: 'KC / Downtown' })
+  })
+
   it('calls the login check at the app root, not under /api', async () => {
     const fetch = stubFetch(200, { success: true })
     await api.validateLogin()
