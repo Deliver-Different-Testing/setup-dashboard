@@ -16,7 +16,7 @@ public sealed class FakeApps : ITenantAppClient
 {
     public sealed record Call(TenantApp App, string Method, string Path, JsonNode? Body);
 
-    public List<Call> Calls { get; } = new();
+    public List<Call> Calls { get; } = [];
     public Func<Call, ApiResult> Respond { get; set; } = c => ApiResult.Success(c.App, 200, new JsonObject { ["id"] = 100 + 1 });
 
     public Func<Task>? BeforeWrite { get; set; }
@@ -46,8 +46,8 @@ public sealed class FakeApps : ITenantAppClient
 
 public sealed class RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
 {
-    public List<HttpRequestMessage> Requests { get; } = new();
-    public List<string?> Bodies { get; } = new();
+    public List<HttpRequestMessage> Requests { get; } = [];
+    public List<string?> Bodies { get; } = [];
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {

@@ -7,8 +7,8 @@ using SetupDashboard.Services;
 namespace SetupDashboard.Controllers;
 
 /// <summary>Training step progress (behaviour unchanged; now signed-in and tenant-scoped).</summary>
-[Authorize]
-[RequireFeature(FeatureKeys.SetupDashboard)]
+[Authorize][RequireFeature(FeatureKeys.SetupDashboard)]
+
 [ApiController]
 [Route("api/setup/session/{id}/training")]
 public class TrainingController(ISessionStore sessions) : ControllerBase

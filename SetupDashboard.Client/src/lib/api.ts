@@ -4,10 +4,9 @@
 // forwards writes to Settings / Routed Ops as the signed-in person - the browser
 // never calls those apps directly, and never chooses which tenant it is writing to.
 
-let BASE_URL = import.meta.env.VITE_API_URL || '/api'
+const BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 export function getApiBaseUrl() { return BASE_URL }
-export function setApiBaseUrl(url: string) { BASE_URL = url }
 
 export class ApiError extends Error {
   status: number
@@ -173,9 +172,6 @@ export const validate = (what: 'contact-email' | 'client-name' | 'client-code' |
   const param = what.endsWith('email') ? 'email' : what.endsWith('name') ? 'name' : 'code'
   return request<{ available: boolean | null; unchecked?: boolean }>(`/setup/validate/${what}?${param}=${encodeURIComponent(value)}`)
 }
-
-export const getTraining = (id: string) => request<{ progress: TrainingMember[] }>(`/setup/session/${id}/training`)
 export const saveTraining = (id: string, members: TrainingMember[]) => request(`/setup/session/${id}/training`, { method: 'PUT', body: json(members) })
 export const completeChallenge = (id: string, userEmail: string, challengeId: string, xpEarned: number) =>
   request(`/setup/session/${id}/training/complete-challenge`, { method: 'POST', body: json({ userEmail, challengeId, xpEarned }) })
-export const getLeaderboard = (id: string) => request<{ leaderboard: unknown[] }>(`/setup/session/${id}/training/leaderboard`)
