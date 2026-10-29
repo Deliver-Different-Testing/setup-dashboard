@@ -50,7 +50,7 @@ function App() {
     return (
       <Center pos="fixed" inset={0} p="lg" bg="var(--mantine-color-body)">
         <Paper p="lg" maw={448} ta="center">
-          <Text fw={600}>Setup Dashboard couldn't start</Text>
+          <Text fw={600}>Setup - Deliver DFRNT couldn't start</Text>
           <Text size="sm" c="dimmed" mt={8}>{fatal}</Text>
         </Paper>
       </Center>

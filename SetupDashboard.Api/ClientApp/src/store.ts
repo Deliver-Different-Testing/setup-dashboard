@@ -111,7 +111,7 @@ export const useStore = create<State>((set, get) => {
         else if (sessions.length > 0) set({ showResumePrompt: true })
         else await get().startNew()
       } catch (e: unknown) {
-        set({ fatal: e instanceof api.ApiError && e.status === 403 ? 'Setup Dashboard isn\'t turned on for your account. Ask DFRNT to turn it on.' : errorMessage(e, 'Setup Dashboard couldn\'t start. Reload the page, or contact DFRNT if it keeps happening.') })
+        set({ fatal: e instanceof api.ApiError && e.status === 403 ? 'Setup - Deliver DFRNT isn\'t turned on for your account. Ask DFRNT to turn it on.' : errorMessage(e, 'Setup - Deliver DFRNT couldn\'t start. Reload the page, or contact DFRNT if it keeps happening.') })
       } finally {
         set({ isInitializing: false })
       }

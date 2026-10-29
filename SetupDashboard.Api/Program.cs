@@ -109,7 +109,7 @@ try
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
                     context.Response.ContentType = "text/plain";
                     return context.Response.WriteAsync(
-                        "Setup Dashboard is not enabled for your account. Ask a DFRNT administrator.");
+                        "Setup - Deliver DFRNT isn't turned on for your account. Ask DFRNT to turn it on.");
                 }
             };
             options.Cookie.HttpOnly = true;
