@@ -1,6 +1,6 @@
 @using System.IO
 @using System.Text.Json
-@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnv
+@inject IWebHostEnvironment HostEnv
 @{
     Layout = null;
 
@@ -11,9 +11,9 @@
     var jsFile = "";
     var cssFile = "";
 
-    if (System.IO.File.Exists(manifestPath))
+    if (File.Exists(manifestPath))
     {
-        var manifestJson = System.IO.File.ReadAllText(manifestPath);
+        var manifestJson = await File.ReadAllTextAsync(manifestPath);
         var manifest = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(manifestJson);
         if (manifest != null && manifest.TryGetValue("index.html", out var entry))
         {
@@ -36,8 +36,14 @@
         {
             var jsFiles = Directory.GetFiles(assetsDir, "index-*.js");
             var cssFiles = Directory.GetFiles(assetsDir, "index-*.css");
-            if (jsFiles.Length > 0) jsFile = "assets/" + System.IO.Path.GetFileName(jsFiles[0]);
-            if (cssFiles.Length > 0) cssFile = "assets/" + System.IO.Path.GetFileName(cssFiles[0]);
+            if (jsFiles.Length > 0)
+            {
+                jsFile = "assets/" + System.IO.Path.GetFileName(jsFiles[0]);
+            }
+            if (cssFiles.Length > 0)
+{
+    cssFile = "assets/" + System.IO.Path.GetFileName(cssFiles[0]);
+}
         }
     }
 }

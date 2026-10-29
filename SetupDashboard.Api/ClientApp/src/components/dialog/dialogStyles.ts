@@ -16,8 +16,6 @@ import { alpha } from '@mantine/core';
 
 /** One width scale for every dialog, so sizes stop being ad-hoc. */
 export const DIALOG_SIZES = { sm: 400, md: 520, lg: 720, xl: 960 } as const;
-export type DialogSize = keyof typeof DIALOG_SIZES;
-
 export type DialogVariant = 'primary' | 'secondary' | 'info' | 'success' | 'warning' | 'error';
 
 /** The semantic hue behind each variant's icon chip — the only coloured part of a dialog header. */
@@ -68,11 +66,3 @@ export const dialogShellStyles = {
 } satisfies Record<'content' | 'body', CSSProperties>;
 
 export const dialogScrollRegionStyle: CSSProperties = { flex: '1 1 auto', minHeight: 0, overflowY: 'auto' };
-
-/** Props for a white "section" Paper inside dialog content — flat, keyline border, 10px corner. */
-export const dialogSectionProps = {
-  withBorder: true,
-  radius: 'md',
-  p: 'md',
-  bg: 'var(--dd-dialog-section)',
-} as const;

@@ -331,5 +331,43 @@ public partial class TblSetting
 
     public string TrackingUrl { get; set; }
 
+    public int? OpenforceCommissionTypeId { get; set; }
+
+    public int? OpenforceDeductionTypeId { get; set; }
+
+    public bool OpenforceIsUat { get; set; }
+
+    public bool OpenforceDefault { get; set; }
+
+    public bool TenantGeneratesContractorInvoice { get; set; }
+
+    public bool ConsolidateContractorsInQbo { get; set; }
+
+    public string ConsolidatedContractorSupplierRef { get; set; }
+
+    public bool ConsolidateFuel { get; set; }
+
+    public decimal PpdDefault { get; set; }
+
+    public bool OpenforceConsolidateCommission { get; set; }
+
+    public string DispatchAddressFormatJson { get; set; }
+
+    public bool PolygonZoneResolutionEnabled { get; set; }
+
+    public string TenantLifecycleState { get; set; }
+
+    public bool AgentAccessEnabled { get; set; }
+
+    public bool AgentAccessForcedOff { get; set; }
+
+    public bool SealedToteContinuationEnabled { get; set; }
+
+    public bool ScheduleCoverageEnabled { get; set; }
+
+    public string CourierFlagLastDeliveryMode { get; set; }
+
+    public string AppearanceDefaultsJson { get; set; }
+
     public virtual TucStaff InternetJobStaff { get; set; }
 }

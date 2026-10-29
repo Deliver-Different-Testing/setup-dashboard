@@ -37,5 +37,7 @@ public partial class TblUser
 
     public bool InternetAccess { get; set; }
 
+    public virtual TucCourier Courier { get; set; }
+
     public virtual TblUserGroup UserGroup { get; set; }
 }

@@ -12,7 +12,7 @@ public class TenantAppClientTests
         {
             ["Environments:cheetah-staging:SettingsUrl"] = "https://dfrntdriveconfig.cheetah.staging.deliverdifferent.com",
             ["Environments:cheetah-staging:RoutedOpsUrl"] = "https://routedoperations.cheetah.staging.deliverdifferent.com",
-            ["Environments:cheetah-staging:IntegrationManagerUrl"] = "https://integrationmanager.cheetah.staging.deliverdifferent.com",
+            ["Environments:cheetah-staging:IntegrationManagerUrl"] = "https://integrationmanager.cheetah.staging.deliverdifferent.com"
         }).Build();
 
     private static (TenantAppClient Client, RecordingHandler Handler) Build(Func<HttpRequestMessage, HttpResponseMessage> respond,
@@ -56,7 +56,7 @@ public class TenantAppClientTests
             "dfrntdriveconfig.cheetah.staging.deliverdifferent.com/api/v1/tenant/lookups/speeds",
             "dfrntdriveconfig.cheetah.staging.deliverdifferent.com/api/v1/tenant/lookups/zone-names",
             "routedoperations.cheetah.staging.deliverdifferent.com/",
-            "routedoperations.cheetah.staging.deliverdifferent.com/api/schedules/lookups",
+            "routedoperations.cheetah.staging.deliverdifferent.com/api/schedules/lookups"
         ], paths);
     }
 
@@ -162,5 +162,4 @@ public class TenantAppClientTests
     public void Chunked_shared_cookies_are_forwarded_and_nothing_else()
         => Assert.Equal(".AspNet.SharedCookie=chunks-2; .AspNet.SharedCookieC1=a; .AspNet.SharedCookieC2=b",
             TenantAppClient.ForwardableCookie("_ga=1; .AspNet.SharedCookie=chunks-2; .AspNet.SharedCookieC1=a; hub_session=x; .AspNet.SharedCookieC2=b"));
-
 }

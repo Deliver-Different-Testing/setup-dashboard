@@ -14,4 +14,6 @@ public partial class CourierType
     public string OpenforceActivationCode { get; set; }
 
     public string AccountsId { get; set; }
+
+    public virtual ICollection<TucCourier> TucCouriers { get; set; } = new List<TucCourier>();
 }

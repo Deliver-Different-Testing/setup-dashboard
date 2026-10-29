@@ -14,11 +14,13 @@ public sealed class RowLedger(StepState step)
     {
         var norm = Normalise(key);
         var row = step.Rows.FirstOrDefault(r => r.Kind == kind && Normalise(r.Key) == norm);
-        if (row == null)
+        if (row != null)
         {
-            row = new RowResult { Kind = kind, Key = key.Trim() };
-            step.Rows.Add(row);
+            return row;
         }
+
+        row = new RowResult { Kind = kind, Key = key.Trim() };
+        step.Rows.Add(row);
         return row;
     }
 
@@ -32,14 +34,22 @@ public sealed class RowLedger(StepState step)
 
     public int? IdOf(string kind, string? key)
     {
-        if (string.IsNullOrWhiteSpace(key)) return null;
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return null;
+        }
+
         var norm = Normalise(key);
         return step.Rows.FirstOrDefault(r => r.Kind == kind && Normalise(r.Key) == norm && r.Status == RowStatus.Created)?.EntityId;
     }
 
     public List<int> CreatedIds(string kind, Func<string, bool> keyMatches)
-        => step.Rows.Where(r => r.Kind == kind && r.Status == RowStatus.Created && r.EntityId != null && keyMatches(r.Key))
-            .Select(r => r.EntityId!.Value).Distinct().ToList();
+        =>
+        [
+            .. step.Rows.Where(r =>
+                    r.Kind == kind && r is { Status: RowStatus.Created, EntityId: not null } && keyMatches(r.Key))
+                .Select(r => r.EntityId!.Value).Distinct()
+        ];
 
     /// <summary>Sent before with no answer back. Left alone until someone checks the target app and chooses Send again.</summary>
     public bool IsUnknown(string kind, string key)
@@ -53,7 +63,11 @@ public sealed class RowLedger(StepState step)
     {
         var norm = Normalise(key);
         var row = step.Rows.FirstOrDefault(r => r.Kind == kind && Normalise(r.Key) == norm && r.Status == RowStatus.Unknown);
-        if (row == null) return false;
+        if (row == null)
+        {
+            return false;
+        }
+
         row.Status = RowStatus.Failed;
         row.UpdatedAt = DateTime.UtcNow;
         return true;
@@ -70,7 +84,7 @@ public sealed class RowLedger(StepState step)
     public static void NeedsData(RowResult row, IEnumerable<string> needs)
     {
         row.Status = RowStatus.NeedsData;
-        row.Needs = needs.ToList();
+        row.Needs = [.. needs];
         row.Errors.Clear();
         row.UpdatedAt = DateTime.UtcNow;
     }
@@ -89,7 +103,7 @@ public sealed class RowLedger(StepState step)
     {
         row.Status = result.MayHaveSaved ? RowStatus.Unknown : RowStatus.Failed;
         row.Needs.Clear();
-        row.Errors = result.Messages.Count > 0 ? result.Messages.ToList() : [$"Failed ({result.Status})."];
+        row.Errors = result.Messages.Count > 0 ? [.. result.Messages] : [$"Failed ({result.Status})."];
         row.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -101,29 +115,41 @@ public sealed class RowLedger(StepState step)
         row.UpdatedAt = DateTime.UtcNow;
     }
 
-    public static string Normalise(string key) => key.Trim().ToLowerInvariant();
+    private static string Normalise(string key) => key.Trim().ToLowerInvariant();
 }
 
 /// <summary>Builds the "needs: ..." list for a row.</summary>
 public sealed class Needs
 {
-    private readonly List<string> _items = new();
+    private readonly List<string> _items = [];
 
     public Needs Text(string? value, string label)
     {
-        if (string.IsNullOrWhiteSpace(value)) _items.Add(label);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            _items.Add(label);
+        }
+
         return this;
     }
 
     public Needs Value<T>(T? value, string label) where T : struct
     {
-        if (value == null) _items.Add(label);
+        if (value == null)
+        {
+            _items.Add(label);
+        }
+
         return this;
     }
 
     public Needs When(bool missing, string label)
     {
-        if (missing) _items.Add(label);
+        if (missing)
+        {
+            _items.Add(label);
+        }
+
         return this;
     }
 

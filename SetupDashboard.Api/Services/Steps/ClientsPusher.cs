@@ -16,11 +16,11 @@ namespace SetupDashboard.Services.Steps;
 public sealed class ClientsPusher(ITenantAppClient apps) : IStepPusher
 {
     public const string ClientKind = "client";
-    public const string ContactKind = "client-contact";
+    private const string ContactKind = "client-contact";
 
     public string StepKey => StepKeys.Clients;
 
-    public static Needs Validate(ClientRow c, bool usTenant)
+    private static Needs Validate(ClientRow c, bool usTenant)
         => new Needs()
             .Text(c.Code, "client code")
             .Text(c.Name, "name")
@@ -33,7 +33,7 @@ public sealed class ClientsPusher(ITenantAppClient apps) : IStepPusher
             .Text(c.PrimaryContact.Email, "primary contact email")
             .When(!c.InviteConfirmed, "tick 'send sign-in invite' (creating the customer emails the primary contact)");
 
-    public static Needs Validate(ClientContactRow c)
+    private static Needs Validate(ClientContactRow c)
         => new Needs()
             .When(string.IsNullOrWhiteSpace(c.FirstName) && string.IsNullOrWhiteSpace(c.Surname), "first name or surname")
             .Text(c.Email, "email (it is their sign-in)");
@@ -45,16 +45,27 @@ public sealed class ClientsPusher(ITenantAppClient apps) : IStepPusher
 
         foreach (var c in session.Clients)
         {
-            var code = c.Code?.Trim() ?? "";
+            var code = c.Code?.Trim() ?? string.Empty;
             var row = ledger.Row(ClientKind, code.Length > 0 ? code : c.Name?.Trim() ?? "(no code)");
 
             int? clientId;
-            if (ledger.IsUnknown(ClientKind, row.Key)) continue;
-            if (ledger.AlreadyCreated(ClientKind, row.Key, out var created)) clientId = created;
+            if (ledger.IsUnknown(ClientKind, row.Key))
+            {
+                continue;
+            }
+
+            if (ledger.AlreadyCreated(ClientKind, row.Key, out var created))
+            {
+                clientId = created;
+            }
             else
             {
                 var needs = Validate(c, caller.IsUsTenant);
-                if (inviteBlocker != null) needs.When(true, inviteBlocker);
+                if (inviteBlocker != null)
+                {
+                    needs.When(true, inviteBlocker);
+                }
+
                 if (needs.Any) { RowLedger.NeedsData(row, needs.Items); continue; }
 
                 var res = await apps.SendAsync(TenantApp.Settings, HttpMethod.Post, "/api/v1/tenant/clients", new
@@ -63,29 +74,29 @@ public sealed class ClientsPusher(ITenantAppClient apps) : IStepPusher
                     code,
                     active = true,
                     address = c.Address!.Trim(),
-                    unit = c.Unit?.Trim() ?? "",
-                    postCode = c.PostCode?.Trim() ?? "",
+                    unit = c.Unit?.Trim() ?? string.Empty,
+                    postCode = c.PostCode?.Trim() ?? string.Empty,
                     suburb = c.Suburb!.Trim(),
                     city = c.City!.Trim(),
-                    country = c.Country?.Trim() ?? "",
+                    country = c.Country?.Trim() ?? string.Empty,
                     latitude = c.Latitude,
                     longitude = c.Longitude,
-                    phone = c.Phone?.Trim() ?? "",
-                    email = c.Email?.Trim() ?? "",
-                    invoiceEmail = c.InvoiceEmail?.Trim() ?? "",
+                    phone = c.Phone?.Trim() ?? string.Empty,
+                    email = c.Email?.Trim() ?? string.Empty,
+                    invoiceEmail = c.InvoiceEmail?.Trim() ?? string.Empty,
                     invoiceScheduleId = c.InvoiceScheduleId!.Value,
                     paymentTermId = c.PaymentTermId!.Value,
-                    invoiceMethod = c.InvoiceMethod?.Trim() ?? "",
-                    notes = c.Notes?.Trim() ?? "",
+                    invoiceMethod = c.InvoiceMethod?.Trim() ?? string.Empty,
+                    notes = c.Notes?.Trim() ?? string.Empty,
                     primaryContact = new
                     {
                         firstName = c.PrimaryContact.FirstName!.Trim(),
-                        surname = c.PrimaryContact.Surname?.Trim() ?? "",
+                        surname = c.PrimaryContact.Surname?.Trim() ?? string.Empty,
                         email = c.PrimaryContact.Email!.Trim(),
-                        mobile = c.PrimaryContact.Mobile?.Trim() ?? "",
-                        jobTitle = c.PrimaryContact.JobTitle?.Trim() ?? "",
-                        active = true,
-                    },
+                        mobile = c.PrimaryContact.Mobile?.Trim() ?? string.Empty,
+                        jobTitle = c.PrimaryContact.JobTitle?.Trim() ?? string.Empty,
+                        active = true
+                    }
                 }, ct);
 
                 if (!res.Ok || res.Id == null) { RowLedger.Failed(row, res); continue; }
@@ -93,30 +104,42 @@ public sealed class ClientsPusher(ITenantAppClient apps) : IStepPusher
                 var notice = res.Body?["notice"]?.GetValue<string>();
                 var noGeo = c.Latitude == null || c.Longitude == null
                     ? " No map position was given - set it on the customer in Settings before using client-address schedules."
-                    : "";
-                RowLedger.Created(row, clientId, (notice ?? "") + noGeo);
+                    : string.Empty;
+                RowLedger.Created(row, clientId, (notice ?? string.Empty) + noGeo);
             }
 
             foreach (var contact in c.Contacts)
             {
-                var email = contact.Email?.Trim() ?? "";
+                var email = contact.Email?.Trim() ?? string.Empty;
                 var cKey = $"{code} / {(email.Length > 0 ? email : "(no email)")}";
-                if (ledger.AlreadyCreated(ContactKind, cKey, out _)) continue;
-                if (ledger.IsUnknown(ContactKind, cKey)) continue;
+                if (ledger.AlreadyCreated(ContactKind, cKey, out _))
+                {
+                    continue;
+                }
+
+                if (ledger.IsUnknown(ContactKind, cKey))
+                {
+                    continue;
+                }
+
                 var cRow = ledger.Row(ContactKind, cKey);
 
                 var needs = Validate(contact);
-                if (contact.CreateSignIn && inviteBlocker != null) needs.When(true, inviteBlocker);
+                if (contact.CreateSignIn && inviteBlocker != null)
+                {
+                    needs.When(true, inviteBlocker);
+                }
+
                 if (needs.Any) { RowLedger.NeedsData(cRow, needs.Items); continue; }
 
                 var res = await apps.SendAsync(TenantApp.Settings, HttpMethod.Post, $"/api/v1/tenant/clients/{clientId}/contacts", new
                 {
-                    firstName = contact.FirstName?.Trim() ?? "",
-                    surname = contact.Surname?.Trim() ?? "",
+                    firstName = contact.FirstName?.Trim() ?? string.Empty,
+                    surname = contact.Surname?.Trim() ?? string.Empty,
                     email,
-                    mobile = contact.Mobile?.Trim() ?? "",
-                    jobTitle = contact.JobTitle?.Trim() ?? "",
-                    active = true,
+                    mobile = contact.Mobile?.Trim() ?? string.Empty,
+                    jobTitle = contact.JobTitle?.Trim() ?? string.Empty,
+                    active = true
                 }, ct);
                 if (!res.Ok || res.Id == null) { RowLedger.Failed(cRow, res); continue; }
 

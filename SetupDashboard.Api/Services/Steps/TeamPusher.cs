@@ -23,14 +23,14 @@ public interface IStepPusher
 public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
 {
     public const string RoleKind = "role";
-    public const string TileKind = "tile";
+    private const string TileKind = "tile";
     public const string PersonKind = "person";
 
     public string StepKey => StepKeys.Team;
 
-    public static Needs Validate(RoleRow r) => new Needs().Text(r.Name, "role name");
+    private static Needs Validate(RoleRow r) => new Needs().Text(r.Name, "role name");
 
-    public static Needs Validate(PersonRow p, IReadOnlyCollection<string> roleNames)
+    private static Needs Validate(PersonRow p, IReadOnlyCollection<string> roleNames)
         => new Needs()
             .Text(p.Email, "email")
             .Text(p.FirstName, "first name")
@@ -51,18 +51,25 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
         // The role's owner: Settings takes it from a tenant caller's own client and from the body
         // for DF Admin, where a null owner would make a Global Default role for every tenant.
         var owner = caller.IsDfAdmin ? tenantClient.Id : caller.ClientId;
-        var existingRoles = owner is { } ownerId ? await ExistingRolesAsync(ownerId, ct) : new();
+        var existingRoles = owner is { } ownerId ? await ExistingRolesAsync(ownerId, ct) : new Dictionary<string, int>();
         foreach (var role in team.Roles)
         {
-            var key = role.Name?.Trim() ?? "";
+            var key = role.Name?.Trim() ?? string.Empty;
             var row = ledger.Row(RoleKind, key.Length > 0 ? key : "(unnamed role)");
-            if (ledger.IsUnknown(RoleKind, key)) continue;
+            if (ledger.IsUnknown(RoleKind, key))
+            {
+                continue;
+            }
+
             var needs = Validate(role);
             if (owner == null && ledger.IdOf(RoleKind, key) == null)
+            {
                 needs.When(true, tenantClient.Error ?? "the tenant's own client file (client type Tenant)");
+            }
+
             if (needs.Any) { RowLedger.NeedsData(row, needs.Items); continue; }
 
-            int? roleId = ledger.IdOf(RoleKind, key);
+            var roleId = ledger.IdOf(RoleKind, key);
             if (roleId == null && existingRoles.TryGetValue(key, out var existingId))
             {
                 roleId = existingId;
@@ -76,7 +83,7 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
                     description = string.IsNullOrWhiteSpace(role.Description) ? null : role.Description.Trim(),
                     // DF Admin can make the role the tenant's own so their staff can edit it later.
                     tenantClientId = caller.IsDfAdmin ? tenantClient.Id : null,
-                    clientTypeIds = new[] { CallerContext.TenantClientType },
+                    clientTypeIds = new[] { CallerContext.TenantClientType }
                 }, ct);
                 if (!res.Ok || res.Id == null) { RowLedger.Failed(row, res); continue; }
                 roleId = res.Id;
@@ -86,7 +93,11 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
             foreach (var tile in role.Tiles.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).Distinct())
             {
                 var tileRow = ledger.Row(TileKind, $"{key} / {tile}");
-                if (tileRow.Status is RowStatus.Created or RowStatus.Unknown) continue;
+                if (tileRow.Status is RowStatus.Created or RowStatus.Unknown)
+                {
+                    continue;
+                }
+
                 if (!tile.StartsWith("hub-tile-", StringComparison.Ordinal))
                 {
                     RowLedger.Failed(tileRow, $"\"{tile}\" is not a hub tile.");
@@ -94,8 +105,14 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
                 }
                 var res = await apps.SendAsync(TenantApp.Settings, HttpMethod.Put,
                     $"/api/v1/tenant/tile-access/roles/{roleId}/{Uri.EscapeDataString(tile)}", new { enabled = true }, ct);
-                if (res.Ok) RowLedger.Created(tileRow, roleId);
-                else RowLedger.Failed(tileRow, res);
+                if (res.Ok)
+                {
+                    RowLedger.Created(tileRow, roleId);
+                }
+                else
+                {
+                    RowLedger.Failed(tileRow, res);
+                }
             }
         }
 
@@ -104,14 +121,30 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
         var inviteBlocker = StepCatalog.InviteBlocker(session);
         foreach (var person in team.People)
         {
-            var key = person.Email?.Trim() ?? "";
-            if (ledger.AlreadyCreated(PersonKind, key, out _)) continue;
-            if (ledger.IsUnknown(PersonKind, key)) continue;
+            var key = person.Email?.Trim() ?? string.Empty;
+            if (ledger.AlreadyCreated(PersonKind, key, out _))
+            {
+                continue;
+            }
+
+            if (ledger.IsUnknown(PersonKind, key))
+            {
+                continue;
+            }
+
             var row = ledger.Row(PersonKind, key.Length > 0 ? key : "(no email)");
 
             var needs = Validate(person, roleNames);
-            if (tenantClient.Error != null) needs.When(true, tenantClient.Error);
-            if (inviteBlocker != null) needs.When(true, inviteBlocker);
+            if (tenantClient.Error != null)
+            {
+                needs.When(true, tenantClient.Error);
+            }
+
+            if (inviteBlocker != null)
+            {
+                needs.When(true, inviteBlocker);
+            }
+
             if (needs.Any) { RowLedger.NeedsData(row, needs.Items); continue; }
 
             var roleId = ledger.IdOf(RoleKind, person.RoleName!.Trim());
@@ -126,10 +159,10 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
                 clientId = tenantClient.Id,
                 email = key,
                 firstName = person.FirstName!.Trim(),
-                lastName = person.LastName?.Trim() ?? "",
-                jobTitle = person.JobTitle?.Trim() ?? "",
-                mobile = person.Mobile?.Trim() ?? "",
-                roleIds = new[] { roleId.Value },
+                lastName = person.LastName?.Trim() ?? string.Empty,
+                jobTitle = person.JobTitle?.Trim() ?? string.Empty,
+                mobile = person.Mobile?.Trim() ?? string.Empty,
+                roleIds = new[] { roleId.Value }
             }, ct);
 
             if (!res.Ok) { RowLedger.Failed(row, res); continue; }
@@ -147,23 +180,32 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
     private async Task<TenantClientRef> FindTenantClientAsync(SetupSession session, CallerContext caller, CancellationToken ct)
     {
         var res = await apps.GetAsync(TenantApp.Settings, "/api/admin/contacts/lookups/clients?lane=tenant&limit=50", ct);
-        if (!res.Ok) return new(null, $"the tenant's client file (Settings: {string.Join(" ", res.Messages)})");
+        if (!res.Ok)
+        {
+            return new TenantClientRef(null, $"the tenant's client file (Settings: {string.Join(" ", res.Messages)})");
+        }
 
         var list = (res.Body as JsonArray ?? [])
             .OfType<JsonObject>()
-            .Select(o => (Id: o["id"]?.GetValue<int>() ?? 0, Name: o["name"]?.GetValue<string>() ?? "", Type: o["clientTypeId"]?.GetValue<int>() ?? 0))
-            .Where(c => c.Id > 0 && c.Type == CallerContext.TenantClientType)
+            .Select(o => (Id: o["id"]?.GetValue<int>() ?? 0, Name: o["name"]?.GetValue<string>() ?? string.Empty, Type: o["clientTypeId"]?.GetValue<int>() ?? 0))
+            .Where(c => c is { Id: > 0, Type: CallerContext.TenantClientType })
             .ToList();
 
-        if (list.Count == 0)
-            return new(null, "the tenant's own client file (client type Tenant) - DFRNT creates it (Business step checklist)");
-        if (list.Count == 1) return new(list[0].Id, null);
+        switch (list.Count)
+        {
+            case 0:
+                return new TenantClientRef(null, "the tenant's own client file (client type Tenant) - DFRNT creates it (Business step checklist)");
+            case 1:
+                return new TenantClientRef(list[0].Id, null);
+        }
 
-        if (caller.ClientId is { } own && list.Any(c => c.Id == own)) return new(own, null);
+        if (caller.ClientId is { } own && list.Any(c => c.Id == own))
+        {
+            return new TenantClientRef(own, null);
+        }
+
         var byName = list.Where(c => string.Equals(c.Name, session.Business.CompanyName?.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
-        if (byName.Count == 1) return new(byName[0].Id, null);
-
-        return new(null, $"one tenant client file - this tenant has {list.Count} ({string.Join(", ", list.Select(c => c.Name))}); set the company name on the Business step to the right one");
+        return byName.Count == 1 ? new TenantClientRef(byName[0].Id, null) : new TenantClientRef(null, $"one tenant client file - this tenant has {list.Count} ({string.Join(", ", list.Select(c => c.Name))}); set the company name on the Business step to the right one");
     }
 
     /// <summary>
@@ -174,14 +216,21 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
     {
         var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var res = await apps.GetAsync(TenantApp.Settings, $"/api/admin/roles?clientType={CallerContext.TenantClientType}", ct);
-        if (!res.Ok) return map;
+        if (!res.Ok)
+        {
+            return map;
+        }
+
         foreach (var o in (res.Body as JsonArray ?? []).OfType<JsonObject>())
         {
             var name = o["name"]?.GetValue<string>();
             var id = o["contactRoleId"]?.GetValue<int>();
             var active = o["isActive"]?.GetValue<bool>() ?? true;
             var roleOwner = o["tenantClientId"] is JsonValue v && v.TryGetValue<int>(out var t) ? t : (int?)null;
-            if (!string.IsNullOrWhiteSpace(name) && id > 0 && active && roleOwner == ownerClientId) map.TryAdd(name.Trim(), id.Value);
+            if (!string.IsNullOrWhiteSpace(name) && id > 0 && active && roleOwner == ownerClientId)
+            {
+                map.TryAdd(name.Trim(), id.Value);
+            }
         }
         return map;
     }

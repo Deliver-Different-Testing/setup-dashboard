@@ -10,10 +10,8 @@ public interface ITenantLogoService
     Task<string?> GetLogoUrlAsync(string? tenantCode);
 }
 
-public class TenantLogoService : ITenantLogoService
+public class TenantLogoService(IAmazonS3 s3Client, IMemoryCache cache) : ITenantLogoService
 {
-    private readonly IAmazonS3 _s3Client;
-    private readonly IMemoryCache _cache;
     private const string LogoKey = "tenantLogo.png";
     private const int CacheDurationMinutes = 30;
     private const string FallbackLogo = "/setup-dashboard/logos/DFRNT_HorizLogo_RGB.png";
@@ -28,14 +26,8 @@ public class TenantLogoService : ITenantLogoService
         ["reverse"] = "reverseLogo.png",
         ["deliverdifferent"] = "deliverDifferentLogo.png",
         ["dfrnt"] = "DFRNT_HorizLogo_RGB.png",
-        ["medical"] = "DFRNT_HorizLogo_RGB.png",
+        ["medical"] = "DFRNT_HorizLogo_RGB.png"
     };
-
-    public TenantLogoService(IAmazonS3 s3Client, IMemoryCache cache)
-    {
-        _s3Client = s3Client;
-        _cache = cache;
-    }
 
     /// <summary>
     /// Tenant logo for the header. The bucket comes from env <c>S3BucketBulk</c>, the same
@@ -44,15 +36,17 @@ public class TenantLogoService : ITenantLogoService
     /// </summary>
     public async Task<string?> GetLogoUrlAsync(string? tenantCode)
     {
-        var code = tenantCode ?? "";
+        var code = tenantCode ?? string.Empty;
         var cacheKey = $"tenant_logo_url_{code}";
-        if (_cache.TryGetValue(cacheKey, out string? cachedUrl))
+        if (cache.TryGetValue(cacheKey, out string? cachedUrl))
+        {
             return cachedUrl;
+        }
 
         if (LocalLogos.TryGetValue(code, out var localFile))
         {
             var url = $"/setup-dashboard/logos/{localFile}";
-            _cache.Set(cacheKey, url, TimeSpan.FromMinutes(CacheDurationMinutes));
+            cache.Set(cacheKey, url, TimeSpan.FromMinutes(CacheDurationMinutes));
             return url;
         }
 
@@ -61,14 +55,14 @@ public class TenantLogoService : ITenantLogoService
         {
             try
             {
-                var logoUrl = await _s3Client.GetPreSignedURLAsync(new GetPreSignedUrlRequest
+                var logoUrl = await s3Client.GetPreSignedURLAsync(new GetPreSignedUrlRequest
                 {
                     BucketName = bucketName,
                     Key = LogoKey,
                     Verb = HttpVerb.GET,
                     Expires = DateTime.UtcNow.AddHours(1)
                 });
-                _cache.Set(cacheKey, logoUrl, TimeSpan.FromMinutes(CacheDurationMinutes));
+                cache.Set(cacheKey, logoUrl, TimeSpan.FromMinutes(CacheDurationMinutes));
                 return logoUrl;
             }
             catch (Exception ex)
@@ -77,7 +71,7 @@ public class TenantLogoService : ITenantLogoService
             }
         }
 
-        _cache.Set(cacheKey, FallbackLogo, TimeSpan.FromMinutes(5));
+        cache.Set(cacheKey, FallbackLogo, TimeSpan.FromMinutes(5));
         return FallbackLogo;
     }
 }

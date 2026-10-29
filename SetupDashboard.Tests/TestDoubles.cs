@@ -28,7 +28,11 @@ public sealed class FakeApps : ITenantAppClient
 
     public async Task<ApiResult> SendAsync(TenantApp app, HttpMethod method, string path, object? body = null, CancellationToken ct = default)
     {
-        if (method != HttpMethod.Get && BeforeWrite != null) await BeforeWrite();
+        if (method != HttpMethod.Get && BeforeWrite != null)
+        {
+            await BeforeWrite();
+        }
+
         var node = body == null ? null : JsonNode.Parse(JsonSerializer.Serialize(body, TenantAppClient.Json));
         var call = new Call(app, method.Method, path, node);
         Calls.Add(call);
@@ -70,7 +74,7 @@ public static class Make
             new Claim("ClientTypeId", clientTypeId.ToString()),
             new Claim("FirstName", "Dane"),
             new Claim("Surname", "Bonnici"),
-            new Claim("CountryCode", country ?? ""),
+            new Claim("CountryCode", country ?? "")
         ], "Identity.Application"));
 
     public static CallerContext Caller(int clientTypeId = 5, string country = "US")

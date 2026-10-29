@@ -115,6 +115,30 @@ public partial class ExtraCharge
 
     public int? ItemBreakGroupId { get; set; }
 
+    public bool? ApplyWeightCourierFuel { get; set; }
+
+    public bool? ApplyWaitTimeCourierFuel { get; set; }
+
+    public bool? ApplyExtraStopCourierFuel { get; set; }
+
+    public bool? ApplyAfterHoursCourierFuel { get; set; }
+
+    public bool? ApplyHolidayCourierFuel { get; set; }
+
+    public bool? ApplyPalletsCourierFuel { get; set; }
+
+    public bool? ApplyDryIceCourierFuel { get; set; }
+
+    public bool? ApplyDangerousGoodsCourierFuel { get; set; }
+
+    public bool? ApplyCubicCourierFuel { get; set; }
+
+    public bool? ApplyItemCourierFuel { get; set; }
+
+    public bool? CubicAppliesPerItem { get; set; }
+
+    public bool ChargeGreaterOfWeightOrCubic { get; set; }
+
     public virtual BreakGroup CubicBreakGroup { get; set; }
 
     public virtual BreakGroup ItemBreakGroup { get; set; }

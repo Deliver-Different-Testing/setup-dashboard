@@ -23,7 +23,11 @@ public class TrainingController(ISessionStore sessions) : ControllerBase
     [HttpPut]
     public async Task<IActionResult> Save(string id, [FromBody] List<TrainingMember>? members, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } s) return NotFound();
+        if (await Load(id, ct) is not { } s)
+        {
+            return NotFound();
+        }
+
         s.TrainingProgress = members ?? new();
         await sessions.UpdateAsync(s, ct);
         return Ok(new { success = true });
@@ -32,10 +36,16 @@ public class TrainingController(ISessionStore sessions) : ControllerBase
     [HttpPost("complete-challenge")]
     public async Task<IActionResult> CompleteChallenge(string id, [FromBody] CompleteChallengeRequest req, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } s) return NotFound();
+        if (await Load(id, ct) is not { } s)
+        {
+            return NotFound();
+        }
+
         var member = s.TrainingProgress.FirstOrDefault(m => m.UserEmail == req.UserEmail);
         if (member == null)
+        {
             return NotFound(new { message = $"Training member with email '{req.UserEmail}' not found. Save training progress first." });
+        }
 
         if (!member.CompletedChallenges.Contains(req.ChallengeId))
         {
@@ -50,13 +60,17 @@ public class TrainingController(ISessionStore sessions) : ControllerBase
     [HttpGet("leaderboard")]
     public async Task<IActionResult> Leaderboard(string id, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } s) return NotFound();
+        if (await Load(id, ct) is not { } s)
+        {
+            return NotFound();
+        }
+
         return Ok(new
         {
             leaderboard = s.TrainingProgress
                 .OrderByDescending(m => m.Xp)
                 .Select((m, i) => new { rank = i + 1, m.UserEmail, m.UserName, m.Xp, m.CompletedChallenges, m.CurrentStreak })
-                .ToList(),
+                .ToList()
         });
     }
 }

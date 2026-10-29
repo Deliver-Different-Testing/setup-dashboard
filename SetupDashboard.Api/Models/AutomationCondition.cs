@@ -41,5 +41,17 @@ public partial class AutomationCondition
 
     public string ClientFilter { get; set; }
 
+    public string StatusConditionMode { get; set; }
+
+    public int? StatusId { get; set; }
+
+    public string ScheduledTimeField { get; set; }
+
+    public int? OffsetValue { get; set; }
+
+    public string OffsetUnit { get; set; }
+
+    public string ScanTypes { get; set; }
+
     public virtual AutomationRule Rule { get; set; }
 }

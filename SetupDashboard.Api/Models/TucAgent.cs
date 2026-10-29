@@ -85,5 +85,37 @@ public partial class TucAgent
 
     public int? StatusId { get; set; }
 
+    public bool IsNetworkPartner { get; set; }
+
+    public bool NpPortalEnabled { get; set; }
+
+    public byte NpTier { get; set; }
+
+    public string Association { get; set; }
+
+    public string AssociationMemberId { get; set; }
+
+    public string ContactName { get; set; }
+
+    public string ContactEmail { get; set; }
+
+    public decimal? DefaultCourierPayPercent { get; set; }
+
+    public bool OptedInToBcti { get; set; }
+
+    public int? BctiScheduleId { get; set; }
+
+    public string AccountsId { get; set; }
+
+    public DateOnly? BctiAgreedDate { get; set; }
+
+    public string BctiAgreedBy { get; set; }
+
+    public string BctiAgreementRef { get; set; }
+
     public virtual ICollection<AgentVehicle> AgentVehicles { get; set; } = new List<AgentVehicle>();
+
+    public virtual ICollection<TucClient> TucClients { get; set; } = new List<TucClient>();
+
+    public virtual ICollection<TucCourier> TucCouriers { get; set; } = new List<TucCourier>();
 }

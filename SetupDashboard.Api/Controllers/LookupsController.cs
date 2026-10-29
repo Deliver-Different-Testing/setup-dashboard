@@ -34,21 +34,29 @@ public class LookupsController(ITenantAppClient apps) : ControllerBase
         ["zone-names"] = (TenantApp.Settings, "/api/v1/tenant/lookups/zone-names"),
         ["zone-groups"] = (TenantApp.Settings, "/api/v1/tenant/lookups/zone-groups"),
         // Schedules
-        ["schedule-lookups"] = (TenantApp.RoutedOps, "/api/schedules/lookups"),
+        ["schedule-lookups"] = (TenantApp.RoutedOps, "/api/schedules/lookups")
     };
 
     [HttpGet("{name}")]
     public async Task<IActionResult> Get(string name, CancellationToken ct)
     {
-        if (!Allowed.TryGetValue(name, out var target)) return NotFound(new { message = $"No lookup called '{name}'." });
+        if (!Allowed.TryGetValue(name, out var target))
+        {
+            return NotFound(new { message = $"No lookup called '{name}'." });
+        }
 
         var res = await apps.GetAsync(target.App, target.Path, ct);
-        if (res.SignInExpired) return StatusCode(401, new { message = res.Messages.FirstOrDefault() });
-        if (!res.Ok) return StatusCode(res.Status is >= 400 and < 600 ? res.Status : 502, new { message = string.Join(" ", res.Messages) });
+        if (res.SignInExpired)
+        {
+            return StatusCode(401, new { message = res.Messages.FirstOrDefault() });
+        }
+
+        if (!res.Ok)
+        {
+            return StatusCode(res.Status is >= 400 and < 600 ? res.Status : 502, new { message = string.Join(" ", res.Messages) });
+        }
 
         // tile-access returns both grids; the Team step only needs the tile list.
-        if (name.Equals("tiles", StringComparison.OrdinalIgnoreCase))
-            return Ok(res.Body?["tiles"]);
-        return Ok(res.Body);
+        return Ok(name.Equals("tiles", StringComparison.OrdinalIgnoreCase) ? res.Body?["tiles"] : res.Body);
     }
 }

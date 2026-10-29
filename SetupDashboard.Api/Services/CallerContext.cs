@@ -16,17 +16,23 @@ public sealed record CallerContext(
     string? Name,
     string? CountryCode)
 {
-    public const int DfAdminClientType = 5;
+    private const int DfAdminClientType = 5;
     public const int TenantClientType = 4;
 
     public bool IsDfAdmin => ClientTypeId == DfAdminClientType;
-    public bool IsTenantStaff => ClientTypeId == TenantClientType;
     public bool IsUsTenant => string.Equals(CountryCode, "US", StringComparison.OrdinalIgnoreCase);
 
     public static CallerContext? From(ClaimsPrincipal user)
     {
-        if (user.Identity?.IsAuthenticated != true) return null;
-        if (!int.TryParse(user.FindFirst("CurrentTenantID")?.Value, out var tenantId) || tenantId <= 0) return null;
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            return null;
+        }
+
+        if (!int.TryParse(user.FindFirst("CurrentTenantID")?.Value, out var tenantId) || tenantId <= 0)
+        {
+            return null;
+        }
 
         return new CallerContext(
             tenantId,

@@ -15,11 +15,11 @@ namespace SetupDashboard.Services.Steps;
 /// </remarks>
 public sealed class PartnersPusher(ITenantAppClient apps) : IStepPusher
 {
-    public const string PartnerKind = "partner";
+    private const string PartnerKind = "partner";
 
     public string StepKey => StepKeys.Partners;
 
-    public static Needs Validate(PartnerRow p)
+    private static Needs Validate(PartnerRow p)
     {
         var hasLogin = !string.IsNullOrWhiteSpace(p.ContactEmail);
         return new Needs()
@@ -36,31 +36,52 @@ public sealed class PartnersPusher(ITenantAppClient apps) : IStepPusher
 
         foreach (var p in session.Partners)
         {
-            var key = p.Name?.Trim() ?? "";
-            if (ledger.AlreadyCreated(PartnerKind, key, out _)) continue;
-            if (ledger.IsUnknown(PartnerKind, key)) continue;
+            var key = p.Name?.Trim() ?? string.Empty;
+            if (ledger.AlreadyCreated(PartnerKind, key, out _))
+            {
+                continue;
+            }
+
+            if (ledger.IsUnknown(PartnerKind, key))
+            {
+                continue;
+            }
+
             var row = ledger.Row(PartnerKind, key.Length > 0 ? key : "(unnamed partner)");
 
             var needs = Validate(p);
-            if (!string.IsNullOrWhiteSpace(p.ContactEmail) && inviteBlocker != null) needs.When(true, inviteBlocker);
-            if (needs.Any) { RowLedger.NeedsData(row, needs.Items); continue; }
+            if (!string.IsNullOrWhiteSpace(p.ContactEmail) && inviteBlocker != null)
+            {
+                needs.When(true, inviteBlocker);
+            }
+
+            if (needs.Any)
+            {
+                RowLedger.NeedsData(row, needs.Items);
+                continue;
+            }
 
             var res = await apps.SendAsync(TenantApp.Settings, HttpMethod.Post, "/api/v1/tenant/agents", new
             {
                 name = key,
                 isNetworkPartner = p.IsNetworkPartner,
-                contactName = p.ContactName?.Trim() ?? "",
-                contactEmail = p.ContactEmail?.Trim() ?? "",
+                contactName = p.ContactName?.Trim() ?? string.Empty,
+                contactEmail = p.ContactEmail?.Trim() ?? string.Empty,
                 primaryContactRoleId = p.PrimaryContactRoleId,
-                phone = p.Phone?.Trim() ?? "",
-                addressLine1 = p.AddressLine1?.Trim() ?? "",
-                city = p.City?.Trim() ?? "",
-                state = p.State?.Trim() ?? "",
-                postCode = p.PostCode?.Trim() ?? "",
-                defaultCourierPayPercent = p.DefaultCourierPayPercent / 100m,
+                phone = p.Phone?.Trim() ?? string.Empty,
+                addressLine1 = p.AddressLine1?.Trim() ?? string.Empty,
+                city = p.City?.Trim() ?? string.Empty,
+                state = p.State?.Trim() ?? string.Empty,
+                postCode = p.PostCode?.Trim() ?? string.Empty,
+                defaultCourierPayPercent = p.DefaultCourierPayPercent / 100m
             }, ct);
 
-            if (!res.Ok) { RowLedger.Failed(row, res); continue; }
+            if (!res.Ok)
+            {
+                RowLedger.Failed(row, res);
+                continue;
+            }
+
             RowLedger.Created(row, res.Id, res.Messages.Count > 0 ? string.Join(" ", res.Messages) : null);
         }
     }

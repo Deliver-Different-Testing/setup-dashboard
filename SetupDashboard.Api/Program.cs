@@ -7,10 +7,10 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Serilog;
 using SetupDashboard;
 using SetupDashboard.Core.Domain;
+using SetupDashboard.Interfaces;
 using SetupDashboard.Services;
 using StackExchange.Redis;
 
@@ -33,22 +33,23 @@ try
         .AddJsonOptions(opts =>
         {
             opts.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
-            opts.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+            opts.JsonSerializerOptions.DefaultIgnoreCondition =
+                System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
         });
 
     builder.Services.AddHttpContextAccessor();
 
     // ── CORS ──
     var corsOrigins = builder.Configuration.GetSection("CorsOrigins").Get<string[]>()
-        ?? new[] { "http://localhost:5173" };
+                      ?? ["http://localhost:5173"];
     builder.Services.AddCors(options =>
     {
         options.AddDefaultPolicy(policy =>
         {
             policy.WithOrigins(corsOrigins)
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials();
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
         });
     });
 
@@ -62,7 +63,9 @@ try
             "DeliverDifferent", "DataProtection-Keys");
 
         if (!Directory.Exists(keyDirectory))
+        {
             Directory.CreateDirectory(keyDirectory);
+        }
 
         builder.Services.AddDataProtection()
             .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory))
@@ -78,12 +81,11 @@ try
     // ── Authorization ──
     // Every endpoint needs a signed-in Hub user unless it opts out (health checks only).
     // The pre-rewrite controllers were [AllowAnonymous] almost throughout.
-    builder.Services.AddAuthorization(options =>
-    {
-        options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+    builder.Services.AddAuthorizationBuilder()
+        // ── Authorization ──    // Every endpoint needs a signed-in Hub user unless it opts out (health checks only).    // The pre-rewrite controllers were [AllowAnonymous] almost throughout.
+        .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
             .RequireAuthenticatedUser()
-            .Build();
-    });
+            .Build());
 
     // ── Authentication (shared cookie from Hub) ──
     builder.Services.AddAuthentication("Identity.Application")
@@ -174,7 +176,9 @@ try
         var user = sp.GetRequiredService<IHttpContextAccessor>().HttpContext?.User;
         var connection = user?.FindFirst("Connection")?.Value;
         if (string.IsNullOrEmpty(connection) || string.IsNullOrEmpty(user?.FindFirst("CurrentTenantID")?.Value))
+        {
             throw new UnauthorizedAccessException("Valid tenant authentication required. Please login via Hub first.");
+        }
 
         var credentials = Environment.GetEnvironmentVariable("SQLCredentials") ?? "";
         return Task.FromResult<System.Data.Common.DbConnection>(
@@ -194,19 +198,24 @@ try
     // No redirects followed (a 302 means the Hub cookie expired) and no cookie jar: the
     // caller's own cookie is attached per request, so one person's session can never ride
     // on another's call - the old singleton Admin Manager client could do exactly that.
-    builder.Services.AddHttpClient(SetupDashboard.Services.TenantApps.TenantAppClient.HttpClientName, c =>
-        {
-            c.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("TenantApps:TimeoutSeconds", 60));
-        })
-        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
+    builder.Services.AddHttpClient(SetupDashboard.Services.TenantApps.TenantAppClient.HttpClientName,
+            c => { c.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("TenantApps:TimeoutSeconds", 60)); })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            { AllowAutoRedirect = false, UseCookies = false });
     builder.Services.AddSingleton<SetupDashboard.Services.TenantApps.ITenantAppUrls, SetupDashboard.Services.TenantApps.TenantAppUrls>();
-    builder.Services.AddScoped<SetupDashboard.Services.TenantApps.ITenantAppClient, SetupDashboard.Services.TenantApps.TenantAppClient>();
+    builder.Services
+        .AddScoped<SetupDashboard.Services.TenantApps.ITenantAppClient,
+            SetupDashboard.Services.TenantApps.TenantAppClient>();
     builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.TeamPusher>();
-    builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.ClientsPusher>();
+    builder.Services
+        .AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.ClientsPusher>();
     builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.RatesPusher>();
-    builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.SchedulesPusher>();
-    builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.CouriersPusher>();
-    builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.PartnersPusher>();
+    builder.Services
+        .AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.SchedulesPusher>();
+    builder.Services
+        .AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.CouriersPusher>();
+    builder.Services
+        .AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.PartnersPusher>();
     builder.Services.AddScoped<SetupDashboard.Services.Steps.StepPushRunner>();
 
     // AWS S3 for tenant logo (same pattern as Hub)
@@ -219,12 +228,15 @@ try
         // Try named profile first (matches local AWS config), then default, then fallback
         foreach (var profile in new[] { "deliver-dfrnt", "default" })
         {
-            if (chain.TryGetAWSCredentials(profile, out credentials))
+            if (!chain.TryGetAWSCredentials(profile, out credentials))
             {
-                Log.Information("Loaded AWS credentials from profile: {Profile}", profile);
-                break;
+                continue;
             }
+
+            Log.Information("Loaded AWS credentials from profile: {Profile}", profile);
+            break;
         }
+
         credentials ??= FallbackCredentialsFactory.GetCredentials();
 
         return new AmazonS3Client(credentials, new AmazonS3Config

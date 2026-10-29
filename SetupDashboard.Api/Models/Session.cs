@@ -19,12 +19,12 @@ public class SetupSession
 
     public BusinessProfile Business { get; set; } = new();
     public TeamStep Team { get; set; } = new();
-    public List<ClientRow> Clients { get; set; } = new();
+    public List<ClientRow> Clients { get; set; } = [];
     public RatesStep Rates { get; set; } = new();
-    public List<ScheduleRow> Schedules { get; set; } = new();
+    public List<ScheduleRow> Schedules { get; set; } = [];
     public CouriersStep Couriers { get; set; } = new();
-    public List<PartnerRow> Partners { get; set; } = new();
-    public List<TrainingMember> TrainingProgress { get; set; } = new();
+    public List<PartnerRow> Partners { get; set; } = [];
+    public List<TrainingMember> TrainingProgress { get; set; } = [];
 
     public string Status { get; set; } = "active";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -32,11 +32,13 @@ public class SetupSession
 
     public StepState Step(string key)
     {
-        if (!Steps.TryGetValue(key, out var s))
+        if (Steps.TryGetValue(key, out var s))
         {
-            s = new StepState { Key = key };
-            Steps[key] = s;
+            return s;
         }
+
+        s = new StepState { Key = key };
+        Steps[key] = s;
         return s;
     }
 }
@@ -71,11 +73,11 @@ public static class StepStatus
 
 public class StepState
 {
-    public string Key { get; set; } = "";
+    public string Key { get; set; } = string.Empty;
     public string Status { get; set; } = StepStatus.NotStarted;
-    public List<DataRequest> Requests { get; set; } = new();
-    public List<RowResult> Rows { get; set; } = new();
-    public List<ChecklistItem> Checklist { get; set; } = new();
+    public List<DataRequest> Requests { get; set; } = [];
+    public List<RowResult> Rows { get; set; } = [];
+    public List<ChecklistItem> Checklist { get; set; } = [];
     public DateTime? CompletedAt { get; set; }
     public string? CompletedBy { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -85,7 +87,7 @@ public class StepState
 public class DataRequest
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
-    public string Item { get; set; } = "";
+    public string Item { get; set; } = string.Empty;
     public DateTime RequestedAt { get; set; } = DateTime.UtcNow;
     public string? RequestedBy { get; set; }
     public DateTime? DueBy { get; set; }
@@ -96,12 +98,12 @@ public class DataRequest
 /// <summary>Outcome of one record pushed to its owning app, keyed by a natural key (code, email, name).</summary>
 public class RowResult
 {
-    public string Key { get; set; } = "";
-    public string Kind { get; set; } = "";
+    public string Key { get; set; } = string.Empty;
+    public string Kind { get; set; } = string.Empty;
     public string Status { get; set; } = RowStatus.Pending;
     public int? EntityId { get; set; }
-    public List<string> Needs { get; set; } = new();
-    public List<string> Errors { get; set; } = new();
+    public List<string> Needs { get; set; } = [];
+    public List<string> Errors { get; set; } = [];
     public string? Notice { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
@@ -112,7 +114,7 @@ public static class RowStatus
     public const string NeedsData = "needs_data";
     public const string Created = "created";
     public const string Failed = "failed";
-    public const string Skipped = "skipped";
+
     /// <summary>Sent, but no answer came back: it may exist in the target app. Not re-sent until someone chooses Send again.</summary>
     public const string Unknown = "unknown";
 }
@@ -120,8 +122,8 @@ public static class RowStatus
 /// <summary>Work that has no API yet, or is done in another app's screens. Ticked by a person.</summary>
 public class ChecklistItem
 {
-    public string Id { get; set; } = "";
-    public string Item { get; set; } = "";
+    public string Id { get; set; } = string.Empty;
+    public string Item { get; set; } = string.Empty;
     public string Owner { get; set; } = "DFRNT";
     public string? Link { get; set; }
     public bool Required { get; set; }
@@ -136,8 +138,8 @@ public class BusinessProfile
     public string? CompanyName { get; set; }
     public string? LegalName { get; set; }
     public string? Country { get; set; }
-    public List<string> Geography { get; set; } = new();
-    public List<string> Verticals { get; set; } = new();
+    public List<string> Geography { get; set; } = [];
+    public List<string> Verticals { get; set; } = [];
     public string? CurrentSystem { get; set; }
     public string? DeliveriesPerMonth { get; set; }
     public string? RegistrationNumber { get; set; }
@@ -158,8 +160,8 @@ public class ContactInfo
 
 public class TeamStep
 {
-    public List<RoleRow> Roles { get; set; } = new();
-    public List<PersonRow> People { get; set; } = new();
+    public List<RoleRow> Roles { get; set; } = [];
+    public List<PersonRow> People { get; set; } = [];
 }
 
 /// <summary>A Settings role tagged Tenant Staff. Tiles are hub-tile-* keys switched on in Access Control.</summary>
@@ -167,7 +169,7 @@ public class RoleRow
 {
     public string? Name { get; set; }
     public string? Description { get; set; }
-    public List<string> Tiles { get; set; } = new();
+    public List<string> Tiles { get; set; } = [];
 }
 
 /// <summary>A tenant staff member. Created on the tenant's own client (ClientTypeId 4); never a staff file.</summary>
@@ -211,7 +213,7 @@ public class ClientRow
     /// </summary>
     public bool InviteConfirmed { get; set; }
     public ClientContactRow PrimaryContact { get; set; } = new();
-    public List<ClientContactRow> Contacts { get; set; } = new();
+    public List<ClientContactRow> Contacts { get; set; } = [];
 }
 
 public class ClientContactRow
@@ -229,11 +231,11 @@ public class ClientContactRow
 
 public class RatesStep
 {
-    public List<VehicleSizeRow> VehicleSizes { get; set; } = new();
-    public List<ZoneGroupRow> ZoneGroups { get; set; } = new();
-    public List<FuelSurchargeRow> FuelSurcharges { get; set; } = new();
-    public List<ZoneRateRow> ZoneRates { get; set; } = new();
-    public List<DistanceRateRow> DistanceRates { get; set; } = new();
+    public List<VehicleSizeRow> VehicleSizes { get; set; } = [];
+    public List<ZoneGroupRow> ZoneGroups { get; set; } = [];
+    public List<FuelSurchargeRow> FuelSurcharges { get; set; } = [];
+    public List<ZoneRateRow> ZoneRates { get; set; } = [];
+    public List<DistanceRateRow> DistanceRates { get; set; } = [];
 }
 
 public class VehicleSizeRow
@@ -249,13 +251,13 @@ public class VehicleSizeRow
 public class ZoneGroupRow
 {
     public string? Name { get; set; }
-    public List<ZoneRow> Zones { get; set; } = new();
+    public List<ZoneRow> Zones { get; set; } = [];
 }
 
 public class ZoneRow
 {
     public string? Name { get; set; }
-    public List<string> Zips { get; set; } = new();
+    public List<string> Zips { get; set; } = [];
 }
 
 public class FuelSurchargeRow
@@ -275,11 +277,11 @@ public class ZoneRateRow
     public string? ToZone { get; set; }
     public int? SpeedId { get; set; }
     /// <summary>Vehicle sizes by name: ones created earlier in this step have no id yet.</summary>
-    public List<string> VehicleSizeNames { get; set; } = new();
+    public List<string> VehicleSizeNames { get; set; } = [];
     public decimal? ChargeRate { get; set; }
     public decimal? DriverRate { get; set; }
     /// <summary>Empty means the rate applies to every customer. The push states that explicitly.</summary>
-    public List<string> ClientCodes { get; set; } = new();
+    public List<string> ClientCodes { get; set; } = [];
 }
 
 public class DistanceRateRow
@@ -287,14 +289,14 @@ public class DistanceRateRow
     public string? Name { get; set; }
     public int? SpeedId { get; set; }
     /// <summary>Vehicle sizes by name: ones created earlier in this step have no id yet.</summary>
-    public List<string> VehicleSizeNames { get; set; } = new();
+    public List<string> VehicleSizeNames { get; set; } = [];
     public decimal? BaseCharge { get; set; }
     public decimal? BaseChargeDriver { get; set; }
     public decimal? PerDistanceUnit { get; set; }
     public decimal? PerDistanceUnitDriver { get; set; }
     public decimal? DistanceIncluded { get; set; }
-    public List<int> DepotIds { get; set; } = new();
-    public List<string> ClientCodes { get; set; } = new();
+    public List<int> DepotIds { get; set; } = [];
+    public List<string> ClientCodes { get; set; } = [];
 }
 
 // ── Step 4: Schedules (Routed Ops) ──────────────────────────────────────────
@@ -309,9 +311,9 @@ public class ScheduleRow
     public string? OriginType { get; set; }
     public int? OriginRegionId { get; set; }
     public int? SpeedId { get; set; }
-    public List<DayWindowRow> DayWindows { get; set; } = new();
+    public List<DayWindowRow> DayWindows { get; set; } = [];
     /// <summary>Empty = default schedule for every client (not allowed for client origin).</summary>
-    public List<string> ClientCodes { get; set; } = new();
+    public List<string> ClientCodes { get; set; } = [];
 }
 
 public class DayWindowRow
@@ -328,8 +330,8 @@ public class DayWindowRow
 
 public class CouriersStep
 {
-    public List<FleetRow> Fleets { get; set; } = new();
-    public List<CourierRow> Couriers { get; set; } = new();
+    public List<FleetRow> Fleets { get; set; } = [];
+    public List<CourierRow> Couriers { get; set; } = [];
 }
 
 public class FleetRow
@@ -396,11 +398,11 @@ public class TenantCounts
 
 public class TrainingMember
 {
-    public string UserEmail { get; set; } = "";
+    public string UserEmail { get; set; } = string.Empty;
     public string? UserName { get; set; }
     public string? Role { get; set; }
     public int Xp { get; set; }
-    public List<string> CompletedChallenges { get; set; } = new();
+    public List<string> CompletedChallenges { get; set; } = [];
     public int CurrentStreak { get; set; }
     public string? LastActive { get; set; }
 }

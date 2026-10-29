@@ -14,14 +14,14 @@ namespace SetupDashboard.Services.Steps;
 /// </remarks>
 public sealed class SchedulesPusher(ITenantAppClient apps) : IStepPusher
 {
-    public const string ScheduleKind = "schedule";
+    private const string ScheduleKind = "schedule";
     private static readonly string[] OriginTypes = ["depot", "client", "direct"];
 
     public string StepKey => StepKeys.Schedules;
 
     public static Needs Validate(ScheduleRow s)
     {
-        var origin = (s.OriginType ?? "").Trim().ToLowerInvariant();
+        var origin = (s.OriginType ?? string.Empty).Trim().ToLowerInvariant();
         var needs = new Needs()
             .Text(s.Name, "name")
             .Value(s.RegionId, "destination depot")
@@ -38,10 +38,17 @@ public sealed class SchedulesPusher(ITenantAppClient apps) : IStepPusher
         var days = s.DayWindows.Where(w => w.DayOfWeek != null).GroupBy(w => w.DayOfWeek).Where(g => g.Count() > 1).ToList();
         needs.When(days.Count > 0, "one window per day");
 
-        if (origin == "client")
-            needs.Value(s.OriginRegionId, "origin depot (client-address schedules)")
-                 .When(s.ClientCodes.Count == 0, "at least one customer (client-address schedules can't be the default)");
-        if (origin == "depot") needs.Value(s.PickupDepotId, "pickup depot");
+        switch (origin)
+        {
+            case "client":
+                needs.Value(s.OriginRegionId, "origin depot (client-address schedules)")
+                    .When(s.ClientCodes.Count == 0, "at least one customer (client-address schedules can't be the default)");
+                break;
+            case "depot":
+                needs.Value(s.PickupDepotId, "pickup depot");
+                break;
+        }
+
         return needs;
     }
 
@@ -50,9 +57,17 @@ public sealed class SchedulesPusher(ITenantAppClient apps) : IStepPusher
         var ledger = new RowLedger(session.Step(StepKey));
         foreach (var s in session.Schedules)
         {
-            var key = s.Name?.Trim() ?? "";
-            if (ledger.AlreadyCreated(ScheduleKind, key, out _)) continue;
-            if (ledger.IsUnknown(ScheduleKind, key)) continue;
+            var key = s.Name?.Trim() ?? string.Empty;
+            if (ledger.AlreadyCreated(ScheduleKind, key, out _))
+            {
+                continue;
+            }
+
+            if (ledger.IsUnknown(ScheduleKind, key))
+            {
+                continue;
+            }
+
             var row = ledger.Row(ScheduleKind, key.Length > 0 ? key : "(unnamed schedule)");
 
             var needs = Validate(s);
@@ -61,7 +76,10 @@ public sealed class SchedulesPusher(ITenantAppClient apps) : IStepPusher
             {
                 var id = ClientsPusher.ClientIdFor(session, code);
                 needs.When(id == null, $"customer {code} created on the Clients step");
-                if (id != null) clientIds.Add(id.Value);
+                if (id != null)
+                {
+                    clientIds.Add(id.Value);
+                }
             }
             if (needs.Any) { RowLedger.NeedsData(row, needs.Items); continue; }
 
@@ -85,8 +103,8 @@ public sealed class SchedulesPusher(ITenantAppClient apps) : IStepPusher
                     startTime = w.StartTime!.Trim(),
                     endTime = w.EndTime!.Trim(),
                     cutoffDay = w.CutoffDay,
-                    cutoffTime = string.IsNullOrWhiteSpace(w.CutoffTime) ? null : w.CutoffTime.Trim(),
-                }).ToList(),
+                    cutoffTime = string.IsNullOrWhiteSpace(w.CutoffTime) ? null : w.CutoffTime.Trim()
+                }).ToList()
             }, ct);
 
             if (!res.Ok || res.Id == null) { RowLedger.Failed(row, res); continue; }
@@ -94,5 +112,5 @@ public sealed class SchedulesPusher(ITenantAppClient apps) : IStepPusher
         }
     }
 
-    internal static bool IsTime(string? t) => !string.IsNullOrWhiteSpace(t) && TimeSpan.TryParse(t.Trim(), out var ts) && ts >= TimeSpan.Zero && ts < TimeSpan.FromDays(1);
+    private static bool IsTime(string? t) => !string.IsNullOrWhiteSpace(t) && TimeSpan.TryParse(t.Trim(), out var ts) && ts >= TimeSpan.Zero && ts < TimeSpan.FromDays(1);
 }

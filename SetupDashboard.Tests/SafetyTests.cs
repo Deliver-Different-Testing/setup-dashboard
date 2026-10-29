@@ -69,8 +69,8 @@ public class SafetyTests
     [Fact]
     public void A_blank_password_from_the_browser_keeps_the_stored_one()
     {
-        var stored = new CouriersStep { Couriers = [new() { Email = "a@b", InitialPassword = "secret-123" }] };
-        var incoming = new CouriersStep { Couriers = [new() { Email = "A@B ", FirstName = "Al" }] };
+        var stored = new CouriersStep { Couriers = [new CourierRow { Email = "a@b", InitialPassword = "secret-123" }] };
+        var incoming = new CouriersStep { Couriers = [new CourierRow { Email = "A@B ", FirstName = "Al" }] };
 
         var merged = SetupController.MergeCouriers(stored, incoming);
 

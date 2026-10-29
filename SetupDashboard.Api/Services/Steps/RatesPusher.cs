@@ -18,17 +18,17 @@ namespace SetupDashboard.Services.Steps;
 /// </remarks>
 public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
 {
-    public const string VehicleKind = "vehicle-size";
-    public const string ZoneGroupKind = "zone-group";
-    public const string ZoneKind = "zone";
-    public const string ZipKind = "zip";
-    public const string FuelKind = "fuel-surcharge";
+    private const string VehicleKind = "vehicle-size";
+    private const string ZoneGroupKind = "zone-group";
+    private const string ZoneKind = "zone";
+    private const string FuelKind = "fuel-surcharge";
+    private const string ZipKind = "zip";
     public const string ZoneRateKind = "zone-rate";
-    public const string DistanceRateKind = "distance-rate";
+    private const string DistanceRateKind = "distance-rate";
 
     public string StepKey => StepKeys.Rates;
 
-    public static Needs Validate(ZoneRateRow r)
+    private static Needs Validate(ZoneRateRow r)
         => new Needs()
             .Text(r.Name, "name")
             .Text(r.FromZone, "from zone")
@@ -38,7 +38,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
             .Value(r.ChargeRate, "customer charge")
             .Value(r.DriverRate, "driver rate");
 
-    public static Needs Validate(DistanceRateRow r)
+    private static Needs Validate(DistanceRateRow r)
         => new Needs()
             .Text(r.Name, "name")
             .Value(r.SpeedId, "speed")
@@ -49,7 +49,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
             .Value(r.PerDistanceUnitDriver, "per distance unit (driver)")
             .Value(r.DistanceIncluded, "distance included");
 
-    public static Needs Validate(FuelSurchargeRow f)
+    private static Needs Validate(FuelSurchargeRow f)
         => new Needs().Value(f.RatePercent, "fuel %").Value(f.Start, "start date");
 
     public async Task PushAsync(SetupSession session, CallerContext caller, CancellationToken ct)
@@ -60,9 +60,17 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
         // ── Vehicle sizes ──
         foreach (var v in rates.VehicleSizes)
         {
-            var key = v.Name?.Trim() ?? "";
-            if (ledger.AlreadyCreated(VehicleKind, key, out _)) continue;
-            if (ledger.IsUnknown(VehicleKind, key)) continue;
+            var key = v.Name?.Trim() ?? string.Empty;
+            if (ledger.AlreadyCreated(VehicleKind, key, out _))
+            {
+                continue;
+            }
+
+            if (ledger.IsUnknown(VehicleKind, key))
+            {
+                continue;
+            }
+
             var row = ledger.Row(VehicleKind, key.Length > 0 ? key : "(unnamed vehicle size)");
             var needs = new Needs().Text(v.Name, "name");
             if (needs.Any) { RowLedger.NeedsData(row, needs.Items); continue; }
@@ -73,7 +81,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
                 cubicCapacity = v.CubicCapacity,
                 palletCapacity = v.PalletCapacity,
                 weightCapacity = v.WeightCapacity,
-                fuelPercentage = (v.FuelPercent ?? 0m) / 100m,
+                fuelPercentage = (v.FuelPercent ?? 0m) / 100m
             }, ct);
             Record(row, res);
         }
@@ -82,42 +90,66 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
         // ── Zone groups → zones → zips ──
         foreach (var g in rates.ZoneGroups)
         {
-            var gKey = g.Name?.Trim() ?? "";
+            var gKey = g.Name?.Trim() ?? string.Empty;
             var gRow = ledger.Row(ZoneGroupKind, gKey.Length > 0 ? gKey : "(unnamed zone group)");
             if (gKey.Length == 0) { RowLedger.NeedsData(gRow, ["name"]); continue; }
 
-            if (ledger.IsUnknown(ZoneGroupKind, gKey)) continue;
-            int? groupId = ledger.IdOf(ZoneGroupKind, gKey);
+            if (ledger.IsUnknown(ZoneGroupKind, gKey))
+            {
+                continue;
+            }
+
+            var groupId = ledger.IdOf(ZoneGroupKind, gKey);
             if (groupId == null)
             {
                 var res = await apps.SendAsync(TenantApp.Settings, HttpMethod.Post, "/api/v1/tenant/pricing/zone-groups", new { name = gKey }, ct);
-                if (!Record(gRow, res)) continue;
+                if (!Record(gRow, res))
+                {
+                    continue;
+                }
+
                 groupId = res.Id;
             }
 
             foreach (var z in g.Zones)
             {
-                var zName = z.Name?.Trim() ?? "";
+                var zName = z.Name?.Trim() ?? string.Empty;
                 // Keyed by group as well: two groups can each have a "Downtown".
                 var zKey = ZoneKey(gKey, zName);
                 var zRow = ledger.Row(ZoneKind, zName.Length > 0 ? zKey : $"(unnamed zone in {gKey})");
                 if (zName.Length == 0) { RowLedger.NeedsData(zRow, ["name"]); continue; }
 
-                if (ledger.IsUnknown(ZoneKind, zKey)) continue;
-                int? zoneId = ledger.IdOf(ZoneKind, zKey);
+                if (ledger.IsUnknown(ZoneKind, zKey))
+                {
+                    continue;
+                }
+
+                var zoneId = ledger.IdOf(ZoneKind, zKey);
                 if (zoneId == null)
                 {
                     var res = await apps.SendAsync(TenantApp.Settings, HttpMethod.Post, "/api/v1/tenant/pricing/zone-names",
                         new { name = zName, zoneGroupId = groupId }, ct);
-                    if (!Record(zRow, res)) continue;
+                    if (!Record(zRow, res))
+                    {
+                        continue;
+                    }
+
                     zoneId = res.Id;
                 }
 
-                foreach (var zip in z.Zips.Select(x => x?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct())
+                foreach (var zip in z.Zips.Select(x => x.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct())
                 {
                     var zipKey = $"{zKey} / {zip}";
-                    if (ledger.AlreadyCreated(ZipKind, zipKey, out _)) continue;
-                    if (ledger.IsUnknown(ZipKind, zipKey)) continue;
+                    if (ledger.AlreadyCreated(ZipKind, zipKey, out _))
+                    {
+                        continue;
+                    }
+
+                    if (ledger.IsUnknown(ZipKind, zipKey))
+                    {
+                        continue;
+                    }
+
                     var res = await apps.SendAsync(TenantApp.Settings, HttpMethod.Post, "/api/v1/tenant/pricing/zone-zips",
                         new { zip, zoneNameId = zoneId }, ct);
                     Record(ledger.Row(ZipKind, zipKey), res);
@@ -130,8 +162,16 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
         foreach (var f in rates.FuelSurcharges)
         {
             var key = f.Name?.Trim() is { Length: > 0 } n ? n : $"Fuel {f.RatePercent}% from {f.Start:yyyy-MM-dd}";
-            if (ledger.AlreadyCreated(FuelKind, key, out _)) continue;
-            if (ledger.IsUnknown(FuelKind, key)) continue;
+            if (ledger.AlreadyCreated(FuelKind, key, out _))
+            {
+                continue;
+            }
+
+            if (ledger.IsUnknown(FuelKind, key))
+            {
+                continue;
+            }
+
             var row = ledger.Row(FuelKind, key);
             var needs = Validate(f);
             int? clientId = null;
@@ -148,7 +188,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
                 rate = f.RatePercent!.Value / 100m,
                 start = f.Start!.Value,
                 clientId,
-                active = true,
+                active = true
             }, ct);
             Record(row, res);
         }
@@ -156,9 +196,17 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
         // ── Zone rates ──
         foreach (var r in rates.ZoneRates)
         {
-            var key = r.Name?.Trim() ?? "";
-            if (ledger.AlreadyCreated(ZoneRateKind, key, out _)) continue;
-            if (ledger.IsUnknown(ZoneRateKind, key)) continue;
+            var key = r.Name?.Trim() ?? string.Empty;
+            if (ledger.AlreadyCreated(ZoneRateKind, key, out _))
+            {
+                continue;
+            }
+
+            if (ledger.IsUnknown(ZoneRateKind, key))
+            {
+                continue;
+            }
+
             var row = ledger.Row(ZoneRateKind, key.Length > 0 ? key : "(unnamed zone rate)");
             var needs = Validate(r);
             var from = ResolveZone(zones, ledger, r.FromZone, needs);
@@ -177,7 +225,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
                 chargeRate = r.ChargeRate,
                 driverRate = r.DriverRate,
                 clientIds,
-                active = true,
+                active = true
             }, ct);
             Record(row, res, clientIds.Count == 0 ? "Applies to every customer." : null);
         }
@@ -185,9 +233,17 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
         // ── Distance rates ──
         foreach (var r in rates.DistanceRates)
         {
-            var key = r.Name?.Trim() ?? "";
-            if (ledger.AlreadyCreated(DistanceRateKind, key, out _)) continue;
-            if (ledger.IsUnknown(DistanceRateKind, key)) continue;
+            var key = r.Name?.Trim() ?? string.Empty;
+            if (ledger.AlreadyCreated(DistanceRateKind, key, out _))
+            {
+                continue;
+            }
+
+            if (ledger.IsUnknown(DistanceRateKind, key))
+            {
+                continue;
+            }
+
             var row = ledger.Row(DistanceRateKind, key.Length > 0 ? key : "(unnamed distance rate)");
             var needs = Validate(r);
             var vehicleIds = ResolveAll(vehicles, ledger, VehicleKind, r.VehicleSizeNames, needs, "vehicle size");
@@ -206,7 +262,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
                 distanceIncluded = r.DistanceIncluded,
                 depots = r.DepotIds.Distinct().Select(d => new { bulkRegionId = d, active = true }).ToList(),
                 clientIds,
-                active = true,
+                active = true
             }, ct);
             Record(row, res, clientIds.Count == 0 ? "Applies to every customer." : null);
         }
@@ -225,22 +281,33 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
     {
         var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var res = await apps.GetAsync(TenantApp.Settings, path, ct);
-        if (!res.Ok) return map;
+        if (!res.Ok)
+        {
+            return map;
+        }
+
         foreach (var o in (res.Body as JsonArray ?? []).OfType<JsonObject>())
-            if (o["name"]?.GetValue<string>() is { Length: > 0 } name && o["id"]?.GetValue<int>() is int id and > 0)
+            if (o["name"]?.GetValue<string>() is { Length: > 0 } name && o["id"]?.GetValue<int>() is { } id and > 0)
+            {
                 map.TryAdd(name.Trim(), id);
+            }
+
         return map;
     }
 
     private static int? Resolve(Dictionary<string, int> lookup, RowLedger ledger, string kind, string? name, Needs needs, string label)
     {
-        if (string.IsNullOrWhiteSpace(name)) return null;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
         var id = ledger.IdOf(kind, name) ?? (lookup.TryGetValue(name.Trim(), out var l) ? l : null);
         needs.When(id == null, $"{label} \"{name}\" in Settings");
         return id;
     }
 
-    internal static string ZoneKey(string group, string zone) => $"{group} / {zone}";
+    private static string ZoneKey(string group, string zone) => $"{group} / {zone}";
 
     /// <summary>
     /// A rate names its zone either as "Zone" or "Group / Zone". A bare name that this session
@@ -248,7 +315,11 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
     /// </summary>
     private static int? ResolveZone(Dictionary<string, int> lookup, RowLedger ledger, string? name, Needs needs)
     {
-        if (string.IsNullOrWhiteSpace(name)) return null;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
         var n = name.Trim();
         var id = ledger.IdOf(ZoneKind, n);
         if (id == null)
@@ -276,7 +347,10 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
         {
             var id = ClientsPusher.ClientIdFor(session, code);
             needs.When(id == null, $"customer {code} created on the Clients step");
-            if (id != null) ids.Add(id.Value);
+            if (id != null)
+            {
+                ids.Add(id.Value);
+            }
         }
         return ids.Distinct().ToList();
     }

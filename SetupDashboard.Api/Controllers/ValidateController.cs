@@ -34,25 +34,29 @@ public class ValidateController(IDbContextFactory<DynamicDespatchDbContext> dbFa
     [HttpGet("courier-email")]
     public Task<IActionResult> CourierEmail([FromQuery] string? email)
         => Check(email, async db => await db.Database.SqlQueryRaw<int>(
-            "SELECT COUNT(1) AS [Value] FROM tucCourier WHERE uccrEmail = {0}", email ?? "").FirstAsync() > 0);
+            "SELECT COUNT(1) AS [Value] FROM tucCourier WHERE uccrEmail = {0}", email ?? string.Empty).FirstAsync() > 0);
 
     [HttpGet("courier-name")]
     public Task<IActionResult> CourierName([FromQuery] string? firstName, [FromQuery] string? surname)
         => Check($"{firstName}{surname}", async db => await db.Database.SqlQueryRaw<int>(
             "SELECT COUNT(1) AS [Value] FROM tucCourier WHERE uccrName = {0} AND uccrSurname = {1}",
-            firstName ?? "", surname ?? "").FirstAsync() > 0);
+            firstName ?? string.Empty, surname ?? string.Empty).FirstAsync() > 0);
 
     [HttpGet("courier-code")]
     public Task<IActionResult> CourierCode([FromQuery] string? code)
         => Check(code, async db => await db.Database.SqlQueryRaw<int>(
-            "SELECT COUNT(1) AS [Value] FROM tucCourier WHERE Code = {0}", code ?? "").FirstAsync() > 0);
+            "SELECT COUNT(1) AS [Value] FROM tucCourier WHERE Code = {0}", code ?? string.Empty).FirstAsync() > 0);
 
     private async Task<IActionResult> Check(string? value, Func<DynamicDespatchDbContext, Task<bool>> exists)
     {
-        if (string.IsNullOrWhiteSpace(value)) return Ok(new { available = true });
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Ok(new { available = true });
+        }
+
         try
         {
-            await using var db = dbFactory.CreateDbContext();
+            await using var db = await dbFactory.CreateDbContextAsync();
             return Ok(new { available = !await exists(db) });
         }
         catch (Exception ex)

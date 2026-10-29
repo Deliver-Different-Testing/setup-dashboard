@@ -1,3 +1,4 @@
+using SetupDashboard.Interfaces;
 using SetupDashboard.Models;
 using SetupDashboard.Services.TenantApps;
 
@@ -26,7 +27,10 @@ public sealed class StepPushRunner(ISessionStore sessions, IPushLock pushLock, I
     public async Task<Outcome> RunAsync(SetupSession session, CallerContext caller, IStepPusher pusher)
     {
         await using var held = await pushLock.TryAcquireAsync(LockKey(session), LockTtl);
-        if (held == null) return new Outcome(false);
+        if (held == null)
+        {
+            return new Outcome(false);
+        }
 
         var started = DateTime.UtcNow;
         apps.BeforeWrite = () => sessions.UpdateAsync(session, CancellationToken.None);
