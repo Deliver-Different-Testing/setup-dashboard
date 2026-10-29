@@ -1,167 +1,179 @@
+// Setup Dashboard API client.
+//
+// Everything goes to this app's own backend (same origin, Hub cookie). The backend
+// forwards writes to Settings / Routed Ops as the signed-in person - the browser
+// never calls those apps directly, and never chooses which tenant it is writing to.
+
 let BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
-async function post(path: string, body: unknown) {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+export function getApiBaseUrl() { return BASE_URL }
+export function setApiBaseUrl(url: string) { BASE_URL = url }
+
+export class ApiError extends Error {
+  status: number
+  constructor(message: string, status: number) { super(message); this.status = status }
+}
+
+const SIGN_IN_EXPIRED = 'Your sign-in has expired. Refresh the page.'
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  // /API/Login lives at the app root, beside /api.
+  const url = path.startsWith('/API/') ? `${BASE_URL.replace(/\/api$/i, '')}${path}` : `${BASE_URL}${path}`
+  const res = await fetch(url, {
     credentials: 'include',
-    body: JSON.stringify(body),
+    // An expired Hub cookie answers with a redirect to the sign-in page. Followed, that is either
+    // a cross-origin failure or a 200 HTML page - neither of which says "sign in again".
+    redirect: 'manual',
+    ...options,
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', ...(options.headers || {}) },
   })
+  const html = res.headers?.get('content-type')?.includes('text/html')
+  if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400) || (res.ok && html))
+    throw new ApiError(SIGN_IN_EXPIRED, 401)
+  const text = await res.text()
+  let body: unknown = null
+  try { body = text ? JSON.parse(text) : null } catch { body = null }
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }))
-    throw new Error(err.message || `API error ${res.status}`)
+    const b = (body ?? {}) as { message?: string; error?: string }
+    const msg = b.message || b.error || (res.status === 401 ? SIGN_IN_EXPIRED : `Request failed (${res.status})`)
+    throw new ApiError(msg, res.status)
   }
-  return res.json()
+  return body as T
 }
 
-export const createSession = (environment?: string) =>
-  post('/setup/session', { environment })
+const json = (b: unknown) => JSON.stringify(b)
 
-export const saveBusinessProfile = (sessionId: string, data: Record<string, unknown>) =>
-  post('/setup/business', { sessionId, ...data })
+// ── Types (mirror Models/Session.cs) ─────────────────────────────────────────
 
-export const saveTeam = (sessionId: string, members: unknown[]) =>
-  post('/setup/team', { sessionId, members })
+export type StepKey =
+  | 'business' | 'team' | 'clients' | 'rates' | 'schedules' | 'couriers'
+  | 'partners' | 'automations' | 'integrations' | 'appconfig' | 'training'
 
-export const saveClients = (sessionId: string, clients: unknown[]) =>
-  post('/setup/clients', { sessionId, clients })
+export type StepStatus = 'not_started' | 'waiting_on_tenant' | 'in_progress' | 'done'
+export type RowStatus = 'pending' | 'needs_data' | 'created' | 'failed' | 'skipped' | 'unknown'
 
-export const uploadClientsCsv = async (sessionId: string, file: File) => {
-  const form = new FormData()
-  form.append('sessionId', sessionId)
-  form.append('file', file)
-  const res = await fetch(`${BASE_URL}/setup/clients/import`, { method: 'POST', body: form, credentials: 'include' })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }))
-    throw new Error(err.message || `API error ${res.status}`)
-  }
-  return res.json()
+export interface DataRequest { id: string; item: string; requestedAt: string; requestedBy?: string; dueBy?: string; fulfilledAt?: string; fulfilledBy?: string }
+export interface RowResult { key: string; kind: string; status: RowStatus; entityId?: number; needs: string[]; errors: string[]; notice?: string; updatedAt: string }
+export interface ChecklistItem { id: string; item: string; owner: 'DFRNT' | 'Tenant'; link?: string; required: boolean; doneAt?: string; doneBy?: string }
+export interface StepState { key: StepKey; status: StepStatus; requests: DataRequest[]; rows: RowResult[]; checklist: ChecklistItem[]; completedAt?: string; completedBy?: string; updatedAt: string }
+
+export interface ContactInfo { name?: string; email?: string; phone?: string; title?: string }
+export interface BusinessProfile {
+  companyName?: string; legalName?: string; country?: string; geography: string[]; verticals: string[]
+  currentSystem?: string; deliveriesPerMonth?: string; registrationNumber?: string; stateOfIncorporation?: string
+  businessType?: string; primaryContact: ContactInfo
 }
 
-export const saveRates = (sessionId: string, rateData: Record<string, unknown>) =>
-  post('/setup/rates', { sessionId, ...rateData })
+export interface RoleRow { name?: string; description?: string; tiles: string[] }
+export interface PersonRow { email?: string; firstName?: string; lastName?: string; jobTitle?: string; mobile?: string; roleName?: string; inviteConfirmed: boolean }
+export interface TeamStep { roles: RoleRow[]; people: PersonRow[] }
 
-export const saveCouriers = (sessionId: string, couriers: unknown[]) =>
-  post('/setup/couriers', { sessionId, couriers })
-
-export const saveAutomations = (sessionId: string, rules: unknown[]) =>
-  post('/setup/automations', { sessionId, rules })
-
-// Session management
-async function get(path: string) {
-  const res = await fetch(`${BASE_URL}${path}`, { credentials: 'include' })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }))
-    throw new Error(err.message || `API error ${res.status}`)
-  }
-  return res.json()
+export interface ClientContactRow { firstName?: string; surname?: string; email?: string; mobile?: string; jobTitle?: string; createSignIn: boolean }
+export interface ClientRow {
+  code?: string; name?: string; address?: string; unit?: string; suburb?: string; city?: string; postCode?: string; country?: string
+  latitude?: number; longitude?: number; phone?: string; email?: string; invoiceEmail?: string
+  invoiceScheduleId?: number; paymentTermId?: number; invoiceMethod?: string; notes?: string
+  inviteConfirmed: boolean; primaryContact: ClientContactRow; contacts: ClientContactRow[]
 }
 
-async function del(path: string) {
-  const res = await fetch(`${BASE_URL}${path}`, { method: 'DELETE', credentials: 'include' })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }))
-    throw new Error(err.message || `API error ${res.status}`)
-  }
-  return res.json()
+export interface VehicleSizeRow { name?: string; cubicCapacity?: number; palletCapacity?: number; weightCapacity?: number; fuelPercent?: number }
+export interface ZoneRow { name?: string; zips: string[] }
+export interface ZoneGroupRow { name?: string; zones: ZoneRow[] }
+export interface FuelSurchargeRow { name?: string; ratePercent?: number; start?: string; clientCode?: string }
+export interface ZoneRateRow { name?: string; fromZone?: string; toZone?: string; speedId?: number; vehicleSizeNames: string[]; chargeRate?: number; driverRate?: number; clientCodes: string[] }
+export interface DistanceRateRow {
+  name?: string; speedId?: number; vehicleSizeNames: string[]; baseCharge?: number; baseChargeDriver?: number
+  perDistanceUnit?: number; perDistanceUnitDriver?: number; distanceIncluded?: number; depotIds: number[]; clientCodes: string[]
+}
+export interface RatesStep { vehicleSizes: VehicleSizeRow[]; zoneGroups: ZoneGroupRow[]; fuelSurcharges: FuelSurchargeRow[]; zoneRates: ZoneRateRow[]; distanceRates: DistanceRateRow[] }
+
+export interface DayWindowRow { dayOfWeek?: number; startTime?: string; endTime?: string; cutoffDay?: number; cutoffTime?: string }
+export interface ScheduleRow {
+  name?: string; regionId?: number; pickupDepotId?: number; originType?: 'depot' | 'client' | 'direct'
+  originRegionId?: number; speedId?: number; dayWindows: DayWindowRow[]; clientCodes: string[]
 }
 
-export const listSessions = (status = 'active') =>
-  get(`/setup/sessions?status=${status}`)
+export interface FleetRow { name?: string; depotId?: number }
+export interface CourierRow {
+  email?: string; firstName?: string; surName?: string; code?: string; mobile?: string; vehicleType?: string
+  courierTypeId?: number; fleetName?: string
+  /** Write-only: sent on save, never returned. */
+  initialPassword?: string
+  hasInitialPassword?: boolean
+}
+export interface CouriersStep { fleets: FleetRow[]; couriers: CourierRow[] }
 
-export const getFullSession = (id: string) =>
-  get(`/setup/session/${id}/full`)
-
-export const rollbackSession = (id: string) =>
-  del(`/setup/session/${id}/rollback`)
-
-// Training
-export const getTrainingProgress = (sessionId: string) =>
-  get(`/setup/training/progress?sessionId=${sessionId}`)
-
-export const saveTrainingProgress = (sessionId: string, members: unknown[]) =>
-  post('/setup/training/progress', { sessionId, members })
-
-export const completeTrainingChallenge = (sessionId: string, userEmail: string, challengeId: string, xpEarned: number) =>
-  post('/setup/training/complete-challenge', { sessionId, userEmail, challengeId, xpEarned })
-
-export const getLeaderboard = (sessionId: string) =>
-  get(`/setup/training/leaderboard?sessionId=${sessionId}`)
-
-// Validation
-export const validateUserFullName = (name: string) =>
-  get(`/setup/validate/user-fullname?name=${encodeURIComponent(name)}`)
-
-export const validateClientName = (name: string) =>
-  get(`/setup/validate/client-name?name=${encodeURIComponent(name)}`)
-
-export const validateCourierName = (firstName: string, surname: string) =>
-  get(`/setup/validate/courier-name?firstName=${encodeURIComponent(firstName)}&surname=${encodeURIComponent(surname)}`)
-
-export const validateUsername = (username: string) =>
-  get(`/setup/validate/username?username=${encodeURIComponent(username)}`)
-
-export const validateClientCode = (code: string) =>
-  get(`/setup/validate/client-code?code=${encodeURIComponent(code)}`)
-
-export const validateCourierCode = (code: string) =>
-  get(`/setup/validate/courier-code?code=${encodeURIComponent(code)}`)
-
-// Tenant data (Phase 1: populate wizard from real DB)
-export const getTenantData = (sessionId: string) =>
-  get(`/setup/session/${sessionId}/tenant-data`)
-
-// Lazy-load: fast summary (counts + settings only)
-export const getTenantSummary = (sessionId: string) =>
-  get(`/setup/session/${sessionId}/tenant-summary`)
-
-// Go Live (Phase 5: provision all wizard data)
-// Uses raw fetch instead of post() to preserve partial provisioning data on failure
-export async function goLive(sessionId: string) {
-  const res = await fetch(`${BASE_URL}/setup/session/${sessionId}/go-live`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({}),
-  })
-  const data = await res.json().catch(() => ({ success: false, errors: [res.statusText] }))
-  return data
+export interface PartnerRow {
+  name?: string; isNetworkPartner: boolean; contactName?: string; contactEmail?: string; primaryContactRoleId?: number
+  phone?: string; addressLine1?: string; city?: string; state?: string; postCode?: string
+  defaultCourierPayPercent?: number; inviteConfirmed: boolean
 }
 
-// Tenant logo (direct S3 pre-signed URL)
-// Bucket: urgent-couriers-bulk-upload-storage-{environment}
-export const getTenantLogo = (environment: string, tenantCode?: string) =>
-  get(`/setup/logo?environment=${encodeURIComponent(environment)}${tenantCode ? `&tenantCode=${encodeURIComponent(tenantCode)}` : ''}`)
+export interface TrainingMember { userEmail: string; userName?: string; role?: string; xp: number; completedChallenges: string[]; currentStreak: number; lastActive?: string }
 
-// Authentication — validates Hub cookie and caches connection string in Redis
-// Same pattern as AdminManager: auto-call on page load
-export async function validateLogin(): Promise<{
-  success: boolean
-  tenantId?: string
-  staffId?: string
-  contactId?: string
-  tenantCode?: string
-  envKey?: string
-  clientProfile?: { id?: number; name?: string; legalName?: string; code?: string; address?: string; postCode?: string; phone?: string; email?: string; type?: string; city?: string; state?: string }
-  contactProfile?: { id?: number; firstName?: string; lastName?: string; email?: string; phone?: string; title?: string }
-  message?: string
-}> {
-  const res = await fetch(`/API/Login/Validate`, { method: 'POST', credentials: 'include' })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }))
-    throw new Error(err.message || 'Authentication failed')
-  }
-  return res.json()
+export interface Session {
+  id: string; tenantCode?: string; currentStep: number; status: string; createdByName?: string
+  createdAt: string; updatedAt: string
+  steps: Record<StepKey, StepState>
+  business: BusinessProfile; team: TeamStep; clients: ClientRow[]; rates: RatesStep
+  schedules: ScheduleRow[]; couriers: CouriersStep; partners: PartnerRow[]; training: TrainingMember[]
 }
 
-// Environments
-export const getEnvironments = () =>
-  get('/setup/environments')
-
-export function setApiBaseUrl(url: string) {
-  BASE_URL = url
+export interface SessionSummary {
+  id: string; currentStep: number; companyName?: string; createdByName?: string; status: string
+  waitingOnTenant: number; stepsDone: number; createdAt: string; updatedAt: string
 }
 
-export function getApiBaseUrl() {
-  return BASE_URL
+export interface Me {
+  success: boolean; tenantId: string; tenantCode?: string; clientTypeId?: number; isDfAdmin: boolean; isUsTenant: boolean; name?: string
+  contactProfile?: { firstName?: string; lastName?: string; email?: string } | null
+  clientProfile?: { name?: string } | null
 }
+
+export interface PushSummary { created: number; needsData: number; failed: number; signInExpired: boolean }
+export interface LookupItem { id: number; name: string }
+
+// ── Calls ────────────────────────────────────────────────────────────────────
+
+export const validateLogin = () => request<Me>('/API/Login/Validate', { method: 'POST' })
+
+export const createSession = () => request<{ session: Session }>('/setup/session', { method: 'POST' })
+export const listSessions = (status = 'active') => request<{ sessions: SessionSummary[] }>(`/setup/sessions?status=${encodeURIComponent(status)}`)
+export const getSession = (id: string) => request<{ session: Session }>(`/setup/session/${id}`)
+export const deleteSession = (id: string) => request<{ success: boolean }>(`/setup/session/${id}`, { method: 'DELETE' })
+export const setCurrentStep = (id: string, step: number) => request(`/setup/session/${id}/current-step`, { method: 'POST', body: json({ step }) })
+
+export const saveStepData = (id: string, step: StepKey, data: unknown) =>
+  request<{ session: Session }>(`/setup/session/${id}/steps/${step}/data`, { method: 'PUT', body: json(data) })
+export const pushStep = (id: string, step: StepKey) =>
+  request<{ session: Session; summary: PushSummary }>(`/setup/session/${id}/steps/${step}/push`, { method: 'POST' })
+/** An "unknown" row (sent, no answer) is only sent again once someone has checked it isn't there. */
+export const retryRow = (id: string, step: StepKey, kind: string, key: string) =>
+  request<{ session: Session }>(`/setup/session/${id}/steps/${step}/rows/retry`, { method: 'POST', body: json({ kind, key }) })
+
+export const addRequest = (id: string, step: StepKey, item: string, dueBy?: string) =>
+  request<{ session: Session }>(`/setup/session/${id}/steps/${step}/requests`, { method: 'POST', body: json({ item, dueBy: dueBy || null }) })
+export const fulfilRequest = (id: string, step: StepKey, requestId: string) =>
+  request<{ session: Session }>(`/setup/session/${id}/steps/${step}/requests/${requestId}/fulfil`, { method: 'POST' })
+export const tickChecklist = (id: string, step: StepKey, itemId: string, done: boolean) =>
+  request<{ session: Session }>(`/setup/session/${id}/steps/${step}/checklist/${itemId}`, { method: 'POST', body: json({ done }) })
+export const completeStep = (id: string, step: StepKey) =>
+  request<{ session: Session }>(`/setup/session/${id}/steps/${step}/complete`, { method: 'POST' })
+export const reopenStep = (id: string, step: StepKey) =>
+  request<{ session: Session }>(`/setup/session/${id}/steps/${step}/reopen`, { method: 'POST' })
+
+export const getTenantSummary = (id: string) => request<{ settings: Record<string, string>; counts: Record<string, number> }>(`/setup/session/${id}/tenant-summary`)
+export const getTenantLogo = () => request<{ success: boolean; logoUrl: string | null }>('/setup/logo')
+
+export const lookup = <T = LookupItem[]>(name: string) => request<T>(`/setup/lookups/${name}`)
+
+export const validate = (what: 'contact-email' | 'client-name' | 'client-code' | 'courier-email' | 'courier-code', value: string) => {
+  const param = what.endsWith('email') ? 'email' : what.endsWith('name') ? 'name' : 'code'
+  return request<{ available: boolean | null; unchecked?: boolean }>(`/setup/validate/${what}?${param}=${encodeURIComponent(value)}`)
+}
+
+export const getTraining = (id: string) => request<{ progress: TrainingMember[] }>(`/setup/session/${id}/training`)
+export const saveTraining = (id: string, members: TrainingMember[]) => request(`/setup/session/${id}/training`, { method: 'PUT', body: json(members) })
+export const completeChallenge = (id: string, userEmail: string, challengeId: string, xpEarned: number) =>
+  request(`/setup/session/${id}/training/complete-challenge`, { method: 'POST', body: json({ userEmail, challengeId, xpEarned }) })
+export const getLeaderboard = (id: string) => request<{ leaderboard: unknown[] }>(`/setup/session/${id}/training/leaderboard`)

@@ -16,12 +16,12 @@ namespace SetupDashboard.Controllers;
 ///   ContactID claim → TucClientContact (by UcctId) → TucClient (by UcctClientId)
 /// </summary>
 [Route("API/[controller]")]
+[Microsoft.AspNetCore.Authorization.Authorize]
 [RequireFeature(FeatureKeys.SetupDashboard)]
 [ApiController]
 public class LoginController(
     IConnectionStringManager connectionStringManager,
-    IDbContextFactory<DynamicDespatchDbContext> dbFactory,
-    IConfiguration configuration) : ControllerBase
+    IDbContextFactory<DynamicDespatchDbContext> dbFactory) : ControllerBase
 {
     [HttpPost("Validate")]
     public async Task<IActionResult> Validate()
@@ -63,8 +63,8 @@ public class LoginController(
 
             // Look up user's contact and client profile using the Booking pattern:
             // ContactID claim → TucClientContact (by UcctId) → TucClient (by UcctClientId)
-            object clientProfile = null;
-            object contactProfile = null;
+            object? clientProfile = null;
+            object? contactProfile = null;
             try
             {
                 if (int.TryParse(contactId, out var contactIdInt))
@@ -153,38 +153,7 @@ public class LoginController(
                 Log.Warning(ex, "Could not load profile for ContactId {ContactId} — continuing without it", contactId);
             }
 
-            // Resolve environment key:
-            // 1. If Domain env var is "local.deliverdifferent.com" → use "local"
-            // 2. Otherwise match TenantCode claim against configured environments
-            var domain = Environment.GetEnvironmentVariable("Domain") ?? "";
-            string? envKey = null;
-
-            Log.Information("Environment resolution — Domain: '{Domain}', TenantCode: '{TenantCode}'", domain, tenantCode);
-
-            if (domain.Contains("local", StringComparison.OrdinalIgnoreCase))
-            {
-                envKey = "local";
-                Log.Information("Resolved envKey='{EnvKey}' from local Domain", envKey);
-            }
-            else if (!string.IsNullOrEmpty(tenantCode))
-            {
-                var envSection = configuration.GetSection("Environments");
-                // Check for exact "{tenantCode}-staging" or "{tenantCode}-prod" match
-                string? stagingMatch = null;
-                string? firstMatch = null;
-                foreach (var env in envSection.GetChildren())
-                {
-                    if (env.Key.Equals("local", StringComparison.OrdinalIgnoreCase)) continue;
-                    if (env.Key.StartsWith(tenantCode, StringComparison.OrdinalIgnoreCase))
-                    {
-                        firstMatch ??= env.Key;
-                        if (env.Key.Contains("staging", StringComparison.OrdinalIgnoreCase))
-                            stagingMatch = env.Key;
-                    }
-                }
-                envKey = stagingMatch ?? firstMatch;
-            }
-
+            var caller = SetupDashboard.Services.CallerContext.From(HttpContext.User);
             return Ok(new
             {
                 success = true,
@@ -192,7 +161,10 @@ public class LoginController(
                 staffId,
                 contactId,
                 tenantCode,
-                envKey = envKey ?? "local",
+                clientTypeId = caller?.ClientTypeId,
+                isDfAdmin = caller?.IsDfAdmin ?? false,
+                isUsTenant = caller?.IsUsTenant ?? false,
+                name = caller?.Name,
                 clientProfile,
                 contactProfile,
                 message = "Login validated successfully"

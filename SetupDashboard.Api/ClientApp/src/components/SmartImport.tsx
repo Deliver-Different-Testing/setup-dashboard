@@ -20,9 +20,12 @@ interface DetectionResult {
   dfFields: string[]
 }
 
+interface ImportOutcome { success: boolean; total?: number; imported?: number; failed?: number; errors?: string[]; mappedData?: Record<string, unknown>[] }
+
 interface Props {
-  entityType: 'business' | 'team' | 'clients' | 'contacts' | 'drivers' | 'zones' | 'rates' | 'automations' | 'integrations' | 'settings' | 'agents'
-  onComplete: (data: Record<string, any>[]) => void
+  entityType: 'team' | 'clients' | 'contacts' | 'drivers' | 'zones' | 'rates'
+  /** Rows were loaded into the step on the server; reload the session to see them. */
+  onComplete: (data: Record<string, unknown>[]) => void
   onClose: () => void
 }
 
@@ -34,16 +37,15 @@ function ConfidenceBadge({ value }: { value: number }) {
 }
 
 export function SmartImport({ entityType, onComplete, onClose }: Props) {
-  const sessionId = useStore(s => s.sessionId)
+  const sessionId = useStore(s => s.session?.id)
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [detection, setDetection] = useState<DetectionResult | null>(null)
   const [mappings, setMappings] = useState<FieldMapping[]>([])
-  const [preview, setPreview] = useState<Record<string, any>[] | null>(null)
+  const [preview, setPreview] = useState<Record<string, unknown>[] | null>(null)
   const [validation, setValidation] = useState<{ errors: string[]; warnings: string[] } | null>(null)
-  const [importResult, setImportResult] = useState<any>(null)
-  const [googleUrl, setGoogleUrl] = useState('')
+  const [importResult, setImportResult] = useState<ImportOutcome | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -62,35 +64,12 @@ export function SmartImport({ entityType, onComplete, onClose }: Props) {
       setDetection(data)
       setMappings(data.suggestedMappings)
       setStep(1)
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
     } finally {
       setLoading(false)
     }
-  }, [sessionId])
-
-  const handleGoogleSheet = async () => {
-    if (!sessionId || !googleUrl) return
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch(`${getApiBaseUrl()}/setup/import/google-sheet`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ sessionId, sheetUrl: googleUrl, entityType }),
-      })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.message || 'Failed to fetch sheet')
-      setDetection(data)
-      setMappings(data.suggestedMappings)
-      setStep(1)
-    } catch (e: any) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [sessionId, entityType])
 
   const handlePreview = async () => {
     if (!sessionId) return
@@ -112,8 +91,8 @@ export function SmartImport({ entityType, onComplete, onClose }: Props) {
       setPreview(data.preview)
       setValidation(data.validation)
       setStep(3)
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -138,8 +117,8 @@ export function SmartImport({ entityType, onComplete, onClose }: Props) {
           onComplete(allRows)
         }
       }
-    } catch (e: any) {
-      setError(e.message)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -197,29 +176,6 @@ export function SmartImport({ entityType, onComplete, onClose }: Props) {
                 <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-xs text-gray-400 font-medium">OR</span>
-                <div className="flex-1 h-px bg-gray-200" />
-              </div>
-
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Paste Google Sheet URL..."
-                  value={googleUrl}
-                  onChange={e => setGoogleUrl(e.target.value)}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-cyan-400"
-                />
-                <button
-                  onClick={handleGoogleSheet}
-                  disabled={!googleUrl || loading}
-                  className="px-5 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-40"
-                  style={{ backgroundColor: '#3bc7f4' }}
-                >
-                  📊 Import Sheet
-                </button>
-              </div>
             </div>
           )}
 

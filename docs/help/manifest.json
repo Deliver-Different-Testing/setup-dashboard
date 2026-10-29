@@ -1,0 +1,958 @@
+{
+  "generatedAt": "2026-10-25T10:54:35.772Z",
+  "source": "Deliver-Different-Testing/setup-dashboard docs/help",
+  "layer": "shipped",
+  "isManaged": true,
+  "articleCount": 38,
+  "faqCount": 54,
+  "articles": [
+    {
+      "sourceId": "setup-dashboard/app-configuration-step",
+      "file": "app-configuration-step.md",
+      "title": "App configuration: catalogues, dispatch settings, sign-up and consumer booking",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "app configuration",
+        "admin setup",
+        "catalogues",
+        "note types",
+        "document types",
+        "quizzes",
+        "dispatch settings",
+        "sign-up page",
+        "consumer booking",
+        "baggage delivery"
+      ],
+      "layer": "shipped",
+      "words": 95,
+      "leadChars": 396,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/automations-step",
+      "file": "automations-step.md",
+      "title": "Automations: built in Settings, ticked off here",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "automations",
+        "notifications",
+        "auto assign",
+        "auto dispatch rules",
+        "sms",
+        "email notifications",
+        "job status",
+        "templates",
+        "settings automations"
+      ],
+      "layer": "shipped",
+      "words": 141,
+      "leadChars": 393,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/booking-contacts",
+      "file": "booking-contacts.md",
+      "title": "Other booking contacts and their sign-ins",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "contacts",
+        "booking contacts",
+        "users",
+        "customer users",
+        "sign-in",
+        "invite",
+        "primary contact",
+        "import contacts"
+      ],
+      "layer": "shipped",
+      "words": 162,
+      "leadChars": 290,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/brand-new-tenant-order",
+      "file": "brand-new-tenant-order.md",
+      "title": "Setting up a brand-new tenant: the order that avoids dead ends",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "new tenant",
+        "empty tenant",
+        "order",
+        "depots",
+        "tenant client file",
+        "speeds",
+        "first customer",
+        "checklist",
+        "DFRNT does this",
+        "dead end"
+      ],
+      "layer": "shipped",
+      "words": 284,
+      "leadChars": 348,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/business-profile-step",
+      "file": "business-profile-step.md",
+      "title": "Business profile: what to fill in and what DFRNT checks",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "business profile",
+        "company",
+        "trading name",
+        "legal name",
+        "primary contact",
+        "depots",
+        "logo",
+        "tenant client file",
+        "system settings"
+      ],
+      "layer": "shipped",
+      "words": 237,
+      "leadChars": 344,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/couriers-and-fleets-step",
+      "file": "couriers-and-fleets-step.md",
+      "title": "Couriers and fleets, and the initial app password",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "couriers",
+        "drivers",
+        "driver list",
+        "fleets",
+        "vehicle fleets",
+        "driver app",
+        "password",
+        "initial password",
+        "courier code",
+        "courier type",
+        "master",
+        "independent",
+        "gig"
+      ],
+      "layer": "shipped",
+      "words": 220,
+      "leadChars": 371,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/customers-address-labels-by-country",
+      "file": "customers-address-labels-by-country.md",
+      "title": "City and State, or Suburb and City: address fields by country",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "address",
+        "suburb",
+        "city",
+        "state",
+        "zip code",
+        "post code",
+        "US",
+        "NZ",
+        "australia",
+        "address fields",
+        "country"
+      ],
+      "layer": "shipped",
+      "words": 162,
+      "leadChars": 372,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/customers-step",
+      "file": "customers-step.md",
+      "title": "Customers: what each customer needs before it can be created",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "customers",
+        "clients",
+        "accounts",
+        "client code",
+        "address",
+        "invoice schedule",
+        "payment term",
+        "primary contact",
+        "booking sign-in",
+        "needs"
+      ],
+      "layer": "shipped",
+      "words": 319,
+      "leadChars": 291,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/distance-rates",
+      "file": "distance-rates.md",
+      "title": "Distance rates",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "distance rates",
+        "per km",
+        "per mile",
+        "base charge",
+        "distance included",
+        "depots",
+        "speed",
+        "vehicle size",
+        "customer codes"
+      ],
+      "layer": "shipped",
+      "words": 124,
+      "leadChars": 380,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/exporting-from-your-old-system",
+      "file": "exporting-from-your-old-system.md",
+      "title": "Getting your data out of your old system",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "export",
+        "old system",
+        "migration",
+        "competitor tms",
+        "key software",
+        "datatrac",
+        "cxt",
+        "ontime",
+        "elite extra",
+        "customer export",
+        "driver export",
+        "rate export",
+        "data preparation"
+      ],
+      "layer": "shipped",
+      "words": 296,
+      "leadChars": 314,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/fuel-surcharges",
+      "file": "fuel-surcharges.md",
+      "title": "Fuel surcharges",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "fuel surcharge",
+        "fuel levy",
+        "fuel percent",
+        "surcharge",
+        "start date",
+        "per customer",
+        "general"
+      ],
+      "layer": "shipped",
+      "words": 127,
+      "leadChars": 373,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/integrations-step",
+      "file": "integrations-step.md",
+      "title": "Integrations: connected in Integration Manager, ticked off here",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "integrations",
+        "integration manager",
+        "carriers",
+        "shopify",
+        "partner links",
+        "api",
+        "webhooks",
+        "accounting",
+        "xero",
+        "quickbooks"
+      ],
+      "layer": "shipped",
+      "words": 98,
+      "leadChars": 364,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/invites-and-emails",
+      "file": "invites-and-emails.md",
+      "title": "When the setup emails someone, and how to stop it",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "invite",
+        "email",
+        "sign-in invite",
+        "password reset",
+        "booking sign-in",
+        "notification",
+        "held",
+        "tick",
+        "invite every primary contact"
+      ],
+      "layer": "shipped",
+      "words": 247,
+      "leadChars": 235,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/invoice-schedule-and-payment-term",
+      "file": "invoice-schedule-and-payment-term.md",
+      "title": "Choosing a customer's invoice schedule and payment term",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "invoice schedule",
+        "payment term",
+        "billing",
+        "invoicing",
+        "monthly",
+        "weekly",
+        "days",
+        "tenant default",
+        "apply to all"
+      ],
+      "layer": "shipped",
+      "words": 149,
+      "leadChars": 362,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/partners-step",
+      "file": "partners-step.md",
+      "title": "Agents and network partners",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "partners",
+        "agents",
+        "network partners",
+        "NP",
+        "subcontractors",
+        "partner portal",
+        "contact email",
+        "driver pay percent",
+        "invite"
+      ],
+      "layer": "shipped",
+      "words": 179,
+      "leadChars": 338,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/prepare-contacts-file",
+      "file": "prepare-contacts-file.md",
+      "title": "Preparing a booking contacts file",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "contacts file",
+        "booking contacts",
+        "customer users",
+        "csv template",
+        "client code",
+        "import contacts",
+        "data preparation"
+      ],
+      "layer": "shipped",
+      "words": 182,
+      "leadChars": 399,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/prepare-customer-file",
+      "file": "prepare-customer-file.md",
+      "title": "Preparing a customer list file",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "customer file",
+        "client list",
+        "account list",
+        "csv template",
+        "columns",
+        "client code",
+        "address",
+        "primary contact",
+        "import customers",
+        "data preparation"
+      ],
+      "layer": "shipped",
+      "words": 396,
+      "leadChars": 336,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/prepare-driver-file",
+      "file": "prepare-driver-file.md",
+      "title": "Preparing a driver (courier) list file",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "driver file",
+        "courier list",
+        "driver roster",
+        "csv template",
+        "courier code",
+        "vehicle type",
+        "fleet",
+        "import drivers",
+        "data preparation",
+        "password"
+      ],
+      "layer": "shipped",
+      "words": 226,
+      "leadChars": 306,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/prepare-rates-file",
+      "file": "prepare-rates-file.md",
+      "title": "Preparing a zone-to-zone rates file",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "rates file",
+        "rate table",
+        "zone rates",
+        "csv template",
+        "from zone",
+        "to zone",
+        "charge",
+        "driver rate",
+        "vehicle size",
+        "import rates",
+        "data preparation"
+      ],
+      "layer": "shipped",
+      "words": 267,
+      "leadChars": 381,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/prepare-team-file",
+      "file": "prepare-team-file.md",
+      "title": "Preparing a team (staff) list file",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "team file",
+        "staff list",
+        "user list",
+        "csv template",
+        "role",
+        "email",
+        "import team",
+        "data preparation"
+      ],
+      "layer": "shipped",
+      "words": 183,
+      "leadChars": 253,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/prepare-zones-file",
+      "file": "prepare-zones-file.md",
+      "title": "Preparing a zones and zips file",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "zones file",
+        "zip file",
+        "post code file",
+        "zone group",
+        "zone name",
+        "csv template",
+        "import zips",
+        "suburbs",
+        "data preparation"
+      ],
+      "layer": "shipped",
+      "words": 195,
+      "leadChars": 316,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/rates-and-zones-step",
+      "file": "rates-and-zones-step.md",
+      "title": "Rates and zones: the order things are created in",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "rates",
+        "pricing",
+        "zones",
+        "vehicle sizes",
+        "fuel surcharge",
+        "zone rate",
+        "distance rate",
+        "speeds",
+        "services",
+        "rate card",
+        "order"
+      ],
+      "layer": "shipped",
+      "words": 246,
+      "leadChars": 367,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/rates-apply-to-every-customer",
+      "file": "rates-apply-to-every-customer.md",
+      "title": "Why a rate with no customer codes applies to every customer",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "applies to every customer",
+        "all customers",
+        "default rate",
+        "customer codes",
+        "client specific rate",
+        "restrict rate"
+      ],
+      "layer": "shipped",
+      "words": 164,
+      "leadChars": 382,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/resume-and-sessions",
+      "file": "resume-and-sessions.md",
+      "title": "Resuming a setup, several setups, and deleting one",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "resume",
+        "session",
+        "continue setup",
+        "start new setup",
+        "delete setup",
+        "progress saved",
+        "120 days",
+        "multiple sessions"
+      ],
+      "layer": "shipped",
+      "words": 183,
+      "leadChars": 330,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/save-vs-send",
+      "file": "save-vs-send.md",
+      "title": "Save, Save & send, and what \"sent\" means",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "save",
+        "send",
+        "save and send",
+        "created",
+        "settings",
+        "routed operations",
+        "draft",
+        "resend",
+        "sign-in expired",
+        "role can't do this"
+      ],
+      "layer": "shipped",
+      "words": 246,
+      "leadChars": 366,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/schedules-step",
+      "file": "schedules-step.md",
+      "title": "Schedules: depots, origins and day windows",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "schedules",
+        "routed operations",
+        "depot",
+        "destination depot",
+        "pickup depot",
+        "origin",
+        "client address",
+        "direct",
+        "day windows",
+        "cutoff",
+        "default schedule"
+      ],
+      "layer": "shipped",
+      "words": 256,
+      "leadChars": 394,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/setup-dashboard-overview",
+      "file": "setup-dashboard-overview.md",
+      "title": "What the Setup Dashboard is and how a setup runs",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "setup dashboard",
+        "onboarding",
+        "getting started",
+        "wizard",
+        "steps",
+        "new tenant",
+        "go live"
+      ],
+      "layer": "shipped",
+      "words": 301,
+      "leadChars": 364,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/setup-steps-and-statuses",
+      "file": "setup-steps-and-statuses.md",
+      "title": "Step statuses, requests to the tenant and what \"Needs:\" means",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "status",
+        "not started",
+        "waiting on tenant",
+        "in progress",
+        "done",
+        "needs",
+        "requests",
+        "progress",
+        "checklist",
+        "row results"
+      ],
+      "layer": "shipped",
+      "words": 310,
+      "leadChars": 394,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/smart-import-files-and-systems",
+      "file": "smart-import-files-and-systems.md",
+      "title": "Which files Smart Import accepts and which old systems it recognises",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "smart import",
+        "csv",
+        "excel",
+        "xlsx",
+        "xls",
+        "key software",
+        "datatrac",
+        "elite extra",
+        "ontime",
+        "getswift",
+        "track-pod",
+        "cxt",
+        "migration",
+        "export",
+        "old system",
+        "competitor tms"
+      ],
+      "layer": "shipped",
+      "words": 230,
+      "leadChars": 356,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/smart-import-how-it-works",
+      "file": "smart-import-how-it-works.md",
+      "title": "Smart Import: upload a file, map its columns, preview, load",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "smart import",
+        "import",
+        "upload",
+        "csv",
+        "excel",
+        "xlsx",
+        "column mapping",
+        "confidence",
+        "preview",
+        "warnings",
+        "load rows",
+        "bulk"
+      ],
+      "layer": "shipped",
+      "words": 290,
+      "leadChars": 364,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/team-roles-and-tiles",
+      "file": "team-roles-and-tiles.md",
+      "title": "Team: roles, Hub tiles and people",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "team",
+        "roles",
+        "users",
+        "staff",
+        "hub tiles",
+        "access control",
+        "tile access",
+        "invite",
+        "role actions",
+        "tenant admin",
+        "operations"
+      ],
+      "layer": "shipped",
+      "words": 304,
+      "leadChars": 311,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/tenant-system-settings-check",
+      "file": "tenant-system-settings-check.md",
+      "title": "Why invites wait for the tenant's system settings",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "system settings",
+        "email wording",
+        "invite blocked",
+        "waiting for DFRNT",
+        "sender address",
+        "reply address",
+        "another tenant",
+        "copied database"
+      ],
+      "layer": "shipped",
+      "words": 167,
+      "leadChars": 385,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/training-step",
+      "file": "training-step.md",
+      "title": "Training challenges, XP and levels",
+      "category": "Getting set up",
+      "audience": [
+        "admin",
+        "dispatcher",
+        "driver"
+      ],
+      "tags": [
+        "training",
+        "challenges",
+        "xp",
+        "levels",
+        "leaderboard",
+        "rookie",
+        "operator",
+        "pro",
+        "expert",
+        "master",
+        "dispatcher",
+        "admin",
+        "accounts",
+        "driver"
+      ],
+      "layer": "shipped",
+      "words": 175,
+      "leadChars": 354,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/troubleshooting-messages",
+      "file": "troubleshooting-messages.md",
+      "title": "What the messages on the Setup Dashboard mean",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "error",
+        "message",
+        "needs",
+        "sign-in expired",
+        "role can't do this",
+        "not switched on",
+        "already taken",
+        "duplicate",
+        "failed",
+        "waiting for DFRNT",
+        "troubleshooting"
+      ],
+      "layer": "shipped",
+      "words": 437,
+      "leadChars": 384,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/vehicle-sizes",
+      "file": "vehicle-sizes.md",
+      "title": "Vehicle sizes",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "vehicle sizes",
+        "vehicle types",
+        "car",
+        "van",
+        "truck",
+        "capacity",
+        "pallets",
+        "weight",
+        "cubic",
+        "fuel percent"
+      ],
+      "layer": "shipped",
+      "words": 127,
+      "leadChars": 307,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/what-the-dashboard-never-does",
+      "file": "what-the-dashboard-never-does.md",
+      "title": "What the Setup Dashboard never does for you",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "defaults",
+        "placeholder",
+        "guardrails",
+        "safety",
+        "no defaults",
+        "never emails",
+        "never stores password",
+        "import doesn't send",
+        "what it does not do"
+      ],
+      "layer": "shipped",
+      "words": 253,
+      "leadChars": 362,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/zone-groups-zones-zips",
+      "file": "zone-groups-zones-zips.md",
+      "title": "Zone groups, zones and zips or post codes",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "zones",
+        "zone groups",
+        "zips",
+        "zip codes",
+        "post codes",
+        "postcodes",
+        "suburbs",
+        "areas",
+        "import zips",
+        "zone names"
+      ],
+      "layer": "shipped",
+      "words": 213,
+      "leadChars": 399,
+      "leadOver400": false
+    },
+    {
+      "sourceId": "setup-dashboard/zone-to-zone-rates",
+      "file": "zone-to-zone-rates.md",
+      "title": "Zone-to-zone rates",
+      "category": "Getting set up",
+      "audience": [
+        "admin"
+      ],
+      "tags": [
+        "zone rates",
+        "zone to zone",
+        "from zone",
+        "to zone",
+        "charge",
+        "driver rate",
+        "speed",
+        "service",
+        "vehicle size",
+        "customer codes",
+        "import rates"
+      ],
+      "layer": "shipped",
+      "words": 203,
+      "leadChars": 283,
+      "leadOver400": false
+    }
+  ]
+}

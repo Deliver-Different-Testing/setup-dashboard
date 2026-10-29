@@ -129,6 +129,9 @@ public partial class TucClient
 
     public bool UcclActive { get; set; }
 
+    /// <summary>1 Internal, 2 Customer, 3 Network Partner, 4 Tenant, 5 DF Admin, 6 Connected Tenant.</summary>
+    public int? ClientTypeId { get; set; }
+
     public DateTime? UcclInActiveDate { get; set; }
 
     public string UcclInActiveSetBy { get; set; }
