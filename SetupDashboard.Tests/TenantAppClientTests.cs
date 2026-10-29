@@ -7,10 +7,12 @@ namespace SetupDashboard.Tests;
 
 public class TenantAppClientTests
 {
-    private static IConfiguration Config(string? template = "https://{app}.{tenant}.staging.deliverdifferent.com")
+    private static IConfiguration Config()
         => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["TenantApps:UrlTemplate"] = template,
+            ["Environments:cheetah-staging:SettingsUrl"] = "https://dfrntdriveconfig.cheetah.staging.deliverdifferent.com",
+            ["Environments:cheetah-staging:RoutedOpsUrl"] = "https://routedoperations.cheetah.staging.deliverdifferent.com",
+            ["Environments:cheetah-staging:IntegrationManagerUrl"] = "https://integrationmanager.cheetah.staging.deliverdifferent.com",
         }).Build();
 
     private static (TenantAppClient Client, RecordingHandler Handler) Build(Func<HttpRequestMessage, HttpResponseMessage> respond,
@@ -161,14 +163,4 @@ public class TenantAppClientTests
         => Assert.Equal(".AspNet.SharedCookie=chunks-2; .AspNet.SharedCookieC1=a; .AspNet.SharedCookieC2=b",
             TenantAppClient.ForwardableCookie("_ga=1; .AspNet.SharedCookie=chunks-2; .AspNet.SharedCookieC1=a; hub_session=x; .AspNet.SharedCookieC2=b"));
 
-    [Fact]
-    public void Url_falls_back_to_hub_style_tenant_url()
-    {
-        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["TenantURL"] = "https://app_name.cheetah.deliverdifferent.com/",
-        }).Build();
-        Assert.Equal("https://routedoperations.cheetah.deliverdifferent.com",
-            new TenantAppUrls(config).BaseUrl(TenantApp.RoutedOps, Make.Caller()));
-    }
 }

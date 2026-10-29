@@ -80,7 +80,7 @@ public sealed class TenantAppClient(
 
         var baseUrl = urls.BaseUrl(app, caller);
         if (baseUrl == null)
-            return ApiResult.Fail(app, 0, $"No address configured for {Label(app)} on this tenant. Set TenantApps:UrlTemplate or TenantURL.");
+            return ApiResult.Fail(app, 0, $"No address configured for {Label(app)} on this tenant. Set Environments__<key>__{app}Url.");
 
         var client = httpClientFactory.CreateClient(HttpClientName);
 

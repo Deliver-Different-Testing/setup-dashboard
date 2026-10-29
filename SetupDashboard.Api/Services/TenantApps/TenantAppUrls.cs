@@ -1,3 +1,5 @@
+using SetupDashboard.Models;
+
 namespace SetupDashboard.Services.TenantApps;
 
 public interface ITenantAppUrls
@@ -10,79 +12,85 @@ public interface ITenantAppUrls
 }
 
 /// <summary>
-/// Resolves <c>https://dfrntdriveconfig.&lt;tenant&gt;[.staging].deliverdifferent.com</c> and friends.
+/// App addresses from the deployment's <c>Environments__&lt;key&gt;__*</c> settings, e.g.
+/// <c>Environments__local__SettingsUrl</c> and <c>Environments__local__HubLoginUrl</c>.
 /// </summary>
 /// <remarks>
-/// Precedence, first that applies wins:
-/// <list type="number">
-/// <item><c>TenantApps:UrlTemplate</c> (env <c>TenantApps__UrlTemplate</c>) with <c>{app}</c> and <c>{tenant}</c> (TenantCode claim) - an override, not needed normally.</item>
-/// <item>The address the dashboard was opened on, with its first label swapped for the app:
-///   <c>setup-dashboard.cheetah.staging.deliverdifferent.com</c> -> <c>dfrntdriveconfig.cheetah.staging.deliverdifferent.com</c>.
-///   Same tenant and environment as the person is already on, with nothing to configure.</item>
-/// <item>env <c>TenantURL</c>, Hub's convention, with <c>app_name</c> as the placeholder (Hub HomeController builds tile URLs this way).</item>
-/// <item><c>https://{app}.{Domain}</c> from the cookie-domain env var, which is per tenant (e.g. <c>.cheetah.deliverdifferent.com</c>).</item>
-/// </list>
+/// Each pod is one tenant in one environment, so a deployment normally sets exactly one
+/// <c>Environments</c> entry and that one is used. With several, the entry is matched as the
+/// pre-rewrite LoginController did: <c>local</c> when the <c>Domain</c> env var is local, otherwise
+/// <c>&lt;TenantCode&gt;-staging</c> or <c>&lt;TenantCode&gt;-prod</c> by whether <c>Domain</c> is a staging one.
+/// No address is ever built from the request, so a forged Host header can't redirect calls that
+/// carry the person's Hub cookie.
 /// </remarks>
-public sealed class TenantAppUrls(IConfiguration configuration, IHttpContextAccessor? httpContextAccessor = null) : ITenantAppUrls
+public sealed class TenantAppUrls(IConfiguration configuration) : ITenantAppUrls
 {
-    /// <summary>
-    /// The only domain a request-derived address may be under. The Host header comes from the browser
-    /// and the call carries the person's Hub cookie, so a forged host must never become a target.
-    /// </summary>
-    private const string DefaultRootDomain = "deliverdifferent.com";
-
     public string? BaseUrl(TenantApp app, CallerContext caller)
-        => BaseUrlForHost(configuration[$"TenantApps:Hosts:{app}"] ?? DefaultHost(app), caller);
+    {
+        var env = Resolve(caller);
+        if (env == null)
+        {
+            return null;
+        }
+
+        return Clean(app switch
+        {
+            TenantApp.Settings => env.SettingsUrl,
+            TenantApp.RoutedOps => env.RoutedOpsUrl,
+            TenantApp.IntegrationManager => env.IntegrationManagerUrl,
+            _ => throw new ArgumentOutOfRangeException(nameof(app))
+        });
+    }
 
     public string? BaseUrlForHost(string host, CallerContext caller)
     {
-        var template = configuration["TenantApps:UrlTemplate"];
-        if (!string.IsNullOrWhiteSpace(template))
+        var env = Resolve(caller);
+        if (env == null)
         {
-            if (template.Contains("{tenant}") && string.IsNullOrWhiteSpace(caller.TenantCode)) return null;
-            return Trim(template.Replace("{app}", host).Replace("{tenant}", caller.TenantCode ?? ""));
+            return null;
         }
 
-        if (FromRequest(host) is { } fromRequest) return fromRequest;
-
-        var tenantUrl = configuration["TenantURL"] ?? Environment.GetEnvironmentVariable("TenantURL");
-        if (!string.IsNullOrWhiteSpace(tenantUrl) && tenantUrl.Contains("app_name"))
-            return Trim(tenantUrl.Replace("app_name", host));
-
-        var domain = (configuration["Domain"] ?? Environment.GetEnvironmentVariable("Domain"))?.Trim().TrimStart('.');
-        if (string.IsNullOrWhiteSpace(domain) || domain == "localhost") return null;
-        var scheme = domain.Contains("local.") ? "http" : "https";
-        return $"{scheme}://{host}.{domain}";
+        return Clean(host.ToLowerInvariant() switch
+        {
+            "adminmanager" => env.BaseUrl,
+            "hub" => env.HubUrl,
+            "despatch" or "despatchweb" => env.DispatchUrl,
+            "api" => env.ApiUrl,
+            "dfrntdriveconfig" => env.SettingsUrl,
+            "routedoperations" => env.RoutedOpsUrl,
+            "integrationmanager" => env.IntegrationManagerUrl,
+            _ => null
+        });
     }
 
-    /// <summary>
-    /// Swaps the first label of this request's host for <paramref name="app"/>, or null when the host
-    /// isn't <c>&lt;label&gt;.&lt;something&gt;.deliverdifferent.com</c> (localhost, an IP, a forged host).
-    /// </summary>
-    private string? FromRequest(string app)
+    private DfrntEnvironment? Resolve(CallerContext caller)
     {
-        var host = httpContextAccessor?.HttpContext?.Request.Host.Host?.Trim().TrimEnd('.').ToLowerInvariant();
-        if (string.IsNullOrEmpty(host)) return null;
+        var entries = configuration.GetSection("Environments").GetChildren().ToList();
+        if (entries.Count == 0)
+        {
+            return null;
+        }
 
-        var root = (configuration["TenantApps:RootDomain"] ?? DefaultRootDomain).Trim().Trim('.').ToLowerInvariant();
-        if (!host.EndsWith("." + root, StringComparison.Ordinal)) return null;
-
-        var labels = host.Split('.');
-        // The app label, then at least the tenant label, then the root domain.
-        if (labels.Length < root.Split('.').Length + 2) return null;
-
-        var baseDomain = string.Join('.', labels.Skip(1));
-        var scheme = baseDomain.StartsWith("local.", StringComparison.Ordinal) || baseDomain.Contains(".local.") ? "http" : "https";
-        return $"{scheme}://{app.ToLowerInvariant()}.{baseDomain}";
+        var entry = entries.Count == 1 ? entries[0] : Match(entries, caller.TenantCode);
+        return entry?.Get<DfrntEnvironment>();
     }
 
-    private static string DefaultHost(TenantApp app) => app switch
+    private IConfigurationSection? Match(List<IConfigurationSection> entries, string? tenantCode)
     {
-        TenantApp.Settings => "dfrntdriveconfig",
-        TenantApp.RoutedOps => "routedoperations",
-        TenantApp.IntegrationManager => "integrationmanager",
-        _ => throw new ArgumentOutOfRangeException(nameof(app)),
-    };
+        var domain = configuration["Domain"] ?? Environment.GetEnvironmentVariable("Domain") ?? string.Empty;
+        if (domain.Contains("local", StringComparison.OrdinalIgnoreCase))
+        {
+            return entries.FirstOrDefault(e => e.Key.Equals("local", StringComparison.OrdinalIgnoreCase));
+        }
 
-    private static string Trim(string url) => url.TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(tenantCode))
+        {
+            return null;
+        }
+
+        var suffix = domain.Contains("staging", StringComparison.OrdinalIgnoreCase) ? "-staging" : "-prod";
+        return entries.FirstOrDefault(e => e.Key.Equals(tenantCode + suffix, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string? Clean(string? url) => string.IsNullOrWhiteSpace(url) ? null : url.Trim().TrimEnd('/');
 }
