@@ -581,6 +581,28 @@ public partial class TucClient
 
     public bool ShowNwagent { get; set; }
 
+    public string DefaultJobListFilter { get; set; }
+
+    public int ClientTypeId { get; set; }
+
+    public int? NpAgentId { get; set; }
+
+    public string AccountingPaymentTermQboId { get; set; }
+
+    public int? AccountingPaymentTermXeroDay { get; set; }
+
+    public string AccountingPaymentTermXeroType { get; set; }
+
+    public bool ArReminderSuppressed { get; set; }
+
+    public bool ContentsUnknownAtPickup { get; set; }
+
+    public bool ContentsUnknownForBulkJobs { get; set; }
+
+    public bool RecalcRecurringFuel { get; set; }
+
+    public virtual TucAgent NpAgent { get; set; }
+
     public virtual ICollection<TblClientContact> TblClientContacts { get; set; } = new List<TblClientContact>();
 
     public virtual ICollection<TucClientContact> TucClientContacts { get; set; } = new List<TucClientContact>();

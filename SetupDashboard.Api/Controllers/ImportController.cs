@@ -1,248 +1,233 @@
+using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 using SetupDashboard.Models;
 using SetupDashboard.Services;
+using SetupDashboard.Services.Steps;
 
 namespace SetupDashboard.Controllers;
 
 /// <summary>
-/// Smart Import endpoints — unified upload/detect/preview/import flow.
-/// Used by the SmartImport React component across all wizard steps.
-///
-/// Flow:
-///   1. POST /api/setup/import/detect  — upload CSV/Excel, auto-detect columns
-///   2. POST /api/setup/import/preview — validate and show mapped preview
-///   3. POST /api/setup/import/execute — confirmed import into session + optional Admin Manager push
-///   4. GET  /api/setup/import/template/{entityType} — download blank CSV template
+/// Smart Import: upload a file, auto-map its columns, preview, then load the rows into the step.
 /// </summary>
+/// <remarks>
+/// <para>Flow: detect → preview → execute → (the step's own Send, which is where data leaves the dashboard).</para>
+/// <para>IMPORT NEVER WRITES TO ANOTHER APP. The old execute pushed straight to Admin Manager with
+/// invented values (zone "Default", zone number 1, vehicle "Car"). Now it only fills the step's rows;
+/// anything the file didn't have shows as "needs: ..." when the step is sent.</para>
+/// </remarks>
 [Authorize]
+[RequireFeature(FeatureKeys.SetupDashboard)]
 [ApiController]
 [Route("api/setup/import")]
-public class ImportController : ControllerBase
+public class ImportController(
+    SmartUploaderService uploader,
+    ISessionStore sessions) : ControllerBase
 {
-    private readonly SmartUploaderService _uploader;
-    private readonly ISessionStore _sessions;
-    private readonly AdminManagerClientFactory _clientFactory;
-    private readonly ILogger<ImportController> _logger;
+    private async Task<SetupSession?> Load(string sessionId, CancellationToken ct)
+        => CallerContext.From(User) is { } caller ? await sessions.GetAsync(caller.TenantId, sessionId, ct) : null;
 
-    public ImportController(
-        SmartUploaderService uploader,
-        ISessionStore sessions,
-        AdminManagerClientFactory clientFactory,
-        ILogger<ImportController> logger)
-    {
-        _uploader = uploader;
-        _sessions = sessions;
-        _clientFactory = clientFactory;
-        _logger = logger;
-    }
+    // Uploads are cached per tenant + session so two tenants can never see each other's file.
+    private static string CacheKey(SetupSession s) => $"{s.TenantId}:{s.Id}";
 
-    /// <summary>
-    /// Upload a file and auto-detect columns with fuzzy matching.
-    /// Supports CSV (.csv) and Excel (.xlsx, .xls).
-    /// </summary>
     [HttpPost("detect")]
-    public async Task<IActionResult> Detect([FromForm] string sessionId, [FromForm] IFormFile file, [FromForm] string? entityType)
+    public async Task<IActionResult> Detect([FromForm] string sessionId, [FromForm] IFormFile? file, [FromForm] string? entityType, CancellationToken ct)
     {
-        var session = _sessions.Get(sessionId);
-        if (session == null)
+        if (await Load(sessionId, ct) is not { } session)
+        {
             return BadRequest(new { success = false, message = "Invalid session" });
+        }
 
         if (file == null || file.Length == 0)
+        {
             return BadRequest(new { success = false, message = "No file provided" });
+        }
 
         var type = entityType ?? GuessEntityType(file.FileName);
-
-        _logger.LogInformation(
-            "Import detect started — SessionId: {SessionId}, FileName: {FileName}, FileSize: {FileSize} bytes, EntityType: {EntityType}",
-            sessionId, file.FileName, file.Length, type);
-
         try
         {
-            using var stream = file.OpenReadStream();
-            var result = await _uploader.DetectAndMapAsync(stream, file.FileName, type, sessionId);
-
-            _logger.LogInformation(
-                "Import detect succeeded — SessionId: {SessionId}, FileName: {FileName}, EntityType: {EntityType}",
-                sessionId, file.FileName, type);
-
-            return Ok(result);
+            await using var stream = file.OpenReadStream();
+            return Ok(await uploader.DetectAndMapAsync(stream, file.FileName, type, CacheKey(session), ct));
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning(ex,
-                "Import detect rejected — SessionId: {SessionId}, FileName: {FileName}, EntityType: {EntityType}, Reason: {Reason}",
-                sessionId, file.FileName, type, ex.Message);
             return BadRequest(new { success = false, message = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "Import detect failed — SessionId: {SessionId}, FileName: {FileName}, FileSize: {FileSize} bytes, EntityType: {EntityType}",
-                sessionId, file.FileName, file.Length, type);
+            Log.Error(ex, "Import detect failed for {FileName} ({EntityType})", file.FileName, type);
             return StatusCode(500, new { success = false, message = $"Failed to parse file: {ex.Message}" });
         }
     }
 
-    /// <summary>
-    /// Preview mapped data with validation.
-    /// </summary>
     [HttpPost("preview")]
-    public IActionResult Preview([FromBody] PreviewRequest req)
+    public async Task<IActionResult> Preview([FromBody] PreviewRequest req, CancellationToken ct)
     {
-        var session = _sessions.Get(req.SessionId);
-        if (session == null)
+        if (await Load(req.SessionId, ct) is not { } session)
+        {
             return BadRequest(new { success = false, message = "Invalid session" });
+        }
 
-        var result = _uploader.GeneratePreview(req.SessionId, req.Mappings, req.EntityType);
-        if (!result.Success)
-            return UnprocessableEntity(result);
-        return Ok(result);
+        var result = uploader.GeneratePreview(CacheKey(session), req.Mappings, req.EntityType);
+        return result.Success ? Ok(result) : UnprocessableEntity(result);
     }
 
-    /// <summary>
-    /// Execute confirmed import: maps data and saves to session.
-    /// If Admin Manager client is initialized, also pushes to the API.
-    /// </summary>
+    /// <summary>Loads the mapped rows into the session's step. Rows are appended; nothing is sent anywhere.</summary>
     [HttpPost("execute")]
-    public async Task<IActionResult> Execute([FromBody] ImportRequest req)
+    public async Task<IActionResult> Execute([FromBody] ImportRequest req, CancellationToken ct)
     {
-        var session = _sessions.Get(req.SessionId);
-        if (session == null)
+        if (await Load(req.SessionId, ct) is not { } session)
+        {
             return BadRequest(new { success = false, message = "Invalid session" });
+        }
 
         try
         {
-            var mappedRows = _uploader.ExecuteMapping(req.SessionId, req.Mappings);
-            var importResult = new ImportResult { Total = mappedRows.Count };
+            var rows = uploader.ExecuteMapping(CacheKey(session), req.Mappings);
+            var result = new ImportResult { Total = rows.Count };
+            string step;
 
-            // Save to session based on entity type
             switch (req.EntityType)
             {
                 case "team":
-                    var members = mappedRows.Select(r => new TeamMember
+                    step = StepKeys.Team;
+                    session.Team.People.AddRange(rows.Select(r =>
                     {
-                        Name = r.GetValueOrDefault("Name") ?? "",
-                        Email = r.GetValueOrDefault("Email") ?? "",
-                        Role = r.GetValueOrDefault("Role") ?? "Admin",
-                    }).ToList();
-                    session.Team.AddRange(members);
-                    importResult.Imported = members.Count;
-                    importResult.Success = true;
+                        var (first, last) = SplitName(V(r, "FirstName"), V(r, "LastName"));
+                        return new PersonRow
+                        {
+                            FirstName = first, LastName = last, Email = V(r, "Email"),
+                            JobTitle = V(r, "JobTitle"), Mobile = V(r, "Mobile"), RoleName = V(r, "Role")
+                        };
+                    }));
                     break;
 
                 case "clients":
-                    var clients = mappedRows.Select(r => new ClientRecord
+                    step = StepKeys.Clients;
+                    session.Clients.AddRange(rows.Select(r => new ClientRow
                     {
-                        Name = r.GetValueOrDefault("Name") ?? "",
-                        Code = r.GetValueOrDefault("Code"),
-                        Contact = r.GetValueOrDefault("Contact"),
-                        Phone = r.GetValueOrDefault("Phone"),
-                        Email = r.GetValueOrDefault("Email"),
-                        Billing = r.GetValueOrDefault("Billing"),
-                        LegalName = r.GetValueOrDefault("LegalName"),
-                        Type = r.GetValueOrDefault("Type"),
-                        City = r.GetValueOrDefault("City"),
-                        State = r.GetValueOrDefault("State"),
-                        ZipCode = r.GetValueOrDefault("ZipCode"),
-                    }).ToList();
-                    session.Clients.AddRange(clients);
-
-                    // Try to push to Admin Manager API
-                    await TryPushClientsToApi(session, clients, importResult);
+                        Code = V(r, "Code"), Name = V(r, "Name"), Address = V(r, "Address"), Unit = V(r, "Unit"),
+                        Suburb = V(r, "Suburb"), City = V(r, "City"), PostCode = V(r, "PostCode"), Country = V(r, "Country"),
+                        Phone = V(r, "Phone"), Email = V(r, "Email"), InvoiceEmail = V(r, "InvoiceEmail"),
+                        PrimaryContact = new ClientContactRow
+                        {
+                            FirstName = V(r, "ContactFirstName"), Surname = V(r, "ContactSurname"),
+                            Email = V(r, "ContactEmail"), Mobile = V(r, "ContactMobile")
+                        }
+                    }));
                     break;
 
                 case "contacts":
-                    // Contacts are added to the session's client records
-                    foreach (var row in mappedRows)
+                    step = StepKeys.Clients;
+                    foreach (var r in rows)
                     {
-                        var clientName = row.GetValueOrDefault("ClientName") ?? "";
-                        var existing = session.Clients.FirstOrDefault(c =>
-                            c.Name.Equals(clientName, StringComparison.OrdinalIgnoreCase));
-                        if (existing != null)
+                        var code = V(r, "ClientCode");
+                        var client = session.Clients.FirstOrDefault(c =>
+                            string.Equals(c.Code?.Trim(), code?.Trim(), StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(c.Name?.Trim(), code?.Trim(), StringComparison.OrdinalIgnoreCase));
+                        if (client == null)
                         {
-                            existing.Contact = $"{row.GetValueOrDefault("FirstName")} {row.GetValueOrDefault("LastName")}".Trim();
-                            existing.Email = row.GetValueOrDefault("Email") ?? existing.Email;
-                            existing.Phone = row.GetValueOrDefault("Phone") ?? existing.Phone;
+                            result.Failed++;
+                            result.Errors.Add($"No customer '{code}' on this step - import customers first.");
+                            continue;
                         }
-                        importResult.Imported++;
+                        client.Contacts.Add(new ClientContactRow
+                        {
+                            FirstName = V(r, "FirstName"), Surname = V(r, "LastName"), Email = V(r, "Email"),
+                            Mobile = V(r, "Phone"), JobTitle = V(r, "JobTitle")
+                        });
+                        result.Imported++;
                     }
                     break;
 
                 case "drivers":
                 case "agents":
-                    var couriers = mappedRows.Select(r => new CourierRecord
+                    step = StepKeys.Couriers;
+                    // No password: the operator types each one (D2). Rows show "needs: initial app password".
+                    session.Couriers.Couriers.AddRange(rows.Select(r => new CourierRow
                     {
-                        Name = r.GetValueOrDefault("Name") ?? "",
-                        Code = r.GetValueOrDefault("Code"),
-                        FirstName = r.GetValueOrDefault("FirstName"),
-                        SurName = r.GetValueOrDefault("SurName"),
-                        Phone = r.GetValueOrDefault("Phone"),
-                        Vehicle = r.GetValueOrDefault("Vehicle"),
-                        Zone = r.GetValueOrDefault("Zone"),
-                    }).ToList();
-                    session.Couriers.AddRange(couriers);
-
-                    await TryPushCouriersToApi(session, couriers, importResult);
+                        FirstName = V(r, "FirstName"), SurName = V(r, "SurName"), Email = V(r, "Email"),
+                        Code = V(r, "Code"), Mobile = V(r, "Phone"), VehicleType = V(r, "Vehicle"), FleetName = V(r, "Fleet")
+                    }));
                     break;
 
                 case "zones":
-                    // Zones are stored on the session for now; pushed to API on demand
-                    importResult.Imported = mappedRows.Count;
-                    importResult.Success = true;
+                    step = StepKeys.Rates;
+                    foreach (var r in rows)
+                    {
+                        var groupName = V(r, "ZoneGroup");
+                        var zoneName = V(r, "ZoneName");
+                        var zip = V(r, "ZipCode");
+                        if (groupName == null || zoneName == null)
+                        {
+                            result.Failed++;
+                            result.Errors.Add($"Row with zip '{zip}' has no zone group or zone name.");
+                            continue;
+                        }
+                        var group = session.Rates.ZoneGroups.FirstOrDefault(g => string.Equals(g.Name, groupName, StringComparison.OrdinalIgnoreCase));
+                        if (group == null)
+                        {
+                            session.Rates.ZoneGroups.Add(group = new ZoneGroupRow { Name = groupName });
+                        }
 
-                    await TryPushZonesToApi(session, mappedRows, importResult);
+                        var zone = group.Zones.FirstOrDefault(z => string.Equals(z.Name, zoneName, StringComparison.OrdinalIgnoreCase));
+                        if (zone == null)
+                        {
+                            group.Zones.Add(zone = new ZoneRow { Name = zoneName });
+                        }
+
+                        if (zip != null && !zone.Zips.Contains(zip))
+                        {
+                            zone.Zips.Add(zip);
+                        }
+
+                        result.Imported++;
+                    }
                     break;
 
                 case "rates":
-                    importResult.Imported = mappedRows.Count;
-                    importResult.Success = true;
+                    step = StepKeys.Rates;
+                    session.Rates.ZoneRates.AddRange(rows.Select(r => new ZoneRateRow
+                    {
+                        Name = V(r, "Name"), FromZone = V(r, "FromZone"), ToZone = V(r, "ToZone"),
+                        ChargeRate = D(r, "ChargeRate"), DriverRate = D(r, "DriverRate"),
+                        VehicleSizeNames = V(r, "VehicleSize") is { } vs ? [vs] : []
+                        // Speed is picked on the form: files name services in their old system's words.
+                    }));
                     break;
 
                 default:
-                    importResult.Imported = mappedRows.Count;
-                    importResult.Success = true;
-                    break;
+                    return BadRequest(new { success = false, message = $"Unknown import type '{req.EntityType}'." });
             }
 
-            if (importResult.Failed == 0)
+            if (req.EntityType is not ("contacts" or "zones"))
             {
-                importResult.Success = true;
-                importResult.Imported = mappedRows.Count - importResult.Failed;
+                result.Imported = rows.Count;
             }
 
-            // Return all mapped rows so the frontend can populate the full list
-            // (preview is capped at 20 rows; MappedData contains all rows)
-            importResult.MappedData = mappedRows;
+            result.Success = result.Failed == 0 || result.Imported > 0;
+            result.MappedData = rows;
 
-            _sessions.Update(session);
-            _uploader.ClearCache(req.SessionId);
+            StepCatalog.Recompute(session, step, hasData: true);
+            await sessions.UpdateAsync(session, ct);
+            uploader.ClearCache(CacheKey(session));
 
-            if (!importResult.Success)
-                return UnprocessableEntity(importResult);
-            return Ok(importResult);
+            return result.Success ? Ok(result) : UnprocessableEntity(result);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Import execution failed");
-            return StatusCode(500, new ImportResult
-            {
-                Success = false,
-                Errors = { ex.Message },
-            });
+            Log.Error(ex, "Import execution failed");
+            return StatusCode(500, new ImportResult { Success = false, Errors = { ex.Message } });
         }
     }
 
-    /// <summary>
-    /// Download a blank CSV template for the given entity type.
-    /// </summary>
     [HttpGet("template/{entityType}")]
     public IActionResult GetTemplate(string entityType)
     {
         try
         {
-            var csv = _uploader.GenerateTemplate(entityType);
-            return File(csv, "text/csv", $"{entityType}-template.csv");
+            return File(SmartUploaderService.GenerateTemplate(entityType), "text/csv", $"{entityType}-template.csv");
         }
         catch (ArgumentException ex)
         {
@@ -250,165 +235,57 @@ public class ImportController : ControllerBase
         }
     }
 
-    // --- Step-specific upload shortcuts ---
+    private static string? V(Dictionary<string, string?> row, string key)
+        => row.TryGetValue(key, out var v) && !string.IsNullOrWhiteSpace(v) ? v.Trim() : null;
 
-    [HttpPost("team/upload")]
-    public Task<IActionResult> UploadTeam([FromForm] string sessionId, [FromForm] IFormFile file)
-        => Detect(sessionId, file, "team");
+    private static decimal? D(Dictionary<string, string?> row, string key)
+        => decimal.TryParse(V(row, key)?.TrimStart('$'), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null;
 
-    [HttpPost("clients/upload")]
-    public Task<IActionResult> UploadClients([FromForm] string sessionId, [FromForm] IFormFile file)
-        => Detect(sessionId, file, "clients");
-
-    [HttpPost("contacts/upload")]
-    public Task<IActionResult> UploadContacts([FromForm] string sessionId, [FromForm] IFormFile file)
-        => Detect(sessionId, file, "contacts");
-
-    [HttpPost("drivers/upload")]
-    public Task<IActionResult> UploadDrivers([FromForm] string sessionId, [FromForm] IFormFile file)
-        => Detect(sessionId, file, "drivers");
-
-    [HttpPost("zones/upload")]
-    public Task<IActionResult> UploadZones([FromForm] string sessionId, [FromForm] IFormFile file)
-        => Detect(sessionId, file, "zones");
-
-    [HttpPost("rates/upload")]
-    public Task<IActionResult> UploadRates([FromForm] string sessionId, [FromForm] IFormFile file)
-        => Detect(sessionId, file, "rates");
-
-    // --- Admin Manager API push helpers ---
-
-    private async Task TryPushClientsToApi(SetupSession session, List<ClientRecord> clients, ImportResult result)
+    /// <summary>A file with one "Name" column maps it to FirstName; split it if there's no separate last name.</summary>
+    internal static (string? First, string? Last) SplitName(string? first, string? last)
     {
-        try
+        if (first == null || last != null)
         {
-            var client = _clientFactory.GetClient(session.Environment);
-            if (!client.IsInitialized) return;
-
-            foreach (var c in clients)
-            {
-                try
-                {
-                    await client.PostAsync<object>("/api/client", new
-                    {
-                        name = c.Name,
-                        code = c.Code ?? c.Name.Replace(" ", "").ToUpper()[..Math.Min(10, c.Name.Length)],
-                        legalName = c.LegalName ?? c.Name,
-                        phone = c.Phone,
-                        email = c.Email,
-                        type = c.Type ?? "Standard",
-                        smsName = c.Name,
-                        active = true,
-                        americanCity = c.City ?? "",
-                        americanState = c.State ?? "",
-                        americanZipCode = c.ZipCode ?? "",
-                    });
-                    result.Imported++;
-                }
-                catch (Exception ex)
-                {
-                    result.Failed++;
-                    result.Errors.Add($"Client '{c.Name}': {ex.Message}");
-                }
-            }
+            return (first, last);
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not push clients to Admin Manager (offline mode)");
-        }
-    }
 
-    private async Task TryPushCouriersToApi(SetupSession session, List<CourierRecord> couriers, ImportResult result)
-    {
-        try
-        {
-            var client = _clientFactory.GetClient(session.Environment);
-            if (!client.IsInitialized) return;
-
-            foreach (var c in couriers)
-            {
-                try
-                {
-                    await client.PostAsync<object>("/api/courier", new
-                    {
-                        name = c.Name,
-                        code = c.Code ?? c.Name.Replace(" ", "").ToUpper()[..Math.Min(10, c.Name.Length)],
-                        firstName = c.FirstName ?? c.Name.Split(' ').FirstOrDefault(),
-                        surName = c.SurName ?? c.Name.Split(' ').LastOrDefault(),
-                        personalMobile = c.Phone,
-                        courierType = c.Vehicle ?? "Car",
-                        active = true,
-                    });
-                    result.Imported++;
-                }
-                catch (Exception ex)
-                {
-                    result.Failed++;
-                    result.Errors.Add($"Courier '{c.Name}': {ex.Message}");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not push couriers to Admin Manager (offline mode)");
-        }
-    }
-
-    private async Task TryPushZonesToApi(SetupSession session, List<Dictionary<string, string?>> zones, ImportResult result)
-    {
-        try
-        {
-            var client = _clientFactory.GetClient(session.Environment);
-            if (!client.IsInitialized) return;
-
-            // Group by zone name
-            var grouped = zones.GroupBy(z => z.GetValueOrDefault("ZoneName") ?? "Default");
-            foreach (var group in grouped)
-            {
-                try
-                {
-                    // Create zone name
-                    var zoneResponse = await client.PostAsync<Dictionary<string, object>>("/api/zoneName", new { name = group.Key });
-
-                    // Then bulk create zip codes for this zone
-                    foreach (var zip in group)
-                    {
-                        var zipCode = zip.GetValueOrDefault("ZipCode") ?? "";
-                        var zoneNumber = int.TryParse(zip.GetValueOrDefault("ZoneNumber"), out var zn) ? zn : 1;
-                        if (!string.IsNullOrEmpty(zipCode))
-                        {
-                            await client.PostAsync<object>("/api/zoneZip", new
-                            {
-                                zip = zipCode,
-                                zoneNumber,
-                                location = zip.GetValueOrDefault("Location") ?? "",
-                            });
-                        }
-                    }
-                    result.Imported += group.Count();
-                }
-                catch (Exception ex)
-                {
-                    result.Failed += group.Count();
-                    result.Errors.Add($"Zone '{group.Key}': {ex.Message}");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not push zones to Admin Manager (offline mode)");
-        }
+        var i = first.LastIndexOf(' ');
+        return i > 0 ? (first[..i].Trim(), first[(i + 1)..].Trim()) : (first, null);
     }
 
     private static string GuessEntityType(string fileName)
     {
         var lower = fileName.ToLowerInvariant();
-        if (lower.Contains("client") || lower.Contains("customer") || lower.Contains("account")) return "clients";
-        if (lower.Contains("contact")) return "contacts";
-        if (lower.Contains("agent")) return "agents";
-        if (lower.Contains("driver") || lower.Contains("courier")) return "drivers";
-        if (lower.Contains("zone") || lower.Contains("zip") || lower.Contains("suburb")) return "zones";
-        if (lower.Contains("rate") || lower.Contains("price")) return "rates";
-        return "clients"; // default
+        if (lower.Contains("contact"))
+        {
+            return "contacts";
+        }
+
+        if (lower.Contains("client") || lower.Contains("customer") || lower.Contains("account"))
+        {
+            return "clients";
+        }
+
+        if (lower.Contains("driver") || lower.Contains("courier") || lower.Contains("agent"))
+        {
+            return "drivers";
+        }
+
+        if (lower.Contains("zone") || lower.Contains("zip") || lower.Contains("suburb"))
+        {
+            return "zones";
+        }
+
+        if (lower.Contains("rate") || lower.Contains("price"))
+        {
+            return "rates";
+        }
+
+        if (lower.Contains("team") || lower.Contains("staff") || lower.Contains("user"))
+        {
+            return "team";
+        }
+
+        return "clients";
     }
 }

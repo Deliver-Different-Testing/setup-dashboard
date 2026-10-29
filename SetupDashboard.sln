@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -20,16 +20,59 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{D4F1A2B3-7
 		docs\setup-guide.md = docs\setup-guide.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SetupDashboard.Tests", "SetupDashboard.Tests\SetupDashboard.Tests.csproj", "{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}"
+EndProject
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "SetupDashboard.Client", "SetupDashboard.Client\SetupDashboard.Client.esproj", "{7D306A6F-D4EF-4273-8795-812B886E447B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{94ADBDBA-D402-4C4C-8D7A-87A91263E4BD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{94ADBDBA-D402-4C4C-8D7A-87A91263E4BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{94ADBDBA-D402-4C4C-8D7A-87A91263E4BD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{94ADBDBA-D402-4C4C-8D7A-87A91263E4BD}.Debug|x64.Build.0 = Debug|Any CPU
+		{94ADBDBA-D402-4C4C-8D7A-87A91263E4BD}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{94ADBDBA-D402-4C4C-8D7A-87A91263E4BD}.Debug|x86.Build.0 = Debug|Any CPU
 		{94ADBDBA-D402-4C4C-8D7A-87A91263E4BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{94ADBDBA-D402-4C4C-8D7A-87A91263E4BD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{94ADBDBA-D402-4C4C-8D7A-87A91263E4BD}.Release|x64.ActiveCfg = Release|Any CPU
+		{94ADBDBA-D402-4C4C-8D7A-87A91263E4BD}.Release|x64.Build.0 = Release|Any CPU
+		{94ADBDBA-D402-4C4C-8D7A-87A91263E4BD}.Release|x86.ActiveCfg = Release|Any CPU
+		{94ADBDBA-D402-4C4C-8D7A-87A91263E4BD}.Release|x86.Build.0 = Release|Any CPU
+		{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}.Debug|x64.Build.0 = Debug|Any CPU
+		{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}.Debug|x86.Build.0 = Debug|Any CPU
+		{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}.Release|x64.ActiveCfg = Release|Any CPU
+		{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}.Release|x64.Build.0 = Release|Any CPU
+		{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}.Release|x86.ActiveCfg = Release|Any CPU
+		{5E3E64A1-0FF1-4C13-AB09-234F2F2278C7}.Release|x86.Build.0 = Release|Any CPU
+		{7D306A6F-D4EF-4273-8795-812B886E447B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D306A6F-D4EF-4273-8795-812B886E447B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D306A6F-D4EF-4273-8795-812B886E447B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7D306A6F-D4EF-4273-8795-812B886E447B}.Debug|x64.Build.0 = Debug|Any CPU
+		{7D306A6F-D4EF-4273-8795-812B886E447B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7D306A6F-D4EF-4273-8795-812B886E447B}.Debug|x86.Build.0 = Debug|Any CPU
+		{7D306A6F-D4EF-4273-8795-812B886E447B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D306A6F-D4EF-4273-8795-812B886E447B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7D306A6F-D4EF-4273-8795-812B886E447B}.Release|x64.ActiveCfg = Release|Any CPU
+		{7D306A6F-D4EF-4273-8795-812B886E447B}.Release|x64.Build.0 = Release|Any CPU
+		{7D306A6F-D4EF-4273-8795-812B886E447B}.Release|x86.ActiveCfg = Release|Any CPU
+		{7D306A6F-D4EF-4273-8795-812B886E447B}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{D4F1A2B3-7E8C-4D5F-A6B9-3C2E1F8D7A5B} = {B3A2E5C1-6D4F-4A8B-9E2C-1F5D7A3B8C4E}

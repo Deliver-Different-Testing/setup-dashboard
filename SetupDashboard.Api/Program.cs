@@ -1,15 +1,17 @@
 using Amazon;
 using Amazon.Runtime;
 using Amazon.Runtime.CredentialManagement;
+using Amazon.Runtime.Credentials;
 using Amazon.S3;
+using DeliverDifferent.AccessControl;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Serilog;
 using SetupDashboard;
 using SetupDashboard.Core.Domain;
+using SetupDashboard.Interfaces;
 using SetupDashboard.Services;
 using StackExchange.Redis;
 
@@ -32,22 +34,23 @@ try
         .AddJsonOptions(opts =>
         {
             opts.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
-            opts.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+            opts.JsonSerializerOptions.DefaultIgnoreCondition =
+                System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
         });
 
     builder.Services.AddHttpContextAccessor();
 
     // ── CORS ──
     var corsOrigins = builder.Configuration.GetSection("CorsOrigins").Get<string[]>()
-        ?? new[] { "http://localhost:5173" };
+                      ?? ["http://localhost:5173"];
     builder.Services.AddCors(options =>
     {
         options.AddDefaultPolicy(policy =>
         {
             policy.WithOrigins(corsOrigins)
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials();
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
         });
     });
 
@@ -61,7 +64,9 @@ try
             "DeliverDifferent", "DataProtection-Keys");
 
         if (!Directory.Exists(keyDirectory))
+        {
             Directory.CreateDirectory(keyDirectory);
+        }
 
         builder.Services.AddDataProtection()
             .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory))
@@ -75,7 +80,13 @@ try
     }
 
     // ── Authorization ──
-    builder.Services.AddAuthorization();
+    // Every endpoint needs a signed-in Hub user unless it opts out (health checks only).
+    // The pre-rewrite controllers were [AllowAnonymous] almost throughout.
+    builder.Services.AddAuthorizationBuilder()
+        // ── Authorization ──    // Every endpoint needs a signed-in Hub user unless it opts out (health checks only).    // The pre-rewrite controllers were [AllowAnonymous] almost throughout.
+        .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build());
 
     // ── Authentication (shared cookie from Hub) ──
     builder.Services.AddAuthentication("Identity.Application")
@@ -92,6 +103,16 @@ try
                     context.HttpContext.Response.Redirect(
                         Environment.GetEnvironmentVariable("PublicPath") ?? "");
                     return Task.CompletedTask;
+                },
+                // A plain 403 instead of a redirect to AccessDeniedPath. No
+                // /Forbidden/ route exists, so the redirect would land on the
+                // SPA fallback (HomeController), be forbidden again, and loop.
+                OnRedirectToAccessDenied = context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    context.Response.ContentType = "text/plain";
+                    return context.Response.WriteAsync(
+                        "Setup - Deliver DFRNT isn't turned on for your account. Ask DFRNT to turn it on.");
                 }
             };
             options.Cookie.HttpOnly = true;
@@ -112,25 +133,22 @@ try
         {
             var redis = ConnectionMultiplexer.Connect(redisConfigurationOptions);
             Log.Information("Redis connection successful");
+            builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+            builder.Services.AddSingleton<IPushLock, RedisPushLock>();
         }
         catch (Exception ex)
         {
             Log.Warning(ex, "Redis connection failed — falling back to in-memory distributed cache");
             builder.Services.AddDistributedMemoryCache();
+            builder.Services.AddSingleton<IPushLock, InMemoryPushLock>();
         }
     }
     else
     {
         Log.Warning("RedisConfig env var not set — using in-memory distributed cache (development only)");
         builder.Services.AddDistributedMemoryCache();
+        builder.Services.AddSingleton<IPushLock, InMemoryPushLock>();
     }
-
-    // ── Session ──
-    builder.Services.AddSession(options =>
-    {
-        options.Cookie.Name = "hub_session";
-        options.IdleTimeout = TimeSpan.FromMinutes(60 * 24);
-    });
 
     // ── Connection String Manager (Redis-backed) ──
     builder.Services.AddSingleton<IConnectionStringManager, ConnectionStringManager>();
@@ -143,26 +161,88 @@ try
 
     builder.Services.AddScoped<IDbContextFactory<DynamicDespatchDbContext>, DynamicDespatchDbContextFactory>();
 
+    // ── Access Control switch (hub-tile-setup-dashboard) ──
+    // [RequireFeature] on every controller, so turning the tile off in Access
+    // Control blocks the app rather than just hiding the tile. DF Admin
+    // (ClientTypeId 5) bypasses by default and never reaches the store.
+    //
+    // The store connects from the Hub cookie's Connection claim plus
+    // SQLCredentials - the same value LoginController.Validate caches - and NOT
+    // through DynamicDespatchDbContextFactory: that reads the Redis cache, which
+    // is empty until the SPA has called Validate, so the first page load would
+    // fail.
+    builder.Services.AddAccessControlFeatures();
+    builder.Services.AddSqlFeatureCatalogueStore((sp, _) =>
+    {
+        var user = sp.GetRequiredService<IHttpContextAccessor>().HttpContext?.User;
+        var connection = user?.FindFirst("Connection")?.Value;
+        if (string.IsNullOrEmpty(connection) || string.IsNullOrEmpty(user?.FindFirst("CurrentTenantID")?.Value))
+        {
+            throw new UnauthorizedAccessException("Valid tenant authentication required. Please login via Hub first.");
+        }
+
+        var credentials = Environment.GetEnvironmentVariable("SQLCredentials") ?? "";
+        return Task.FromResult<System.Data.Common.DbConnection>(
+            new Microsoft.Data.SqlClient.SqlConnection(connection + credentials));
+    });
+
     // ── Health Checks ──
     builder.Services.AddHealthChecks()
         .AddCheck<SqlServerHealthCheck>("sql_server_health_check");
 
     // ── Application Services ──
-    // Session store: Redis-backed in production, in-memory fallback for dev
-    if (!string.IsNullOrEmpty(redisConfig))
+    // Onboarding sessions live in the distributed cache (Redis when RedisConfig is set).
+    builder.Services.AddSingleton<ISessionStore, DistributedSessionStore>();
+
+    // ── Smart Import column suggestions (Claude) ──
+    // Off unless ANTHROPIC_API_KEY is set; without it the import runs on the name match alone.
+    var anthropicKey = builder.Configuration["ANTHROPIC_API_KEY"];
+    if (!string.IsNullOrWhiteSpace(anthropicKey))
     {
-        builder.Services.AddSingleton<ISessionStore, RedisSessionStore>();
-        Log.Information("Using Redis-backed session store");
+        builder.Services.AddSingleton(new Anthropic.AnthropicClient { ApiKey = anthropicKey, MaxRetries = 1 });
+        builder.Services.AddSingleton<IColumnMappingAdvisor, SetupDashboard.Services.Ai.ClaudeColumnMappingAdvisor>();
     }
     else
     {
-        builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>();
-        Log.Information("Using in-memory session store (development only)");
+        Log.Information("ANTHROPIC_API_KEY not set - Smart Import column suggestions are off");
+        builder.Services.AddSingleton<IColumnMappingAdvisor, SetupDashboard.Services.Ai.NoColumnMappingAdvisor>();
     }
+
     builder.Services.AddSingleton<SmartUploaderService>();
-    builder.Services.AddSingleton<AdminManagerClientFactory>();
-    builder.Services.AddSingleton<ProvisioningService>();
-    builder.Services.AddHttpClient("HubProxy");
+
+    // ── Writes go to the apps that own the data, as the signed-in person ──
+    // No redirects followed (a 302 means the Hub cookie expired) and no cookie jar: the
+    // caller's own cookie is attached per request, so one person's session can never ride
+    // on another's call - the old singleton Admin Manager client could do exactly that.
+    builder.Services.AddHttpClient(SetupDashboard.Services.TenantApps.TenantAppClient.HttpClientName,
+            c => { c.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("TenantApps:TimeoutSeconds", 60)); })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            { AllowAutoRedirect = false, UseCookies = false });
+    builder.Services.AddSingleton<SetupDashboard.Services.TenantApps.ITenantAppUrls, SetupDashboard.Services.TenantApps.TenantAppUrls>();
+
+    // ── Auto-Mate: questions go to the Customer Success Platform, as the signed-in person ──
+    // Same rules as the tenant apps (no redirects, no cookie jar). The timeout covers until CSP starts
+    // answering; the streamed answer itself isn't cut off by it.
+    builder.Services.AddHttpClient(SetupDashboard.Services.TenantApps.AutoMateClient.HttpClientName,
+            c => { c.Timeout = TimeSpan.FromSeconds(60); })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            { AllowAutoRedirect = false, UseCookies = false });
+    builder.Services
+        .AddScoped<SetupDashboard.Services.TenantApps.IAutoMateClient, SetupDashboard.Services.TenantApps.AutoMateClient>();
+    builder.Services
+        .AddScoped<SetupDashboard.Services.TenantApps.ITenantAppClient,
+            SetupDashboard.Services.TenantApps.TenantAppClient>();
+    builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.TeamPusher>();
+    builder.Services
+        .AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.ClientsPusher>();
+    builder.Services.AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.RatesPusher>();
+    builder.Services
+        .AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.SchedulesPusher>();
+    builder.Services
+        .AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.CouriersPusher>();
+    builder.Services
+        .AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.PartnersPusher>();
+    builder.Services.AddScoped<SetupDashboard.Services.Steps.StepPushRunner>();
 
     // AWS S3 for tenant logo (same pattern as Hub)
     builder.Services.AddMemoryCache();
@@ -174,13 +254,16 @@ try
         // Try named profile first (matches local AWS config), then default, then fallback
         foreach (var profile in new[] { "deliver-dfrnt", "default" })
         {
-            if (chain.TryGetAWSCredentials(profile, out credentials))
+            if (!chain.TryGetAWSCredentials(profile, out credentials))
             {
-                Log.Information("Loaded AWS credentials from profile: {Profile}", profile);
-                break;
+                continue;
             }
+
+            Log.Information("Loaded AWS credentials from profile: {Profile}", profile);
+            break;
         }
-        credentials ??= FallbackCredentialsFactory.GetCredentials();
+
+        credentials ??= DefaultAWSCredentialsIdentityResolver.GetCredentials();
 
         return new AmazonS3Client(credentials, new AmazonS3Config
         {
@@ -222,38 +305,10 @@ try
 
     app.UseAuthentication();
 
-    // Development-only: auto-authenticate anonymous requests for API testing
-    if (app.Environment.IsDevelopment())
-    {
-        // Cache a dev connection string for TenantID=999 so validation endpoints can query the DB
-        var devConnMgr = app.Services.GetRequiredService<IConnectionStringManager>();
-        var devCredentials = Environment.GetEnvironmentVariable("SQLCredentials") ?? "";
-        var devBaseConn = "Server=UCLHQLPHP2025\\MSSQL;database=DFRNT_SEED_CR;TrustServerCertificate=True;";
-        devConnMgr.SetConnectionStringAsync("999-SetupDashboard-Connection", devBaseConn + devCredentials)
-            .GetAwaiter().GetResult();
-        Log.Information("Dev mode: cached connection string for TenantID=999");
-
-        app.Use(async (context, next) =>
-        {
-            if (context.Request.Path.StartsWithSegments("/api") &&
-                !(context.User.Identity?.IsAuthenticated ?? false))
-            {
-                var claims = new[]
-                {
-                    new System.Security.Claims.Claim("CurrentTenantID", "999"),
-                    new System.Security.Claims.Claim("ContactID", "1"),
-                    new System.Security.Claims.Claim("StaffID", "1"),
-                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "DevTester"),
-                };
-                var identity = new System.Security.Claims.ClaimsIdentity(claims, "DevBypass");
-                context.User = new System.Security.Claims.ClaimsPrincipal(identity);
-            }
-            await next();
-        });
-    }
+    // (The development-only bypass that signed every anonymous /api call in as tenant 999 is
+    // gone. Run locally behind a local Hub so a real shared cookie is present.)
 
     app.UseAuthorization();
-    app.UseSession();
 
     app.UseStaticFiles();
 
@@ -266,7 +321,7 @@ try
     app.MapFallbackToController("Index", "Home");
 
     // Health check endpoints
-    app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+    app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
     app.MapHealthChecks("/healthz", new HealthCheckOptions
     {
         ResponseWriter = async (context, report) =>
@@ -285,7 +340,7 @@ try
             };
             await context.Response.WriteAsJsonAsync(response);
         }
-    });
+    }).AllowAnonymous();
 
 
     Log.Information("CORS origins: {Origins}", string.Join(", ", corsOrigins));

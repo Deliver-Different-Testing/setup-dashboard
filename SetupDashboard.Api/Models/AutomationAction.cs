@@ -67,5 +67,43 @@ public partial class AutomationAction
 
     public int? AgentId { get; set; }
 
+    public int? ToStatusId { get; set; }
+
+    public int? FromStatusId { get; set; }
+
+    public int? TaskTemplateId { get; set; }
+
+    public int? TaskAssigneeId { get; set; }
+
+    public int? TaskAssigneeGroupId { get; set; }
+
+    public int? TaskDueOffsetMinutes { get; set; }
+
+    public int? NotificationTemplateId { get; set; }
+
+    public string SmsRecipientType { get; set; }
+
+    public string SmsFixedNumber { get; set; }
+
+    public string SmsMessageContent { get; set; }
+
+    public string WaitConditionType { get; set; }
+
+    public string WaitStatusMode { get; set; }
+
+    public int? WaitStatusId { get; set; }
+
+    public string WaitScheduledTimeField { get; set; }
+
+    public int? WaitOffsetValue { get; set; }
+
+    public string WaitOffsetUnit { get; set; }
+
+    public string WaitScanTypes { get; set; }
+
+    public string AttachReportKey { get; set; }
+
+    public string BaggageChannel { get; set; }
+
     public virtual AutomationRule Rule { get; set; }
 }

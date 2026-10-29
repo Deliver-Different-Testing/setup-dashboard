@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Serilog;
+using SetupDashboard.Interfaces;
 using SetupDashboard.Models;
 
 namespace SetupDashboard.Core.Domain;
@@ -20,7 +21,7 @@ public class DynamicDespatchDbContextFactory(
 
         Log.Information("CreateDbContext called - TenantId: '{TenantId}', IsAuthenticated: {IsAuthenticated}",
             tenantId ?? "NULL",
-            contextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false);
+            contextAccessor.HttpContext?.User.Identity?.IsAuthenticated ?? false);
 
         if (string.IsNullOrEmpty(tenantId))
         {

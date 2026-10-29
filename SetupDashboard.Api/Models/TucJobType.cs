@@ -83,6 +83,22 @@ public partial class TucJobType
 
     public bool ShowPhotosWhenChild { get; set; }
 
+    public bool AutoDispatchEnabled { get; set; }
+
+    public bool Routed { get; set; }
+
+    public int? PickupWindowMinutesBefore { get; set; }
+
+    public int? PickupWindowMinutesAfter { get; set; }
+
+    public int? DeliveryWindowMinutesBefore { get; set; }
+
+    public int? DeliveryWindowMinutesAfter { get; set; }
+
+    public string ServiceType { get; set; }
+
+    public string ServiceDescription { get; set; }
+
     public virtual ICollection<RateCard> RateCards { get; set; } = new List<RateCard>();
 
     public virtual ICollection<TblService> TblServiceSamedayRegion1JobTypes { get; set; } = new List<TblService>();

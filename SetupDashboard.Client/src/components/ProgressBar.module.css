@@ -1,0 +1,115 @@
+.track {
+  position: relative;
+}
+
+.line {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  top: 22px;
+  height: 2px;
+  background: var(--dd-outline-variant);
+}
+
+.step {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+}
+
+/* One icon colour for every step and every state: the brand's text-safe cyan. State is
+   carried by the ring, the fill tint and the corner badge, never by recolouring the icon. */
+.circle {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mantine-color-brand-text);
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.done {
+  background: var(--mantine-primary-color-light);
+  border: 2px solid var(--mantine-primary-color-filled);
+}
+
+.badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--mantine-color-body);
+}
+
+.badgeDone {
+  background: var(--mantine-primary-color-filled);
+  color: var(--mantine-color-black);
+}
+
+.badgeWaiting {
+  background: var(--mantine-color-orange-filled);
+  color: var(--mantine-color-white);
+}
+
+.waiting {
+  background: var(--mantine-color-yellow-light);
+  border: 2px solid var(--mantine-color-orange-filled);
+}
+
+.active {
+  background: var(--dd-surface-container);
+  border: 2px solid var(--mantine-primary-color-filled);
+}
+
+.idle {
+  background: var(--dd-surface-container);
+  border: 2px solid var(--dd-outline-variant);
+}
+
+.current {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+  animation: step-pulse 2s ease-in-out infinite;
+}
+
+.label {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mantine-color-dimmed);
+  transition: color 150ms ease;
+}
+
+.labelCurrent {
+  color: var(--mantine-color-brand-text);
+}
+
+.step:hover .label {
+  color: var(--mantine-color-text);
+}
+
+@keyframes step-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--mantine-primary-color-filled) 50%, transparent); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--mantine-primary-color-filled) 0%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .current { animation: none; }
+  .circle, .label { transition: none; }
+}
