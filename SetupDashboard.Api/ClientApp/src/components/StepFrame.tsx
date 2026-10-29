@@ -50,12 +50,12 @@ export function StepFrame({ step, title, intro, sendsTo, draft, dirty, onSaved, 
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-navy">{title}</h2>
+            <h2 className="text-2xl font-bold text-ink">{title}</h2>
             <StepPill status={state.status} />
           </div>
-          <div className="text-sm text-gray-500 mt-1 max-w-3xl">{intro}</div>
+          <div className="text-sm text-dimmed mt-1 max-w-3xl">{intro}</div>
           {state.status === 'done' && state.completedBy && (
-            <p className="text-xs text-green-700 mt-1">Marked done by {state.completedBy}{state.completedAt ? ` on ${new Date(state.completedAt).toLocaleDateString()}` : ''}.</p>
+            <p className="text-xs text-ok mt-1">Marked done by {state.completedBy}{state.completedAt ? ` on ${new Date(state.completedAt).toLocaleDateString()}` : ''}.</p>
           )}
         </div>
       </div>
@@ -65,12 +65,12 @@ export function StepFrame({ step, title, intro, sendsTo, draft, dirty, onSaved, 
 
       {children}
 
-      {error && <div className="px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs">{error}</div>}
+      {error && <div className="px-4 py-2 rounded-lg bg-danger-light border border-danger/40 text-danger text-xs">{error}</div>}
       {lastPush && (
-        <div className="px-4 py-2 rounded-lg bg-white border border-gray-200 text-xs text-gray-600">
-          Last send: <b className="text-green-700">{lastPush.created} created</b>
-          {lastPush.needsData > 0 && <>, <b className="text-amber-700">{lastPush.needsData} need info</b></>}
-          {lastPush.failed > 0 && <>, <b className="text-red-600">{lastPush.failed} failed</b></>}
+        <div className="px-4 py-2 rounded-lg bg-surface border border-line text-xs text-dimmed">
+          Last send: <b className="text-ok">{lastPush.created} created</b>
+          {lastPush.needsData > 0 && <>, <b className="text-warn">{lastPush.needsData} need info</b></>}
+          {lastPush.failed > 0 && <>, <b className="text-danger">{lastPush.failed} failed</b></>}
           {lastPush.signInExpired && <> - <b>your sign-in expired; refresh the page and send again.</b></>}
         </div>
       )}
@@ -86,7 +86,7 @@ export function StepFrame({ step, title, intro, sendsTo, draft, dirty, onSaved, 
         {state.status !== 'done'
           ? <Btn kind="ghost" onClick={markDone} disabled={!!busy || dirty}>Mark step done</Btn>
           : isDf && <Btn kind="ghost" onClick={() => quiet(reopen(step))} disabled={!!busy}>Reopen</Btn>}
-        {completeMsg && <span className="text-xs text-amber-700">{completeMsg}</span>}
+        {completeMsg && <span className="text-xs text-warn">{completeMsg}</span>}
       </div>
 
       <RowResults step={step} />
@@ -107,15 +107,15 @@ function Requests({ step }: { step: StepKey }) {
   if (reqs.length === 0 && !me?.isDfAdmin) return null
   return (
     <Card title={open.length > 0 ? `Waiting on ${session.business.companyName || 'the tenant'} (${open.length})` : 'Requests to the tenant'}>
-      {reqs.length === 0 && <p className="text-xs text-gray-400">Nothing asked for yet.</p>}
+      {reqs.length === 0 && <p className="text-xs text-dimmed">Nothing asked for yet.</p>}
       <ul className="space-y-1.5">
         {reqs.map(r => {
           const days = Math.max(0, Math.floor((now - new Date(r.requestedAt).getTime()) / 86400000))
           return (
             <li key={r.id} className="flex items-center justify-between gap-3 text-sm">
-              <span className={r.fulfilledAt ? 'line-through text-gray-400' : 'text-navy'}>
+              <span className={r.fulfilledAt ? 'line-through text-dimmed' : 'text-ink'}>
                 {r.item}
-                <span className="text-[11px] text-gray-400 ml-2">
+                <span className="text-[11px] text-dimmed ml-2">
                   asked {days === 0 ? 'today' : `${days} day${days === 1 ? '' : 's'} ago`}{r.requestedBy ? ` by ${r.requestedBy}` : ''}
                   {r.dueBy ? ` · due ${new Date(r.dueBy).toLocaleDateString()}` : ''}
                   {r.fulfilledAt ? ` · supplied${r.fulfilledBy ? ` by ${r.fulfilledBy}` : ''}` : ''}
@@ -129,8 +129,8 @@ function Requests({ step }: { step: StepKey }) {
       {me?.isDfAdmin && (
         <div className="flex gap-2 mt-3">
           <input value={item} onChange={e => setItem(e.target.value)} placeholder="Ask the tenant for… (e.g. customer list with addresses)"
-            className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-cyan" />
-          <input type="date" value={due} onChange={e => setDue(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+            className="flex-1 px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:border-brand" />
+          <input type="date" value={due} onChange={e => setDue(e.target.value)} className="px-3 py-2 rounded-lg border border-line text-sm" />
           <Btn onClick={async () => { if (item.trim()) { try { await addRequest(step, item.trim(), due || undefined); setItem(''); setDue('') } catch { /* shown on the step */ } } }} disabled={!item.trim()}>Ask</Btn>
         </div>
       )}
@@ -151,12 +151,12 @@ function Checklist({ step, isDf }: { step: StepKey; isDf: boolean }) {
           return (
             <li key={c.id} className="flex items-start gap-3 text-sm">
               <input type="checkbox" checked={!!c.doneAt} disabled={!canTick} onChange={e => quiet(tick(step, c.id, e.target.checked))}
-                className="mt-1 accent-cyan" title={canTick ? '' : 'DFRNT ticks this one'} />
+                className="mt-1 accent-brand" title={canTick ? '' : 'DFRNT ticks this one'} />
               <div className="flex-1">
-                <span className={c.doneAt ? 'text-gray-400' : 'text-navy'}>{c.item}</span>
-                <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400">{c.owner}{c.required ? ' · required' : ''}</span>
-                {c.link && <a href={c.link} target="_blank" rel="noreferrer" className="ml-2 text-xs text-cyan hover:underline">Open ↗</a>}
-                {c.doneAt && <span className="block text-[11px] text-gray-400">Done {new Date(c.doneAt).toLocaleDateString()}{c.doneBy ? ` by ${c.doneBy}` : ''}</span>}
+                <span className={c.doneAt ? 'text-dimmed' : 'text-ink'}>{c.item}</span>
+                <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-dimmed">{c.owner}{c.required ? ' · required' : ''}</span>
+                {c.link && <a href={c.link} target="_blank" rel="noreferrer" className="ml-2 text-xs text-brand-text hover:underline">Open ↗</a>}
+                {c.doneAt && <span className="block text-[11px] text-dimmed">Done {new Date(c.doneAt).toLocaleDateString()}{c.doneBy ? ` by ${c.doneBy}` : ''}</span>}
               </div>
             </li>
           )
@@ -178,14 +178,14 @@ function RowResults({ step }: { step: StepKey }) {
       <table className="w-full text-xs">
         <tbody>
           {sorted.map(r => (
-            <tr key={`${r.kind}:${r.key}`} className="border-t border-gray-100 align-top">
-              <td className="py-1.5 pr-2 text-gray-400 whitespace-nowrap">{r.kind}</td>
-              <td className="py-1.5 pr-2 font-medium text-navy">{r.key}</td>
+            <tr key={`${r.kind}:${r.key}`} className="border-t border-line align-top">
+              <td className="py-1.5 pr-2 text-dimmed whitespace-nowrap">{r.kind}</td>
+              <td className="py-1.5 pr-2 font-medium text-ink">{r.key}</td>
               <td className="py-1.5 pr-2"><RowPill status={r.status} /></td>
-              <td className="py-1.5 text-gray-600">
-                {r.needs.length > 0 && <span className="text-amber-700">Needs: {r.needs.join(' · ')}</span>}
-                {r.errors.length > 0 && <span className="text-red-600">{r.errors.join(' ')}</span>}
-                {r.notice && <span className="text-gray-500">{r.notice}</span>}
+              <td className="py-1.5 text-dimmed">
+                {r.needs.length > 0 && <span className="text-warn">Needs: {r.needs.join(' · ')}</span>}
+                {r.errors.length > 0 && <span className="text-danger">{r.errors.join(' ')}</span>}
+                {r.notice && <span className="text-dimmed">{r.notice}</span>}
                 {r.status === 'unknown' && (
                   <Btn kind="ghost" disabled={!!busy} onClick={() => quiet(retryRow(step, r.kind, r.key))}
                     title="Only once you've checked it isn't there - otherwise it would be created twice.">

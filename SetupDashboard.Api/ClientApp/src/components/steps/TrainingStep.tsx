@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { Button } from '@mantine/core'
+import { FileUp } from 'lucide-react'
 import { useStore } from '../../store'
 import * as api from '../../lib/api'
 import { SmartImport } from '../SmartImport'
@@ -157,13 +159,13 @@ export function TrainingStep() {
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-navy">🏋️ Training Arena</h2>
-        <p className="text-gray-500 mt-1">Level up your team with gamified challenges and track progress</p>
+        <h2 className="text-2xl font-bold text-ink">🏋️ Training Arena</h2>
+        <p className="text-dimmed mt-1">Level up your team with gamified challenges and track progress</p>
       </div>
 
-      <button onClick={() => setShowSmartImport(true)} className="w-full px-5 py-3 rounded-2xl text-white text-sm font-semibold transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0d0c2c 0%, #3bc7f4 100%)' }}>
-        📄 Smart Import Training Roster from Competitor TMS
-      </button>
+      <Button fullWidth size="md" leftSection={<FileUp size={18} strokeWidth={1.5} />} onClick={() => setShowSmartImport(true)}>
+        Smart Import training roster from your old TMS
+      </Button>
       {showSmartImport && (
         <SmartImport entityType="team" onComplete={() => { setShowSmartImport(false); useStore.getState().reload() }} onClose={() => setShowSmartImport(false)} />
       )}
@@ -176,22 +178,22 @@ export function TrainingStep() {
           { label: 'Team Members', value: leaderboard.length.toString(), sub: 'in training' },
           { label: 'Next Milestone', value: '🎯', sub: getNextMilestone() },
         ].map((stat, i) => (
-          <div key={i} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="text-xs text-gray-400 font-medium uppercase tracking-wide">{stat.label}</div>
-            <div className="text-2xl font-bold text-navy mt-1">{stat.value}</div>
-            <div className="text-xs text-gray-400 mt-0.5">{stat.sub}</div>
+          <div key={i} className="bg-surface rounded-2xl p-4 shadow-sm border border-line">
+            <div className="text-xs text-dimmed font-medium uppercase tracking-wide">{stat.label}</div>
+            <div className="text-2xl font-bold text-ink mt-1">{stat.value}</div>
+            <div className="text-xs text-dimmed mt-0.5">{stat.sub}</div>
           </div>
         ))}
       </div>
 
       {/* Leaderboard */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-surface rounded-2xl shadow-sm border border-line p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-navy">🏆 Leaderboard</h3>
-          <div className="flex bg-gray-100 rounded-full p-0.5">
+          <h3 className="text-lg font-bold text-ink">🏆 Leaderboard</h3>
+          <div className="flex bg-surface-sunken rounded-md p-0.5">
             {(['week', 'all'] as const).map(tab => (
               <button key={tab} onClick={() => setLeaderboardTab(tab)}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${leaderboardTab === tab ? 'bg-white text-navy shadow-sm' : 'text-gray-400'}`}>
+                className={`px-4 py-1.5 rounded-sm text-xs font-semibold transition ${leaderboardTab === tab ? 'bg-surface text-ink shadow-sm' : 'text-dimmed'}`}>
                 {tab === 'week' ? 'This Week' : 'All Time'}
               </button>
             ))}
@@ -203,26 +205,26 @@ export function TrainingStep() {
             const nextLevel = LEVELS[LEVELS.indexOf(level) + 1]
             const progress = nextLevel ? ((member.xp - level.min) / (nextLevel.min - level.min)) * 100 : 100
             return (
-              <div key={member.email} className={`relative rounded-2xl p-4 border-2 transition-all ${i === 0 ? 'border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.15)]' : 'border-gray-100'}`}>
+              <div key={member.email} className={`relative rounded-2xl p-4 border-2 transition-all ${i === 0 ? 'border-warn shadow-[0_0_20px_rgba(250,204,21,0.15)]' : 'border-line'}`}>
                 {i === 0 && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-2xl">👑</div>}
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-navy text-white flex items-center justify-center text-sm font-bold">{getInitials(member.name)}</div>
+                  <div className="w-10 h-10 rounded-full bg-shell text-white flex items-center justify-center text-sm font-bold">{getInitials(member.name)}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-navy text-sm truncate">{member.name}</div>
-                    <div className="text-xs text-gray-400">{member.role}</div>
+                    <div className="font-semibold text-ink text-sm truncate">{member.name}</div>
+                    <div className="text-xs text-dimmed">{member.role}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg">{level.emoji}</div>
-                    <div className="text-[10px] text-gray-400">{level.name}</div>
+                    <div className="text-[10px] text-dimmed">{level.name}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${progress}%`, background: 'linear-gradient(90deg, #3bc7f4, #1a6fb5)' }} />
+                  <div className="flex-1 h-2 bg-surface-sunken rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-brand transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />
                   </div>
-                  <span className="text-xs font-bold text-navy">{member.xp} XP</span>
+                  <span className="text-xs font-bold text-ink">{member.xp} XP</span>
                 </div>
-                <div className="flex items-center justify-between text-[10px] text-gray-400">
+                <div className="flex items-center justify-between text-[10px] text-dimmed">
                   <span>{member.completedChallenges.length} challenges</span>
                   {member.streak > 0 && <span className="animate-pulse">🔥 {member.streak} day streak</span>}
                 </div>
@@ -233,12 +235,12 @@ export function TrainingStep() {
       </div>
 
       {/* Skill Paths */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-bold text-navy mb-4">🎮 Skill Paths</h3>
+      <div className="bg-surface rounded-2xl shadow-sm border border-line p-6">
+        <h3 className="text-lg font-bold text-ink mb-4">🎮 Skill Paths</h3>
         <div className="flex gap-2 mb-6">
           {ROLE_TABS.map(tab => (
             <button key={tab.key} onClick={() => { setActiveRole(tab.key); setSelectedChallenge(null) }}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition ${activeRole === tab.key ? 'bg-navy text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeRole === tab.key ? 'bg-shell text-white' : 'bg-surface-sunken text-dimmed hover:bg-surface-raised'}`}>
               {tab.label}
             </button>
           ))}
@@ -250,23 +252,23 @@ export function TrainingStep() {
               <div key={challenge.id} className="relative">
                 {/* Connector line */}
                 {i > 0 && i < (CHALLENGES[activeRole]?.length || 0) && (
-                  <div className="hidden lg:block absolute -left-4 top-1/2 w-4 border-t-2 border-dashed border-gray-200" />
+                  <div className="hidden lg:block absolute -left-4 top-1/2 w-4 border-t-2 border-dashed border-line" />
                 )}
                 <div onClick={() => status !== 'locked' && setSelectedChallenge(challenge.id)}
                   className={`rounded-2xl p-4 border-2 cursor-pointer transition-all h-full ${
-                    status === 'completed' ? 'border-navy bg-navy/5' :
-                    status === 'available' ? 'border-cyan/50 bg-white hover:border-cyan hover:shadow-md' :
-                    'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
-                  } ${selectedChallenge === challenge.id ? 'ring-2 ring-cyan ring-offset-2' : ''}`}>
+                    status === 'completed' ? 'border-ink bg-ink/5' :
+                    status === 'available' ? 'border-brand/50 bg-surface hover:border-brand hover:shadow-md' :
+                    'border-line bg-surface-sunken opacity-60 cursor-not-allowed'
+                  } ${selectedChallenge === challenge.id ? 'ring-2 ring-brand ring-offset-2' : ''}`}>
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-2xl">{challenge.title.split(' ')[0]}</span>
-                    {status === 'completed' && <span className="text-green-500">✅</span>}
+                    {status === 'completed' && <span className="text-ok">✅</span>}
                     {status === 'locked' && <span>🔒</span>}
                   </div>
-                  <div className="font-semibold text-sm text-navy mb-1">{challenge.title.split(' ').slice(1).join(' ')}</div>
-                  <p className="text-xs text-gray-400 mb-3">{challenge.desc}</p>
+                  <div className="font-semibold text-sm text-ink mb-1">{challenge.title.split(' ').slice(1).join(' ')}</div>
+                  <p className="text-xs text-dimmed mb-3">{challenge.desc}</p>
                   <div className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${
-                    status === 'completed' ? 'bg-navy/10 text-navy' : 'bg-cyan/10 text-cyan'
+                    status === 'completed' ? 'bg-ink/10 text-ink' : 'bg-brand/10 text-brand-text'
                   }`}>
                     ⭐ {challenge.xp} XP
                   </div>
@@ -279,46 +281,46 @@ export function TrainingStep() {
 
       {/* Active Challenge Detail */}
       {selectedChallengeData && (
-        <div className="bg-white rounded-2xl shadow-sm border-2 border-cyan/30 p-6">
+        <div className="bg-surface rounded-2xl shadow-sm border-2 border-brand/30 p-6">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h3 className="text-lg font-bold text-navy">{selectedChallengeData.title}</h3>
-              <p className="text-sm text-gray-500">{selectedChallengeData.desc}</p>
+              <h3 className="text-lg font-bold text-ink">{selectedChallengeData.title}</h3>
+              <p className="text-sm text-dimmed">{selectedChallengeData.desc}</p>
             </div>
-            <button onClick={() => setSelectedChallenge(null)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            <button onClick={() => setSelectedChallenge(null)} className="text-dimmed hover:text-ink text-xl">×</button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h4 className="font-semibold text-sm text-navy mb-3">📋 Steps</h4>
+              <h4 className="font-semibold text-sm text-ink mb-3">📋 Steps</h4>
               <div className="space-y-2">
                 {(CHALLENGE_INSTRUCTIONS[selectedChallengeData.id] || ['Complete the challenge to earn XP!']).map((step, i) => (
-                  <div key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                    <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400 flex-shrink-0 mt-0.5">{i + 1}</span>
+                  <div key={i} className="flex items-start gap-2 text-sm text-dimmed">
+                    <span className="w-5 h-5 rounded-full bg-surface-sunken flex items-center justify-center text-[10px] font-bold text-dimmed flex-shrink-0 mt-0.5">{i + 1}</span>
                     <span>{step.replace(/^\d+\.\s*/, '')}</span>
                   </div>
                 ))}
               </div>
             </div>
             <div className="space-y-4">
-              <div className="bg-gray-50 rounded-xl p-4">
-                <div className="text-xs text-gray-400 mb-1">Reward</div>
-                <div className="text-2xl font-bold text-navy">⭐ {selectedChallengeData.xp} XP</div>
+              <div className="bg-surface-sunken rounded-xl p-4">
+                <div className="text-xs text-dimmed mb-1">Reward</div>
+                <div className="text-2xl font-bold text-ink">⭐ {selectedChallengeData.xp} XP</div>
               </div>
               {getChallengeStatus(selectedChallengeData.id, activeRole) === 'completed' ? (
-                <div className="bg-green-50 rounded-xl p-4 text-center">
+                <div className="bg-ok-light rounded-xl p-4 text-center">
                   <div className="text-2xl mb-1">✅</div>
-                  <div className="text-sm font-semibold text-green-700">Challenge Complete!</div>
+                  <div className="text-sm font-semibold text-ok">Challenge Complete!</div>
                 </div>
               ) : (
-                <button onClick={() => {
+                <Button onClick={() => {
                   const email = leaderboard[0]?.email
                   if (email) {
                     completeChallenge(email, selectedChallengeData.id)
                     setSelectedChallenge(null)
                   }
-                }} className="w-full py-3 rounded-xl bg-cyan text-white font-semibold text-sm hover:bg-cyan/90 transition shadow-lg shadow-cyan/20">
-                  🚀 Start Challenge
-                </button>
+                }} fullWidth size="md">
+                  Start challenge
+                </Button>
               )}
             </div>
           </div>

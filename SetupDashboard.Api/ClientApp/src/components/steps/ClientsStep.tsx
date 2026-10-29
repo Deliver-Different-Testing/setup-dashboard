@@ -51,19 +51,19 @@ export function ClientsStep() {
         <Btn kind="ghost" onClick={() => { setDraft(d => [...d, newClient()]); setOpen(draft.length) }}>+ Customer</Btn>
       </div>}>
         {draft.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 mb-4 p-3 rounded-xl bg-lgrey/60">
+          <div className="grid grid-cols-2 gap-3 mb-4 p-3 rounded-xl bg-surface-sunken">
             <Pick label="Invoice schedule for all" value={undefined} options={schedules.options} loading={schedules.loading} error={schedules.error}
               onChange={v => v != null && applyAll({ invoiceScheduleId: v })} placeholder="Apply to every customer…" />
             <Pick label="Payment term for all" value={undefined} options={terms.options} loading={terms.loading} error={terms.error}
               onChange={v => v != null && applyAll({ paymentTermId: v })} placeholder="Apply to every customer…" />          </div>
         )}
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-line">
           {draft.map((c, i) => (
             <div key={i} className="py-2">
               <button type="button" onClick={() => setOpen(open === i ? null : i)} className="w-full flex items-center justify-between text-left">
-                <span className="text-sm font-medium text-navy">{c.code || '—'} · {c.name || 'New customer'}
-                  <span className="text-xs text-gray-400 ml-2">{[c.address, c.suburb, c.city].filter(Boolean).join(', ') || 'no address yet'}</span></span>
-                <span className="text-xs text-gray-400">{open === i ? '▲' : '▼'}</span>
+                <span className="text-sm font-medium text-ink">{c.code || '—'} · {c.name || 'New customer'}
+                  <span className="text-xs text-dimmed ml-2">{[c.address, c.suburb, c.city].filter(Boolean).join(', ') || 'no address yet'}</span></span>
+                <span className="text-xs text-dimmed">{open === i ? '▲' : '▼'}</span>
               </button>
               {open === i && (
                 <div className="mt-3 space-y-3">
@@ -87,8 +87,8 @@ export function ClientsStep() {
                     <Pick label="Invoice schedule" required value={c.invoiceScheduleId} options={schedules.options} loading={schedules.loading} onChange={v => patch(i, { invoiceScheduleId: v })} />
                     <Pick label="Payment term" required value={c.paymentTermId} options={terms.options} loading={terms.loading} onChange={v => patch(i, { paymentTermId: v })} />
                   </div>
-                  <div className="grid grid-cols-5 gap-2 p-3 rounded-xl bg-lgrey/60">
-                    <span className="col-span-5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Primary contact (books jobs)</span>
+                  <div className="grid grid-cols-5 gap-2 p-3 rounded-xl bg-surface-sunken">
+                    <span className="col-span-5 text-[11px] font-semibold uppercase tracking-wide text-dimmed">Primary contact (books jobs)</span>
                     <Text label="First name" required value={c.primaryContact.firstName} onChange={v => patch(i, { primaryContact: { ...c.primaryContact, firstName: v } })} />
                     <Text label="Surname" value={c.primaryContact.surname} onChange={v => patch(i, { primaryContact: { ...c.primaryContact, surname: v } })} />
                     <Text label="Email" required type="email" value={c.primaryContact.email} onChange={v => patch(i, { primaryContact: { ...c.primaryContact, email: v } })} />
@@ -99,7 +99,7 @@ export function ClientsStep() {
                   </div>
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Other booking contacts</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-dimmed">Other booking contacts</span>
                       <Btn kind="ghost" onClick={() => patch(i, { contacts: [...c.contacts, newContact()] })}>+ Contact</Btn>
                     </div>
                     {c.contacts.map((ct, j) => (

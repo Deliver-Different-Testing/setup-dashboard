@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { jsPDF } from 'jspdf'
+import { Button } from '@mantine/core'
+import { Download } from 'lucide-react'
 import { STEPS, useStore } from '../store'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -49,8 +51,9 @@ export function PdfSummary() {
   }
 
   return (
-    <button onClick={generate} disabled={busy} className="px-3 py-1.5 rounded-full border border-white/30 text-xs font-semibold hover:bg-white/10 disabled:opacity-50">
-      {busy ? 'Building…' : '⬇ Progress PDF'}
-    </button>
+    <Button onClick={generate} loading={busy} variant="outline" color="gray" c="white" size="xs"
+      leftSection={<Download size={14} strokeWidth={1.5} />} styles={{ root: { borderColor: 'rgba(255,255,255,0.3)' } }}>
+      Progress PDF
+    </Button>
   )
 }

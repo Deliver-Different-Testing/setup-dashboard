@@ -8,8 +8,8 @@ import { Btn, Card, Num, Pick, RemoveBtn, Text } from '../ui'
 import { asOptions, csv, patchAt, removeAt, useLookup } from '../../lib/helpers'
 
 const allCustomers = (codes: string[]) => codes.length === 0
-  ? <span className="text-[11px] text-amber-700">Applies to every customer</span>
-  : <span className="text-[11px] text-gray-400">{codes.length} customer{codes.length === 1 ? '' : 's'}</span>
+  ? <span className="text-[11px] text-warn">Applies to every customer</span>
+  : <span className="text-[11px] text-dimmed">{codes.length} customer{codes.length === 1 ? '' : 's'}</span>
 
 export function RatesStep() {
   const reload = useStore(s => s.reload)
@@ -33,7 +33,7 @@ export function RatesStep() {
         Rate cards and spreadsheet imports are DF Admin only in Settings (see the checklist).
       </>}>
       <Card title="Vehicle sizes" right={<Btn kind="ghost" onClick={() => set({ vehicleSizes: [...draft.vehicleSizes, {}] })}>+ Vehicle size</Btn>}>
-        {existingVehicles.data && existingVehicles.data.length > 0 && <p className="text-[11px] text-gray-400 mb-2">Already in Settings: {existingVehicles.data.map(v => v.name).join(', ')}</p>}
+        {existingVehicles.data && existingVehicles.data.length > 0 && <p className="text-[11px] text-dimmed mb-2">Already in Settings: {existingVehicles.data.map(v => v.name).join(', ')}</p>}
         {draft.vehicleSizes.map((v, i) => (
           <div key={i} className="grid grid-cols-6 gap-2 items-end mb-2">
             <div className="col-span-2"><Text label="Name" required value={v.name} onChange={x => set({ vehicleSizes: patchAt(draft.vehicleSizes, i, { name: x }) })} /></div>
@@ -50,7 +50,7 @@ export function RatesStep() {
         <Btn kind="ghost" onClick={() => set({ zoneGroups: [...draft.zoneGroups, { zones: [] }] })}>+ Zone group</Btn>
       </div>}>
         {draft.zoneGroups.map((g, i) => (
-          <div key={i} className="border border-gray-100 rounded-xl p-3 mb-3">
+          <div key={i} className="border border-line rounded-xl p-3 mb-3">
             <div className="flex gap-2 items-end">
               <div className="flex-1"><Text label="Zone group" required value={g.name} onChange={x => set({ zoneGroups: patchAt(draft.zoneGroups, i, { name: x }) })} /></div>
               <Btn kind="ghost" onClick={() => set({ zoneGroups: patchAt(draft.zoneGroups, i, { zones: [...g.zones, { zips: [] }] }) })}>+ Zone</Btn>
@@ -108,7 +108,7 @@ function ZoneRate({ r, zones, vehicles, speeds, onChange, onRemove }: {
   r: ZoneRateRow; zones: Opt[]; vehicles: string[]; speeds: Opt[]; onChange: (p: Partial<ZoneRateRow>) => void; onRemove: () => void
 }) {
   return (
-    <div className="grid grid-cols-8 gap-2 items-end border-t border-gray-100 pt-2 mt-2">
+    <div className="grid grid-cols-8 gap-2 items-end border-t border-line pt-2 mt-2">
       <div className="col-span-2"><Text label="Name" required value={r.name} onChange={x => onChange({ name: x })} /></div>
       <Pick label="From zone" required value={r.fromZone} options={zones} onChange={x => onChange({ fromZone: x })} />
       <Pick label="To zone" required value={r.toZone} options={zones} onChange={x => onChange({ toZone: x })} />
@@ -128,7 +128,7 @@ function DistanceRate({ r, vehicles, speeds, depots, onChange, onRemove }: {
   r: DistanceRateRow; vehicles: string[]; speeds: Opt[]; depots: { id: number; name: string }[]; onChange: (p: Partial<DistanceRateRow>) => void; onRemove: () => void
 }) {
   return (
-    <div className="grid grid-cols-8 gap-2 items-end border-t border-gray-100 pt-2 mt-2">
+    <div className="grid grid-cols-8 gap-2 items-end border-t border-line pt-2 mt-2">
       <div className="col-span-2"><Text label="Name" required value={r.name} onChange={x => onChange({ name: x })} /></div>
       <Pick label="Speed" required value={r.speedId} options={speeds} onChange={x => onChange({ speedId: x })} />
       <Num label="Base $" required value={r.baseCharge} onChange={x => onChange({ baseCharge: x })} />
@@ -142,14 +142,14 @@ function DistanceRate({ r, vehicles, speeds, depots, onChange, onRemove }: {
       <div className="col-span-4"><Text label="Customer codes" hint="blank = every customer" value={r.clientCodes.join(', ')} onChange={x => onChange({ clientCodes: csv(x) })} />
         {allCustomers(r.clientCodes)}</div>
       <div className="col-span-8 flex flex-wrap gap-3">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Depots</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-dimmed">Depots</span>
         {depots.map(d => (
           <label key={d.id} className="text-xs flex items-center gap-1">
-            <input type="checkbox" className="accent-cyan" checked={r.depotIds.includes(d.id)}
+            <input type="checkbox" className="accent-brand" checked={r.depotIds.includes(d.id)}
               onChange={e => onChange({ depotIds: e.target.checked ? [...r.depotIds, d.id] : r.depotIds.filter(x => x !== d.id) })} />{d.name}
           </label>
         ))}
-        {depots.length === 0 && <span className="text-xs text-gray-400">No depots yet - DFRNT creates them (Business checklist).</span>}
+        {depots.length === 0 && <span className="text-xs text-dimmed">No depots yet - DFRNT creates them (Business checklist).</span>}
       </div>
     </div>
   )

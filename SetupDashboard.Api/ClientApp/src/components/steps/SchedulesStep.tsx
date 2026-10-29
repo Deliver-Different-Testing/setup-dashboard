@@ -27,10 +27,10 @@ export function SchedulesStep() {
         an origin depot. Depots themselves are created by DFRNT for now.
       </>}>
       <Card title={`Schedules (${draft.length})`} right={<Btn kind="ghost" onClick={() => setDraft(d => [...d, { dayWindows: [], clientCodes: [] }])}>+ Schedule</Btn>}>
-        {depots.data && depots.data.length === 0 && <p className="text-xs text-amber-700 mb-2">This tenant has no depots yet - schedules can't be created until DFRNT adds them.</p>}
+        {depots.data && depots.data.length === 0 && <p className="text-xs text-warn mb-2">This tenant has no depots yet - schedules can't be created until DFRNT adds them.</p>}
         <div className="space-y-4">
           {draft.map((s, i) => (
-            <div key={i} className="border border-gray-100 rounded-xl p-3">
+            <div key={i} className="border border-line rounded-xl p-3">
               <div className="grid grid-cols-6 gap-2 items-end">
                 <div className="col-span-2"><Text label="Name" required value={s.name} onChange={v => patch(i, { name: v })} /></div>
                 <Pick label="Destination depot" required value={s.regionId} options={depotOpts} loading={depots.loading} onChange={v => patch(i, { regionId: v })} />
@@ -59,28 +59,28 @@ function DayWindows({ windows, onChange }: { windows: DayWindowRow[]; onChange: 
   }
   return (
     <div className="mt-3">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Day windows<span className="text-red-500 ml-0.5">*</span></span>
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-dimmed">Day windows<span className="text-danger ml-0.5">*</span></span>
       <div className="grid grid-cols-7 gap-2 mt-1">
         {DAYS.map((name, idx) => {
           const d = idx + 1
           const w = byDay(d)
           return (
-            <div key={d} className={`rounded-lg border p-2 ${w ? 'border-cyan/50 bg-cyan/5' : 'border-gray-100'}`}>
-              <label className="flex items-center gap-1 text-xs font-semibold text-navy">
-                <input type="checkbox" className="accent-cyan" checked={!!w} onChange={e => setDay(d, e.target.checked ? {} : null)} />{name}
+            <div key={d} className={`rounded-lg border p-2 ${w ? 'border-brand/50 bg-brand/5' : 'border-line'}`}>
+              <label className="flex items-center gap-1 text-xs font-semibold text-ink">
+                <input type="checkbox" className="accent-brand" checked={!!w} onChange={e => setDay(d, e.target.checked ? {} : null)} />{name}
               </label>
               {w && (
                 <div className="space-y-1 mt-1">
                   <input type="time" value={w.startTime ?? ''} onChange={e => setDay(d, { startTime: e.target.value || undefined })} className="w-full text-xs border rounded px-1 py-0.5" title="Start" />
                   <input type="time" value={w.endTime ?? ''} onChange={e => setDay(d, { endTime: e.target.value || undefined })} className="w-full text-xs border rounded px-1 py-0.5" title="End" />
-                  <input type="time" value={w.cutoffTime ?? ''} onChange={e => setDay(d, { cutoffTime: e.target.value || undefined })} className="w-full text-xs border rounded px-1 py-0.5 text-gray-400" title="Booking cutoff (optional)" />
+                  <input type="time" value={w.cutoffTime ?? ''} onChange={e => setDay(d, { cutoffTime: e.target.value || undefined })} className="w-full text-xs border rounded px-1 py-0.5 text-dimmed" title="Booking cutoff (optional)" />
                 </div>
               )}
             </div>
           )
         })}
       </div>
-      <p className="text-[11px] text-gray-400 mt-1">Start, end, and an optional booking cutoff per day.</p>
+      <p className="text-[11px] text-dimmed mt-1">Start, end, and an optional booking cutoff per day.</p>
     </div>
   )
 }

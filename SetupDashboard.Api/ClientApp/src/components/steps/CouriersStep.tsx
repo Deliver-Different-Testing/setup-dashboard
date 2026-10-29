@@ -40,7 +40,7 @@ export function CouriersStep() {
       </div>}>
         <div className="space-y-2">
           {draft.couriers.map((c, i) => (
-            <div key={i} className="grid grid-cols-8 gap-2 items-end border-t border-gray-100 pt-2">
+            <div key={i} className="grid grid-cols-8 gap-2 items-end border-t border-line pt-2">
               <Text label="First name" required value={c.firstName} onChange={v => patchCourier(i, { firstName: v })} />
               <Text label="Surname" required value={c.surName} onChange={v => patchCourier(i, { surName: v })} />
               <div className="col-span-2"><Text label="Email (app login)" required type="email" value={c.email} onChange={v => patchCourier(i, { email: v })} /></div>

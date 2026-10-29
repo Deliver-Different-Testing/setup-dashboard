@@ -30,30 +30,30 @@ export function TeamStep() {
         <b> emails them a sign-in invite</b>. No staff file is created.
       </>}>
       <Card title="Roles" right={<Btn kind="ghost" onClick={() => setRoles([...draft.roles, newRole()])}>+ Role</Btn>}>
-        {draft.roles.length === 0 && <p className="text-xs text-gray-400">Usually a tenant admin and an operations role.</p>}
+        {draft.roles.length === 0 && <p className="text-xs text-dimmed">Usually a tenant admin and an operations role.</p>}
         <div className="space-y-4">
           {draft.roles.map((r, i) => (
-            <div key={i} className="border border-gray-100 rounded-xl p-3">
+            <div key={i} className="border border-line rounded-xl p-3">
               <div className="flex gap-3 items-end">
                 <div className="flex-1"><Text label="Role name" required value={r.name} onChange={v => setRoles(patchAt(draft.roles, i, { name: v }))} placeholder="e.g. Tenant Admin" /></div>
                 <div className="flex-1"><Text label="Description" value={r.description} onChange={v => setRoles(patchAt(draft.roles, i, { description: v }))} /></div>
                 <RemoveBtn onClick={() => setRoles(removeAt(draft.roles, i))} />
               </div>
               <div className="mt-3">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Tiles this role can open</span>
-                {tiles.loading && <p className="text-xs text-gray-400">Loading tiles from Access Control…</p>}
-                {tiles.error && <p className="text-xs text-red-500">{tiles.error}</p>}
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-dimmed">Tiles this role can open</span>
+                {tiles.loading && <p className="text-xs text-dimmed">Loading tiles from Access Control…</p>}
+                {tiles.error && <p className="text-xs text-danger">{tiles.error}</p>}
                 <div className="grid grid-cols-3 gap-1.5 mt-1">
                   {(tiles.data ?? []).map(t => {
                     const on = r.tiles.includes(t.featureKey)
                     return (
                       <Check key={t.featureKey} checked={on}
-                        label={<>{t.displayName}{t.condition && <span className="text-gray-400"> ({t.condition})</span>}</>}
+                        label={<>{t.displayName}{t.condition && <span className="text-dimmed"> ({t.condition})</span>}</>}
                         onChange={v => setRoles(patchAt(draft.roles, i, { tiles: v ? [...r.tiles, t.featureKey] : r.tiles.filter(x => x !== t.featureKey) }))} />
                     )
                   })}
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1">
+                <p className="text-[11px] text-dimmed mt-1">
                   Role actions (View Financial Data, Manage Users, Edit Settings…) follow their tile. DFRNT switches any off in Settings &gt; Roles.
                 </p>
               </div>
@@ -66,10 +66,10 @@ export function TeamStep() {
         <Btn kind="ghost" disabled={dirty} title={dirty ? 'Save first' : ''} onClick={() => setImporting(true)}>Import file</Btn>
         <Btn kind="ghost" onClick={() => setPeople([...draft.people, newPerson()])}>+ Person</Btn>
       </div>}>
-        {draft.people.length === 0 && <p className="text-xs text-gray-400">Staff who will sign in to DFRNT.</p>}
+        {draft.people.length === 0 && <p className="text-xs text-dimmed">Staff who will sign in to DFRNT.</p>}
         <div className="space-y-3">
           {draft.people.map((p, i) => (
-            <div key={i} className="grid grid-cols-6 gap-2 items-end border-t border-gray-100 pt-3">
+            <div key={i} className="grid grid-cols-6 gap-2 items-end border-t border-line pt-3">
               <Text label="Email" required type="email" value={p.email} onChange={v => setPeople(patchAt(draft.people, i, { email: v }))} />
               <Text label="First name" required value={p.firstName} onChange={v => setPeople(patchAt(draft.people, i, { firstName: v }))} />
               <Text label="Last name" value={p.lastName} onChange={v => setPeople(patchAt(draft.people, i, { lastName: v }))} />
@@ -81,7 +81,7 @@ export function TeamStep() {
               </div>
               <div className="col-span-6">
                 <Check warn checked={p.inviteConfirmed} onChange={v => setPeople(patchAt(draft.people, i, { inviteConfirmed: v }))}
-                  label={<>Send {p.email || 'them'} a sign-in invite now. <span className="text-gray-400">Adding a person always emails them; they aren't sent until this is ticked.</span></>} />
+                  label={<>Send {p.email || 'them'} a sign-in invite now. <span className="text-dimmed">Adding a person always emails them; they aren't sent until this is ticked.</span></>} />
               </div>
             </div>
           ))}

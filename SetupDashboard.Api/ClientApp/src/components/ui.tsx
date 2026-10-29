@@ -1,59 +1,63 @@
 import type { ReactNode } from 'react'
+import { ActionIcon, Badge, Button, Checkbox, Loader, NumberInput, Paper, Select, TextInput, Title, type MantineColor } from '@mantine/core'
+import { X } from 'lucide-react'
 import type { RowStatus, StepStatus } from '../lib/api'
 
-// Small form kit. A field marked `required` is one the owning app (Settings / Routed Ops)
-// rejects without; the dashboard never fills it in for you.
+// Small form kit on Mantine and the DFRNT theme. A field marked `required` is one the owning
+// app (Settings / Routed Ops) rejects without; the dashboard never fills it in for you.
+
+/** A required field that's still empty: the warning tone, not the error red - it's not wrong yet. */
+const missingStyles = {
+  input: {
+    borderColor: 'var(--mantine-color-orange-filled)',
+    backgroundColor: 'var(--mantine-color-yellow-light)',
+  },
+}
 
 export function Card({ title, children, right }: { title?: ReactNode; children: ReactNode; right?: ReactNode }) {
   return (
-    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+    <Paper component="section" p="lg">
       {(title || right) && (
         <div className="flex items-center justify-between mb-3">
-          {title && <h3 className="text-sm font-bold text-navy">{title}</h3>}
+          {title && <Title order={3} fz="sm" fw={700}>{title}</Title>}
           {right}
         </div>
       )}
       {children}
-    </section>
+    </Paper>
   )
 }
 
 export function Label({ text, required, hint }: { text: string; required?: boolean; hint?: string }) {
   return (
-    <span className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">
-      {text}{required && <span className="text-red-500 ml-0.5" title="Required by the app this is saved to">*</span>}
-      {hint && <span className="normal-case tracking-normal font-normal text-gray-400 ml-1">{hint}</span>}
+    <span className="block text-[11px] font-semibold uppercase tracking-wide text-dimmed mb-1">
+      {text}{required && <span className="text-danger ml-0.5" title="Required by the app this is saved to">*</span>}
+      {hint && <span className="normal-case tracking-normal font-normal text-dimmed ml-1">{hint}</span>}
     </span>
   )
 }
-
-const inputCls = (missing?: boolean) =>
-  `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:border-cyan ${missing ? 'border-amber-300 bg-amber-50/40' : 'border-gray-200'}`
 
 export function Text({ label, value, onChange, required, placeholder, type = 'text', hint, autoComplete }: {
   label: string; value?: string; onChange: (v: string | undefined) => void; required?: boolean
   placeholder?: string; type?: string; hint?: string; autoComplete?: string
 }) {
   return (
-    <label className="block">
-      <Label text={label} required={required} hint={hint} />
-      <input type={type} value={value ?? ''} placeholder={placeholder} autoComplete={autoComplete}
-        onChange={e => onChange(e.target.value === '' ? undefined : e.target.value)}
-        className={inputCls(required && !value)} />
-    </label>
+    <TextInput label={label} description={hint} withAsterisk={required} type={type} value={value ?? ''}
+      placeholder={placeholder} autoComplete={autoComplete} size="sm"
+      onChange={e => onChange(e.currentTarget.value === '' ? undefined : e.currentTarget.value)}
+      styles={required && !value ? missingStyles : undefined} />
   )
 }
 
 export function Num({ label, value, onChange, required, step = 'any', hint }: {
   label: string; value?: number; onChange: (v: number | undefined) => void; required?: boolean; step?: string; hint?: string
 }) {
+  const whole = step === '1'
   return (
-    <label className="block">
-      <Label text={label} required={required} hint={hint} />
-      <input type="number" step={step} value={value ?? ''}
-        onChange={e => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
-        className={inputCls(required && value == null)} />
-    </label>
+    <NumberInput label={label} description={hint} withAsterisk={required} value={value ?? ''} size="sm"
+      allowDecimal={!whole} step={whole ? 1 : undefined} hideControls={!whole}
+      onChange={v => onChange(v === '' || v == null ? undefined : Number(v))}
+      styles={required && value == null ? missingStyles : undefined} />
   )
 }
 
@@ -61,66 +65,68 @@ export function Pick({ label, value, onChange, options, required, placeholder = 
   label: string; value?: number | string; onChange: (v: never) => void; required?: boolean
   options: { value: number | string; label: string }[]; placeholder?: string; loading?: boolean; error?: string | null
 }) {
+  // Mantine's Select works in strings; the caller's ids may be numbers, so map back on change.
+  const data = options.map(o => ({ value: String(o.value), label: o.label }))
   return (
-    <label className="block">
-      <Label text={label} required={required} />
-      <select value={value ?? ''} onChange={e => {
-        const raw = e.target.value
+    <Select label={label} withAsterisk={required} data={data} size="sm" searchable={data.length > 8} clearable={!required}
+      value={value == null || value === '' ? null : String(value)}
+      placeholder={loading ? 'Loading…' : error ? 'Could not load' : placeholder}
+      rightSection={loading ? <Loader size="xs" /> : undefined}
+      error={error || undefined}
+      onChange={raw => {
         const opt = options.find(o => String(o.value) === raw)
-        ;(onChange as (v: unknown) => void)(raw === '' ? undefined : opt ? opt.value : raw)
-      }} className={inputCls(required && (value == null || value === ''))}>
-        <option value="">{loading ? 'Loading…' : error ? 'Could not load' : placeholder}</option>
-        {options.map(o => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
-      </select>
-      {error && <span className="text-[11px] text-red-500">{error}</span>}
-    </label>
+        ;(onChange as (v: unknown) => void)(raw == null ? undefined : opt ? opt.value : raw)
+      }}
+      styles={required && (value == null || value === '') ? missingStyles : undefined} />
   )
 }
 
 export function Check({ label, checked, onChange, warn }: { label: ReactNode; checked: boolean; onChange: (v: boolean) => void; warn?: boolean }) {
   return (
-    <label className={`flex items-start gap-2 text-xs cursor-pointer ${warn && !checked ? 'text-amber-700' : 'text-gray-600'}`}>
-      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} className="mt-0.5 accent-cyan" />
-      <span>{label}</span>
-    </label>
+    <Checkbox label={label} checked={checked} onChange={e => onChange(e.currentTarget.checked)} size="sm"
+      styles={{ label: { fontSize: 'var(--mantine-font-size-xs)', color: warn && !checked ? 'var(--mantine-color-orange-text)' : 'var(--mantine-color-dimmed)' } }} />
   )
 }
 
 export function Btn({ children, onClick, kind = 'primary', disabled, title }: {
   children: ReactNode; onClick?: () => void; kind?: 'primary' | 'ghost' | 'danger'; disabled?: boolean; title?: string
 }) {
-  const cls = kind === 'primary'
-    ? 'bg-cyan text-white hover:bg-cyan-dark shadow-sm'
-    : kind === 'danger' ? 'border border-red-200 text-red-600 hover:bg-red-50' : 'border border-gray-300 text-gray-600 hover:border-navy hover:text-navy'
-  return <button type="button" title={title} onClick={onClick} disabled={disabled}
-    className={`px-4 py-2 rounded-full text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed ${cls}`}>{children}</button>
+  const look = kind === 'primary' ? { variant: 'filled' } : kind === 'danger' ? { variant: 'light', color: 'red' } : { variant: 'default' }
+  return <Button type="button" size="xs" title={title} onClick={onClick} disabled={disabled} {...look}>{children}</Button>
 }
 
 export function RemoveBtn({ onClick }: { onClick: () => void }) {
-  return <button type="button" onClick={onClick} className="text-gray-300 hover:text-red-500 text-sm px-1" title="Remove">✕</button>
+  return (
+    <ActionIcon variant="subtle" color="red" size="sm" onClick={onClick} title="Remove" aria-label="Remove">
+      <X size={14} strokeWidth={1.5} />
+    </ActionIcon>
+  )
 }
 
-const STEP_PILL: Record<StepStatus, [string, string]> = {
-  not_started: ['Not started', 'bg-gray-100 text-gray-500'],
-  waiting_on_tenant: ['Waiting on tenant', 'bg-amber-100 text-amber-700'],
-  in_progress: ['In progress', 'bg-cyan/15 text-cyan-dark'],
-  done: ['Done', 'bg-green-100 text-green-700'],
+function StatusBadge({ text, color }: { text: string; color: MantineColor }) {
+  return <Badge variant="light" color={color} size="sm" tt="none" fw={600} style={{ whiteSpace: 'nowrap' }}>{text}</Badge>
+}
+
+const STEP_PILL: Record<StepStatus, [string, MantineColor]> = {
+  not_started: ['Not started', 'gray'],
+  waiting_on_tenant: ['Waiting on tenant', 'yellow'],
+  in_progress: ['In progress', 'brand'],
+  done: ['Done', 'green'],
 }
 export function StepPill({ status }: { status: StepStatus }) {
-  const [text, cls] = STEP_PILL[status] ?? STEP_PILL.not_started
-  return <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${cls}`}>{text}</span>
+  const [text, color] = STEP_PILL[status] ?? STEP_PILL.not_started
+  return <StatusBadge text={text} color={color} />
 }
 
-const ROW_PILL: Record<RowStatus, [string, string]> = {
-  pending: ['Not sent', 'bg-gray-100 text-gray-500'],
-  needs_data: ['Needs info', 'bg-amber-100 text-amber-700'],
-  created: ['Created', 'bg-green-100 text-green-700'],
-  failed: ['Failed', 'bg-red-100 text-red-600'],
-  skipped: ['Skipped', 'bg-gray-100 text-gray-500'],
-  unknown: ['No answer', 'bg-orange-100 text-orange-700'],
+const ROW_PILL: Record<RowStatus, [string, MantineColor]> = {
+  pending: ['Not sent', 'gray'],
+  needs_data: ['Needs info', 'yellow'],
+  created: ['Created', 'green'],
+  failed: ['Failed', 'red'],
+  skipped: ['Skipped', 'gray'],
+  unknown: ['No answer', 'orange'],
 }
 export function RowPill({ status }: { status: RowStatus }) {
-  const [text, cls] = ROW_PILL[status] ?? ROW_PILL.pending
-  return <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${cls}`}>{text}</span>
+  const [text, color] = ROW_PILL[status] ?? ROW_PILL.pending
+  return <StatusBadge text={text} color={color} />
 }
-

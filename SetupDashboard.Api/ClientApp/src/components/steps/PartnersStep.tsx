@@ -19,7 +19,7 @@ export function PartnersStep() {
       <Card title={`Partners (${draft.length})`} right={<Btn kind="ghost" onClick={() => setDraft(d => [...d, { isNetworkPartner: true, inviteConfirmed: false }])}>+ Partner</Btn>}>
         <div className="space-y-3">
           {draft.map((p, i) => (
-            <div key={i} className="grid grid-cols-6 gap-2 items-end border-t border-gray-100 pt-3">
+            <div key={i} className="grid grid-cols-6 gap-2 items-end border-t border-line pt-3">
               <div className="col-span-2"><Text label="Name" required value={p.name} onChange={v => patch(i, { name: v })} /></div>
               <Text label="Contact name" value={p.contactName} onChange={v => patch(i, { contactName: v })} />
               <div className="col-span-2"><Text label="Contact email" hint="gives them a login" type="email" value={p.contactEmail} onChange={v => patch(i, { contactEmail: v })} /></div>

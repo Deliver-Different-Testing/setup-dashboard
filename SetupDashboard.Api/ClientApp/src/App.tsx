@@ -1,4 +1,6 @@
 import { useEffect, type ComponentType } from 'react'
+import { Button, Loader, Paper } from '@mantine/core'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { STEPS, useStore } from './store'
 import type { StepKey } from './lib/api'
 import { Header } from './components/Header'
@@ -36,19 +38,19 @@ function App() {
 
   if (isInitializing) {
     return (
-      <div className="fixed inset-0 bg-lgrey flex flex-col items-center justify-center gap-4">
-        <div className="w-12 h-12 border-4 border-cyan/30 border-t-cyan rounded-full animate-spin" />
-        <p className="text-navy font-semibold text-lg">Opening your setup…</p>
+      <div className="fixed inset-0 bg-page flex flex-col items-center justify-center gap-4">
+        <Loader size="lg" />
+        <p className="text-ink font-semibold text-lg">Opening your setup…</p>
       </div>
     )
   }
   if (fatal) {
     return (
-      <div className="fixed inset-0 bg-lgrey flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow p-6 max-w-md text-center">
-          <p className="text-navy font-semibold">Setup Dashboard couldn't start</p>
-          <p className="text-sm text-gray-500 mt-2">{fatal}</p>
-        </div>
+      <div className="fixed inset-0 bg-page flex items-center justify-center p-6">
+        <Paper p="lg" maw={448} ta="center">
+          <p className="text-ink font-semibold">Setup Dashboard couldn't start</p>
+          <p className="text-sm text-dimmed mt-2">{fatal}</p>
+        </Paper>
       </div>
     )
   }
@@ -57,7 +59,7 @@ function App() {
   const Screen = SCREENS[step.key]
 
   return (
-    <div className="min-h-screen bg-lgrey font-inter">
+    <div className="min-h-screen bg-page">
       <ResumeSession />
       <Header />
       <div className="flex" style={{ height: 'calc(100vh - 60px)' }}>
@@ -69,10 +71,10 @@ function App() {
               <Screen key={step.key} />
               <div className="max-w-5xl mx-auto flex justify-between mt-8">
                 {currentStep > 0
-                  ? <button onClick={() => setCurrentStep(currentStep - 1)} className="px-6 py-2.5 rounded-full border border-gray-300 text-sm font-semibold text-gray-500 hover:border-navy hover:text-navy transition">← {STEPS[currentStep - 1].short}</button>
+                  ? <Button variant="default" leftSection={<ArrowLeft size={16} strokeWidth={1.5} />} onClick={() => setCurrentStep(currentStep - 1)}>{STEPS[currentStep - 1].short}</Button>
                   : <div />}
                 {currentStep < STEPS.length - 1 &&
-                  <button onClick={() => setCurrentStep(currentStep + 1)} className="px-6 py-2.5 rounded-full bg-navy text-white text-sm font-semibold hover:opacity-90 transition">{STEPS[currentStep + 1].short} →</button>}
+                  <Button rightSection={<ArrowRight size={16} strokeWidth={1.5} />} onClick={() => setCurrentStep(currentStep + 1)}>{STEPS[currentStep + 1].short}</Button>}
               </div>
             </div>
           )}

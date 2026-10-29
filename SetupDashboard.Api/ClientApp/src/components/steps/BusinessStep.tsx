@@ -54,7 +54,7 @@ function SystemSettingsNow() {
     api.getTenantSummary(sessionId).then(setData).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Could not load'))
   }, [sessionId])
 
-  if (error) return <Card title="This tenant's system settings now"><p className="text-xs text-red-500">{error}</p></Card>
+  if (error) return <Card title="This tenant's system settings now"><p className="text-xs text-danger">{error}</p></Card>
   if (!data) return null
   const s = data.settings
   const company = session?.business.companyName?.toLowerCase()
@@ -65,16 +65,16 @@ function SystemSettingsNow() {
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
         {[['Company address', s.CompanyAddress], ['Admin email', s.AdminEmail], ['Country code', s.CountryCode], ['Application name', s.ApplicationName]].map(([k, v]) => (
           <div key={k} className="contents">
-            <dt className="text-gray-400">{k}</dt>
-            <dd className={looksForeign(v) && k !== 'Country code' && k !== 'Application name' ? 'text-amber-700 font-medium' : 'text-navy'}>{v || '—'}</dd>
+            <dt className="text-dimmed">{k}</dt>
+            <dd className={looksForeign(v) && k !== 'Country code' && k !== 'Application name' ? 'text-warn font-medium' : 'text-ink'}>{v || '—'}</dd>
           </div>
         ))}
       </dl>
-      <p className="text-[11px] text-gray-400 mt-2">
+      <p className="text-[11px] text-dimmed mt-2">
         New tenant databases can carry another tenant's details. If anything here isn't {session?.business.companyName || 'this tenant'}'s,
         it needs fixing in System Settings before the "system settings and email wording" item is ticked.
       </p>
-      <p className="text-[11px] text-gray-400 mt-1">
+      <p className="text-[11px] text-dimmed mt-1">
         Already in the system: {data.counts.Clients ?? 0} customers, {data.counts.Team ?? 0} staff, {data.counts.Couriers ?? 0} couriers, {data.counts.Zones ?? 0} zones, {data.counts.Automations ?? 0} active automations.
       </p>
     </Card>

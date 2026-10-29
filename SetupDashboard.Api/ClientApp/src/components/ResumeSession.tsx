@@ -1,5 +1,10 @@
 import { useState } from 'react'
+import { Anchor, Button, Group } from '@mantine/core'
+import { History } from 'lucide-react'
 import { useStore } from '../store'
+import { DialogShell } from './dialog/DialogShell'
+import { DialogHeader } from './dialog/DialogHeader'
+import { DIALOG_SIZES } from './dialog/dialogStyles'
 
 /** Shown when this tenant has setups in progress and the browser doesn't remember one. */
 export function ResumeSession() {
@@ -7,42 +12,42 @@ export function ResumeSession() {
   const [busy, setBusy] = useState<string | null>(null)
   if (!showResumePrompt) return null
 
+  // A choice has to be made (carry on, or start a separate setup), so there is no close.
   return (
-    <div className="fixed inset-0 z-[200] bg-navy/60 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
-        <h2 className="text-lg font-bold text-navy">Carry on with a setup?</h2>
-        <p className="text-sm text-gray-500 mt-1">This tenant already has setup in progress.</p>
-        <ul className="mt-4 space-y-2">
+    <DialogShell opened onClose={() => {}} closeOnClickOutside={false} closeOnEscape={false} size={DIALOG_SIZES.md} label="Carry on with a setup?">
+      <DialogHeader icon={<History size={20} strokeWidth={1.25} />} title="Carry on with a setup?" subtitle="This tenant already has setup in progress." />
+      <div className="p-6">
+        <ul className="space-y-2">
           {sessions.map(s => (
-            <li key={s.id} className="flex items-center justify-between gap-3 border border-gray-100 rounded-xl px-4 py-3">
+            <li key={s.id} className="flex items-center justify-between gap-3 bg-surface border border-line rounded-xl px-4 py-3">
               <div>
-                <div className="text-sm font-semibold text-navy">{s.companyName || 'Unnamed setup'}</div>
-                <div className="text-[11px] text-gray-400">
+                <div className="text-sm font-semibold text-ink">{s.companyName || 'Unnamed setup'}</div>
+                <div className="text-[11px] text-dimmed">
                   {s.stepsDone} of 11 steps done{s.waitingOnTenant ? ` · waiting on tenant for ${s.waitingOnTenant}` : ''} · updated {new Date(s.updatedAt).toLocaleDateString()}
                   {s.createdByName ? ` · started by ${s.createdByName}` : ''}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <Group gap="xs" wrap="nowrap">
                 {me?.isDfAdmin && (
-                  <button className="text-xs text-gray-400 hover:text-red-500" disabled={!!busy}
+                  <Button variant="subtle" color="red" size="xs" disabled={!!busy}
                     title="Forget this setup. Nothing already created in Settings is removed."
                     onClick={async () => { if (confirm('Forget this setup? Nothing already created in Settings or Routed Ops is removed.')) { setBusy(s.id); try { await removeSession(s.id) } finally { setBusy(null) } } }}>
                     Forget
-                  </button>
+                  </Button>
                 )}
-                <button className="px-4 py-1.5 rounded-full bg-cyan text-white text-xs font-semibold disabled:opacity-50" disabled={!!busy}
+                <Button size="xs" miw={100} disabled={!!busy && busy !== s.id} loading={busy === s.id}
                   onClick={async () => { setBusy(s.id); try { await resume(s.id) } finally { setBusy(null) } }}>
-                  {busy === s.id ? 'Opening…' : 'Continue'}
-                </button>
-              </div>
+                  Continue
+                </Button>
+              </Group>
             </li>
           ))}
         </ul>
-        <button className="mt-4 text-xs text-gray-500 hover:text-navy underline" disabled={!!busy}
+        <Anchor component="button" type="button" size="xs" c="dimmed" mt="md" underline="always" disabled={!!busy}
           onClick={async () => { setBusy('new'); try { await startNew() } finally { setBusy(null) } }}>
           Start a separate setup instead
-        </button>
+        </Anchor>
       </div>
-    </div>
+    </DialogShell>
   )
 }
