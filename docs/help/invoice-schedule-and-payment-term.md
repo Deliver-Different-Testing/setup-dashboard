@@ -8,7 +8,7 @@ tags: [invoice schedule, payment term, billing, invoicing, monthly, weekly, days
 
 Every customer must have an invoice schedule (how often they are invoiced) and a payment term (how long they have to pay). Both are picked from the lists the tenant already has in Settings; the one marked "(tenant default)" is the usual choice. If the right schedule or term isn't in the list it has to be added in Settings first; the dashboard can't create one.
 
-Use "Invoice schedule for all" and "Payment term for all" to set the same value on every customer row.
+Use "Set for every customer" to apply one invoice schedule or payment term to every customer, either only where empty or replacing all.
 
 ## From a file
 

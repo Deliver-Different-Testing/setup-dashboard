@@ -6,7 +6,7 @@ audience: [admin]
 tags: [contacts, booking contacts, users, customer users, sign-in, invite, primary contact, import contacts]
 ---
 
-A customer has one primary contact, who always gets a booking sign-in, and any number of other booking contacts, who don't unless you tick "Sign-in + invite" on them. An extra contact needs an email (it becomes their username) and a first name or surname. Mobile and job title are optional.
+A customer has one primary contact, who always gets a booking sign-in, and any number of other booking contacts, who don't unless you tick "Email a sign-in invite to this contact" on them. An extra contact needs an email (it becomes their username) and a first name or surname. Mobile and job title are optional.
 
 Contacts are created right after their customer when the step is sent; a contact whose customer failed waits until the customer is created.
 
