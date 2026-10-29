@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { jsPDF } from 'jspdf'
-import { Button } from '@mantine/core'
+import { Button, useMantineTheme } from '@mantine/core'
 import { Download } from 'lucide-react'
 import { STEPS, useStore } from '../store'
 
@@ -12,6 +12,7 @@ const STATUS_LABEL: Record<string, string> = {
 export function PdfSummary() {
   const session = useStore(s => s.session)
   const [busy, setBusy] = useState(false)
+  const { scrim } = useMantineTheme().other // sits on the app bar
   if (!session) return null
 
   const generate = () => {
@@ -51,8 +52,8 @@ export function PdfSummary() {
   }
 
   return (
-    <Button onClick={generate} loading={busy} variant="outline" color="gray" c="white" size="xs"
-      leftSection={<Download size={14} strokeWidth={1.5} />} styles={{ root: { borderColor: 'rgba(255,255,255,0.3)' } }}>
+    <Button onClick={generate} loading={busy} variant="outline" color="gray" c={scrim.text} size="xs"
+      leftSection={<Download size={14} strokeWidth={1.5} />} styles={{ root: { borderColor: scrim.border } }}>
       Download progress PDF
     </Button>
   )

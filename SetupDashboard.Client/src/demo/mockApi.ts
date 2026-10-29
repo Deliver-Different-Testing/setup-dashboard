@@ -363,6 +363,7 @@ export const getTenantSummary = () => wait({
   counts: { Clients: 0, Team: 9, Couriers: 2, Zones: 0, Automations: 0 },
 })
 export const getTenantLogo = () => wait({ success: false, logoUrl: null })
+export const getTenantAppearance = () => wait<unknown>(null)
 
 const LOOKUPS: Record<string, unknown> = {
   tiles: [

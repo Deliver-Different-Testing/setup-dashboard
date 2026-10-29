@@ -5,22 +5,23 @@
  *
  * The header/footer bars are one calm neutral surface with a keyline — colour is
  * NOT used to separate them. Meaning lives in the icon chip's accent alone, and
- * the `primary` accent follows the theme's primary colour, so a tenant brand
- * (cyan by default, amber for `createDfrntTheme('urgent')`) flows through with no
- * tenant check here. Everything is a CSS variable, so light/dark just works.
+ * the `primary` accent follows the theme's primary colour, so a tenant's Branding
+ * primary (cyan when unset) flows through with no tenant check here. Everything is a CSS variable, so light/dark just works.
  *
- * Requires the `--dd-dialog-*` vars from `createDfrntCssVariablesResolver`.
+ * Requires the `--dd-dialog-*` vars from `dfrntCssVariablesResolver`.
  */
 import type { CSSProperties } from 'react';
 import { alpha } from '@mantine/core';
 
 /** One width scale for every dialog, so sizes stop being ad-hoc. */
 export const DIALOG_SIZES = { sm: 400, md: 520, lg: 720, xl: 960 } as const;
+export type DialogSize = keyof typeof DIALOG_SIZES;
+
 export type DialogVariant = 'primary' | 'secondary' | 'info' | 'success' | 'warning' | 'error';
 
 /** The semantic hue behind each variant's icon chip — the only coloured part of a dialog header. */
 export const dialogAccents: Record<DialogVariant, string> = {
-  primary: 'var(--mantine-primary-color-filled)', // tenant brand: cyan, or amber for 'urgent'
+  primary: 'var(--mantine-primary-color-filled)', // the tenant's Branding primary, else cyan
   secondary: 'var(--mantine-color-grape-filled)',
   info: 'var(--mantine-color-cyan-filled)',
   success: 'var(--mantine-color-green-filled)',
@@ -66,3 +67,11 @@ export const dialogShellStyles = {
 } satisfies Record<'content' | 'body', CSSProperties>;
 
 export const dialogScrollRegionStyle: CSSProperties = { flex: '1 1 auto', minHeight: 0, overflowY: 'auto' };
+
+/** Props for a white "section" Paper inside dialog content — flat, keyline border, 10px corner. */
+export const dialogSectionProps = {
+  withBorder: true,
+  radius: 'md',
+  p: 'md',
+  bg: 'var(--dd-dialog-section)',
+} as const;

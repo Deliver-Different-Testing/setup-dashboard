@@ -164,6 +164,8 @@ export const reopenStep = (id: string, step: StepKey) =>
 
 export const getTenantSummary = (id: string) => request<{ settings: Record<string, string>; counts: Record<string, number> }>(`/setup/session/${id}/tenant-summary`)
 export const getTenantLogo = () => request<{ success: boolean; logoUrl: string | null }>('/setup/logo')
+/** The tenant's Branding (tblSetting.AppearanceDefaultsJson); null (204) when none is saved. */
+export const getTenantAppearance = () => request<unknown>('/setup/appearance')
 
 export const lookup = <T = LookupItem[]>(name: string) => request<T>(`/setup/lookups/${name}`)
 

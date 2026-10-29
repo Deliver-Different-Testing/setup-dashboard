@@ -452,6 +452,18 @@ public class SetupController(
         return Ok(new { success = url != null, logoUrl = url });
     }
 
+    /// <summary>
+    /// The tenant's Branding the whole UI themes from; 204 when none is saved (the built-in DFRNT
+    /// theme). Read-only and open to every signed-in user - it only changes how the page looks.
+    /// </summary>
+    [HttpGet("appearance")]
+    public async Task<IActionResult> GetAppearance(CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var json = await db.TblSettings.AsNoTracking().Select(s => s.AppearanceDefaultsJson).FirstOrDefaultAsync(ct);
+        return TenantAppearanceParser.Parse(json) is { } appearance ? Ok(appearance) : NoContent();
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────────
 
     private const string SendInProgress = "A send is running on this session. Wait for it to finish, then try again.";

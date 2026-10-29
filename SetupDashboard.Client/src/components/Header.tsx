@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ActionIcon, Badge, Box, Group, Menu, Progress, Text, Tooltip } from '@mantine/core'
+import { ActionIcon, Badge, Box, Group, Menu, Progress, Text, Tooltip, useMantineTheme } from '@mantine/core'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { completionPercent, openRequestCount, useStore } from '../store'
 import * as api from '../lib/api'
@@ -13,15 +13,16 @@ const MODES: { value: ColorModePreference; label: string; Icon: typeof Sun }[] =
   { value: 'system', label: 'Match my device', Icon: Monitor },
 ]
 
-/** Light / dark / system. The Ink app bar stays Ink in both modes. */
+/** Light / dark / system. The app bar keeps its shell colour (tenant primary, else Ink) in both modes. */
 function ColorModeMenu() {
   const { mode, preference, setPreference } = useColorMode()
+  const { scrim } = useMantineTheme().other
   const Current = preference === 'system' ? Monitor : mode === 'dark' ? Moon : Sun
   return (
     <Menu position="bottom-end" withinPortal>
       <Menu.Target>
         <Tooltip label="Appearance">
-          <ActionIcon variant="subtle" color="gray" c="white" size="lg" aria-label="Appearance">
+          <ActionIcon variant="subtle" color="gray" c={scrim.text} size="lg" aria-label="Appearance">
             <Current size={18} strokeWidth={1.5} />
           </ActionIcon>
         </Tooltip>
@@ -44,18 +45,20 @@ export function Header() {
   const [logo, setLogo] = useState<string | null>(null)
   const waiting = openRequestCount(session)
   const pct = completionPercent(session)
+  // The bar is the tenant's Branding primary (else Ink); scrim is Ink or white to read on it.
+  const { shell, scrim } = useMantineTheme().other
 
   useEffect(() => { api.getTenantLogo().then(r => setLogo(r.logoUrl)).catch(() => setLogo(null)) }, [])
 
   return (
-    <Group component="header" bg="var(--mantine-color-black)" c="white" px="lg" py="sm" justify="space-between" wrap="nowrap" pos="relative" style={{ zIndex: 50 }}>
+    <Group component="header" bg={shell.appBar} c={scrim.text} px="lg" py="sm" justify="space-between" wrap="nowrap" pos="relative" style={{ zIndex: 50 }}>
       <Group gap="md" wrap="nowrap">
-        <img src={`${import.meta.env.BASE_URL}dfrnt-logo.png`} alt="DFRNT - Deliver Different" style={{ height: 28 }} />
-        <Box w={1} h={24} bg="rgba(255,255,255,0.2)" />
+        <img src={`${import.meta.env.BASE_URL}${shell.inkContent ? 'logos/DFRNT_HorizLogo_RGB.png' : 'dfrnt-logo.png'}`} alt="DFRNT - Deliver Different" style={{ height: 28 }} />
+        <Box w={1} h={24} bg={scrim.fillStrong} />
         {logo && <img src={logo} alt="" style={{ height: 28, borderRadius: 4, background: 'rgba(255,255,255,0.9)', padding: '0 4px' }} />}
         <div>
-          <Text size="sm" fw={600} c="white">{session?.business.companyName || session?.tenantCode || 'New tenant setup'}</Text>
-          <Text fz={11} c="rgba(255,255,255,0.6)">{me?.name}{me?.isDfAdmin ? ' · DFRNT' : ''}</Text>
+          <Text size="sm" fw={600} c={scrim.text}>{session?.business.companyName || session?.tenantCode || 'New tenant setup'}</Text>
+          <Text fz={11} c={scrim.mutedText}>{me?.name}{me?.isDfAdmin ? ' · DFRNT' : ''}</Text>
         </div>
       </Group>
       <Group gap="md" wrap="nowrap">
@@ -67,8 +70,8 @@ export function Header() {
           </Tooltip>
         )}
         <Group gap="xs" wrap="nowrap">
-          <Progress value={pct} w={112} size="sm" bg="rgba(255,255,255,0.15)" aria-label="Setup progress" />
-          <Text size="xs" c="rgba(255,255,255,0.7)">{pct}% done</Text>
+          <Progress value={pct} w={112} size="sm" bg={scrim.fill} aria-label="Setup progress" />
+          <Text size="xs" c={scrim.mutedText}>{pct}% done</Text>
         </Group>
         <PdfSummary />
         <ColorModeMenu />
