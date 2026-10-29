@@ -64,7 +64,7 @@ function App() {
     <Box mih="100vh" bg="var(--mantine-color-body)">
       <ResumeSession />
       <Header />
-      <Flex h="calc(100vh - 60px)">
+      <Flex h="calc(100vh - 60px)" pos="relative">
         <ChatSidebar />
         <Box component="main" style={{ flex: 1, overflowY: 'auto' }}>
           <ProgressBar />
