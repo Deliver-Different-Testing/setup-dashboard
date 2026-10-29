@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using SetupDashboard.Core.Domain;
 using Serilog;
 using System.Security.Claims;
+using SetupDashboard.Interfaces;
 
 namespace SetupDashboard.Controllers;
 
@@ -41,7 +42,9 @@ public class LoginController(
             }
 
             if (string.IsNullOrEmpty(connectionString))
+            {
                 return Unauthorized(new { message = "Authentication Failed. No Connection String." });
+            }
 
             // Cache the connection string with SQL credentials appended
             var credentials = Environment.GetEnvironmentVariable("SQLCredentials") ?? "";
@@ -69,7 +72,7 @@ public class LoginController(
             {
                 if (int.TryParse(contactId, out var contactIdInt))
                 {
-                    await using var db = dbFactory.CreateDbContext();
+                    await using var db = await dbFactory.CreateDbContextAsync();
 
                     // Look up the contact by ContactID (primary key) — same as Booking's GetContact()
                     var contact = await db.TucClientContacts.AsNoTracking()
@@ -83,7 +86,7 @@ public class LoginController(
                             cc.UcctDirectDial,
                             cc.UcctMobile,
                             cc.UcctJobTitle,
-                            cc.UcctClientId,
+                            cc.UcctClientId
                         })
                         .FirstOrDefaultAsync();
 
@@ -96,7 +99,7 @@ public class LoginController(
                             lastName = contact.UcctSurname,
                             email = contact.UcctEmail,
                             phone = contact.UcctDirectDial ?? contact.UcctMobile,
-                            title = contact.UcctJobTitle,
+                            title = contact.UcctJobTitle
                         };
 
                         // Look up the client/company via UcctClientId — same as Booking's GetClient()
@@ -116,7 +119,7 @@ public class LoginController(
                                     c.Ucclemail,
                                     c.UcclType,
                                     c.AddressLine3,
-                                    c.AddressLine4,
+                                    c.AddressLine4
                                 })
                                 .FirstOrDefaultAsync();
 
@@ -134,7 +137,7 @@ public class LoginController(
                                     email = client.Ucclemail,
                                     type = client.UcclType,
                                     city = client.AddressLine3,
-                                    state = client.AddressLine4,
+                                    state = client.AddressLine4
                                 };
                             }
                         }
@@ -153,7 +156,7 @@ public class LoginController(
                 Log.Warning(ex, "Could not load profile for ContactId {ContactId} — continuing without it", contactId);
             }
 
-            var caller = SetupDashboard.Services.CallerContext.From(HttpContext.User);
+            var caller = Services.CallerContext.From(HttpContext.User);
             return Ok(new
             {
                 success = true,

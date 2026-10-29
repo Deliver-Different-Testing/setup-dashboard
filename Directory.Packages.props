@@ -1,0 +1,56 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <PropertyGroup Label="SharedVersions">
+    <AspNetCoreVersion>10.0.14</AspNetCoreVersion>
+    <EfCoreVersion>10.0.14</EfCoreVersion>
+    <ExcelDataReaderVersion>3.9.0</ExcelDataReaderVersion>
+  </PropertyGroup>
+
+  <ItemGroup Label="SetupDashboard.Api">
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.104.7" />
+    <PackageVersion Include="CsvHelper" Version="34.0.0" />
+    <PackageVersion Include="ClosedXML" Version="0.105.1" />
+    <PackageVersion Include="ExcelDataReader" Version="$(ExcelDataReaderVersion)" />
+    <PackageVersion Include="ExcelDataReader.DataSet" Version="$(ExcelDataReaderVersion)" />
+    <PackageVersion Include="Anthropic" Version="13.3.0" />
+    <PackageVersion Include="FuzzySharp" Version="2.0.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.SpaProxy" Version="$(AspNetCoreVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="$(AspNetCoreVersion)" />
+    <PackageVersion Include="AspNetCore.HealthChecks.SqlServer" Version="9.0.0" />
+    <PackageVersion Include="Amazon.AspNetCore.DataProtection.SSM" Version="4.0.3" />
+    <!-- Private feed, see nuget.config. -->
+    <PackageVersion Include="DeliverDifferent.AccessControl" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Entity Framework Core">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Tools" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+  </ItemGroup>
+
+  <ItemGroup Label="Logging">
+    <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
+  </ItemGroup>
+
+  <!-- Transitive pins: older versions pulled in by dependencies carry known
+       vulnerabilities (NU1902/NU1903). -->
+  <ItemGroup Label="Transitive pins">
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="$(AspNetCoreVersion)" />
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="$(AspNetCoreVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+  </ItemGroup>
+
+</Project>

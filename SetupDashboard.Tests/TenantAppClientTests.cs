@@ -1,16 +1,17 @@
 using System.Net;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
 using SetupDashboard.Services.TenantApps;
 
 namespace SetupDashboard.Tests;
 
 public class TenantAppClientTests
 {
-    private static IConfiguration Config(string? template = "https://{app}.{tenant}.staging.deliverdifferent.com")
+    private static IConfiguration Config()
         => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["TenantApps:UrlTemplate"] = template,
+            ["TenantApps:Hosts:Settings"] = "dfrntdriveconfig",
+            ["TenantApps:Hosts:RoutedOps"] = "routedoperations",
+            ["TenantApps:Hosts:IntegrationManager"] = "integrationmanager"
         }).Build();
 
     private static (TenantAppClient Client, RecordingHandler Handler) Build(Func<HttpRequestMessage, HttpResponseMessage> respond,
@@ -18,8 +19,9 @@ public class TenantAppClientTests
     {
         var handler = new RecordingHandler(respond);
         var config = Config();
-        var client = new TenantAppClient(new SingleClientFactory(handler), Make.Http(Make.User(), cookie),
-            new TenantAppUrls(config), Make.Cache(), config, NullLogger<TenantAppClient>.Instance);
+        var http = Make.Http(Make.User(), cookie);
+        var client = new TenantAppClient(new SingleClientFactory(handler), http,
+            new TenantAppUrls(config, http, Make.Production()), Make.Cache(), config);
         return (client, handler);
     }
 
@@ -54,7 +56,7 @@ public class TenantAppClientTests
             "dfrntdriveconfig.cheetah.staging.deliverdifferent.com/api/v1/tenant/lookups/speeds",
             "dfrntdriveconfig.cheetah.staging.deliverdifferent.com/api/v1/tenant/lookups/zone-names",
             "routedoperations.cheetah.staging.deliverdifferent.com/",
-            "routedoperations.cheetah.staging.deliverdifferent.com/api/schedules/lookups",
+            "routedoperations.cheetah.staging.deliverdifferent.com/api/schedules/lookups"
         ], paths);
     }
 
@@ -160,15 +162,4 @@ public class TenantAppClientTests
     public void Chunked_shared_cookies_are_forwarded_and_nothing_else()
         => Assert.Equal(".AspNet.SharedCookie=chunks-2; .AspNet.SharedCookieC1=a; .AspNet.SharedCookieC2=b",
             TenantAppClient.ForwardableCookie("_ga=1; .AspNet.SharedCookie=chunks-2; .AspNet.SharedCookieC1=a; hub_session=x; .AspNet.SharedCookieC2=b"));
-
-    [Fact]
-    public void Url_falls_back_to_hub_style_tenant_url()
-    {
-        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["TenantURL"] = "https://app_name.cheetah.deliverdifferent.com/",
-        }).Build();
-        Assert.Equal("https://routedoperations.cheetah.deliverdifferent.com",
-            new TenantAppUrls(config).BaseUrl(TenantApp.RoutedOps, Make.Caller()));
-    }
 }

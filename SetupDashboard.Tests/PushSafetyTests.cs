@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.Logging.Abstractions;
 using SetupDashboard.Models;
 using SetupDashboard.Services;
 using SetupDashboard.Services.Steps;
@@ -26,7 +25,7 @@ public class PushSafetyTests
     {
         Code = code, Name = $"{code} Freight", Address = "1 Market St", Suburb = "Kansas City", City = "MO",
         InvoiceScheduleId = 1, PaymentTermId = 2, InviteConfirmed = true,
-        PrimaryContact = new() { FirstName = "Ann", Email = $"ann@{code}.test" },
+        PrimaryContact = new ClientContactRow { FirstName = "Ann", Email = $"ann@{code}.test" }
     };
 
     private static FakeApps TeamApps(JsonArray existingRoles, bool tenantClientExists = true) => new()
@@ -37,8 +36,8 @@ public class PushSafetyTests
                 tenantClientExists ? new JsonArray(new JsonObject { ["id"] = 77, ["name"] = "Cheetah", ["clientTypeId"] = 4 }) : new JsonArray()),
             ("GET", var p) when p.StartsWith("/api/admin/roles") => ApiResult.Success(c.App, 200, existingRoles),
             ("POST", "/api/admin/roles") => ApiResult.Success(c.App, 200, new JsonObject { ["contactRoleId"] = 9 }),
-            _ => ApiResult.Success(c.App, 204, null),
-        },
+            _ => ApiResult.Success(c.App, 204, null)
+        }
     };
 
     // ── Roles stay the tenant's own ──
@@ -50,11 +49,11 @@ public class PushSafetyTests
         var s = Session();
         s.Team.Roles.Add(new RoleRow { Name = "Dispatcher", Tiles = ["hub-tile-despatch"] });
 
-        await new TeamPusher(apps).PushAsync(s, Make.Caller(clientTypeId: 5), default);
+        await new TeamPusher(apps).PushAsync(s, Make.Caller(clientTypeId: 5), CancellationToken.None);
 
         Assert.Single(apps.Posts("/api/admin/roles"));
         Assert.DoesNotContain(apps.Calls, c => c.Path.StartsWith("/api/v1/tenant/tile-access/roles/1/"));
-        Assert.Contains(apps.Calls, c => c.Method == "PUT" && c.Path == "/api/v1/tenant/tile-access/roles/9/hub-tile-despatch");
+        Assert.Contains(apps.Calls, c => c is { Method: "PUT", Path: "/api/v1/tenant/tile-access/roles/9/hub-tile-despatch" });
     }
 
     [Fact]
@@ -64,20 +63,20 @@ public class PushSafetyTests
         var s = Session();
         s.Team.Roles.Add(new RoleRow { Name = "Dispatcher", Tiles = ["hub-tile-despatch"] });
 
-        await new TeamPusher(apps).PushAsync(s, Make.Caller(clientTypeId: 5), default);
+        await new TeamPusher(apps).PushAsync(s, Make.Caller(clientTypeId: 5), CancellationToken.None);
 
         Assert.Empty(apps.Posts("/api/admin/roles"));
-        Assert.Contains(apps.Calls, c => c.Method == "PUT" && c.Path == "/api/v1/tenant/tile-access/roles/5/hub-tile-despatch");
+        Assert.Contains(apps.Calls, c => c is { Method: "PUT", Path: "/api/v1/tenant/tile-access/roles/5/hub-tile-despatch" });
     }
 
     [Fact]
     public async Task DF_Admin_without_the_tenant_client_file_does_not_create_a_global_role()
     {
-        var apps = TeamApps(new JsonArray(), tenantClientExists: false);
+        var apps = TeamApps([], tenantClientExists: false);
         var s = Session();
         s.Team.Roles.Add(new RoleRow { Name = "Ops" });
 
-        await new TeamPusher(apps).PushAsync(s, Make.Caller(clientTypeId: 5), default);
+        await new TeamPusher(apps).PushAsync(s, Make.Caller(clientTypeId: 5), CancellationToken.None);
 
         Assert.Empty(apps.Posts("/api/admin/roles"));
         Assert.Equal(RowStatus.NeedsData, s.Step(StepKeys.Team).Rows.Single(r => r.Kind == TeamPusher.RoleKind).Status);
@@ -91,10 +90,10 @@ public class PushSafetyTests
         var next = 10;
         var apps = new FakeApps { Respond = c => ApiResult.Success(c.App, 200, c.Method == "GET" ? new JsonArray() : new JsonObject { ["id"] = ++next }) };
         var s = Session();
-        s.Rates.ZoneGroups.Add(new ZoneGroupRow { Name = "KC", Zones = [new() { Name = "Downtown", Zips = ["64101"] }] });
-        s.Rates.ZoneGroups.Add(new ZoneGroupRow { Name = "STL", Zones = [new() { Name = "Downtown", Zips = ["63101"] }] });
+        s.Rates.ZoneGroups.Add(new ZoneGroupRow { Name = "KC", Zones = [new ZoneRow { Name = "Downtown", Zips = ["64101"] }] });
+        s.Rates.ZoneGroups.Add(new ZoneGroupRow { Name = "STL", Zones = [new ZoneRow { Name = "Downtown", Zips = ["63101"] }] });
 
-        await new RatesPusher(apps).PushAsync(s, Make.Caller(), default);
+        await new RatesPusher(apps).PushAsync(s, Make.Caller(), CancellationToken.None);
 
         Assert.Equal(2, apps.Posts("/api/v1/tenant/pricing/zone-names").Count());
         var zipZones = apps.Posts("/api/v1/tenant/pricing/zone-zips").Select(c => c.Body!["zoneNameId"]!.GetValue<int>()).ToList();
@@ -111,22 +110,22 @@ public class PushSafetyTests
         {
             Respond = c => c.Method == "POST" && ++calls == 1
                 ? ApiResult.NoAnswer(c.App)
-                : ApiResult.Success(c.App, 200, new JsonObject { ["id"] = 501 }),
+                : ApiResult.Success(c.App, 200, new JsonObject { ["id"] = 501 })
         };
         var s = Session();
         s.Clients.Add(Client("ACME"));
         var pusher = new ClientsPusher(apps);
 
-        await pusher.PushAsync(s, Make.Caller(), default);
+        await pusher.PushAsync(s, Make.Caller(), CancellationToken.None);
         var row = s.Step(StepKeys.Clients).Rows.Single();
         Assert.Equal(RowStatus.Unknown, row.Status);
 
-        await pusher.PushAsync(s, Make.Caller(), default);
+        await pusher.PushAsync(s, Make.Caller(), CancellationToken.None);
         Assert.Single(apps.Posts("/api/v1/tenant/clients"));
         Assert.NotNull(StepCatalog.CompleteBlocker(s, StepKeys.Clients));
 
         Assert.True(RowLedger.Retry(s.Step(StepKeys.Clients), ClientsPusher.ClientKind, "ACME"));
-        await pusher.PushAsync(s, Make.Caller(), default);
+        await pusher.PushAsync(s, Make.Caller(), CancellationToken.None);
         Assert.Equal(2, apps.Posts("/api/v1/tenant/clients").Count());
         Assert.Equal(RowStatus.Created, row.Status);
     }
@@ -158,7 +157,7 @@ public class PushSafetyTests
         var s = Session();
         s.Couriers.Couriers.Add(new CourierRow { FirstName = "Sam", SurName = "Lee", Email = "sam@x.test", InitialPassword = "correct-horse" });
 
-        await new CouriersPusher(apps).PushAsync(s, Make.Caller(), default);
+        await new CouriersPusher(apps).PushAsync(s, Make.Caller(), CancellationToken.None);
 
         Assert.Single(apps.Posts("/api/v1/np/fleet"));
         Assert.Null(s.Couriers.Couriers.Single().InitialPassword);
@@ -168,7 +167,7 @@ public class PushSafetyTests
 
     private static (StepPushRunner Runner, DistributedSessionStore Store, InMemoryPushLock Lock) Runner(FakeApps apps)
     {
-        var store = new DistributedSessionStore(Make.Cache(), NullLogger<DistributedSessionStore>.Instance);
+        var store = new DistributedSessionStore(Make.Cache());
         var pushLock = new InMemoryPushLock();
         return (new StepPushRunner(store, pushLock, apps), store, pushLock);
     }
@@ -188,8 +187,16 @@ public class PushSafetyTests
         var posts = 0;
         apps.Respond = c =>
         {
-            if (c.Method != "POST") return ApiResult.Success(c.App, 200, null);
-            if (++posts == 1) return ApiResult.Success(c.App, 200, new JsonObject { ["id"] = 501 });
+            if (c.Method != "POST")
+            {
+                return ApiResult.Success(c.App, 200, null);
+            }
+
+            if (++posts == 1)
+            {
+                return ApiResult.Success(c.App, 200, new JsonObject { ["id"] = 501 });
+            }
+
             var saved = store.GetAsync(7, s.Id).GetAwaiter().GetResult()!;
             firstRowSeenBySecondWrite = saved.Step(StepKeys.Clients).Rows.Single(r => r.Key == "ONE").Status;
             throw new InvalidOperationException("pod restarted");

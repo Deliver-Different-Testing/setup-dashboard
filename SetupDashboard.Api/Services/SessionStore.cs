@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
+using Serilog;
 using SetupDashboard.Models;
 
 namespace SetupDashboard.Services;
@@ -27,14 +28,14 @@ public interface ISessionStore
 /// creation, which suits a demo and not an onboarding that waits on the tenant
 /// for weeks. Each write slides the expiry.
 /// </remarks>
-public class DistributedSessionStore(IDistributedCache cache, ILogger<DistributedSessionStore> logger) : ISessionStore
+public class DistributedSessionStore(IDistributedCache cache) : ISessionStore
 {
     private static readonly DistributedCacheEntryOptions Lifetime = new() { SlidingExpiration = TimeSpan.FromDays(120) };
 
     internal static readonly JsonSerializerOptions Json = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
+        PropertyNameCaseInsensitive = true
     };
 
     private static string SessionKey(int tenantId, string id) => $"setup-session:{tenantId}:{id}";
@@ -42,14 +43,17 @@ public class DistributedSessionStore(IDistributedCache cache, ILogger<Distribute
 
     public async Task<SetupSession> CreateAsync(int tenantId, string? tenantCode, int? contactId, string? createdByName, CancellationToken ct = default)
     {
-        if (tenantId <= 0) throw new ArgumentOutOfRangeException(nameof(tenantId), "A session needs the caller's tenant.");
+        if (tenantId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tenantId), "A session needs the caller's tenant.");
+        }
 
         var session = new SetupSession
         {
             TenantId = tenantId,
             TenantCode = tenantCode,
             CreatedByContactId = contactId,
-            CreatedByName = createdByName,
+            CreatedByName = createdByName
         };
         await SaveAsync(session, ct);
         await AddToIndexAsync(tenantId, session.Id, ct);
@@ -58,10 +62,16 @@ public class DistributedSessionStore(IDistributedCache cache, ILogger<Distribute
 
     public async Task<SetupSession?> GetAsync(int tenantId, string id, CancellationToken ct = default)
     {
-        if (tenantId <= 0 || string.IsNullOrWhiteSpace(id)) return null;
+        if (tenantId <= 0 || string.IsNullOrWhiteSpace(id))
+        {
+            return null;
+        }
 
         var json = await cache.GetStringAsync(SessionKey(tenantId, id), ct);
-        if (string.IsNullOrEmpty(json)) return null;
+        if (string.IsNullOrEmpty(json))
+        {
+            return null;
+        }
 
         var session = JsonSerializer.Deserialize<SetupSession>(json, Json);
         // Belt and braces: the key already carries the tenant.
@@ -74,9 +84,12 @@ public class DistributedSessionStore(IDistributedCache cache, ILogger<Distribute
         foreach (var id in await ReadIndexAsync(tenantId, ct))
         {
             var s = await GetAsync(tenantId, id, ct);
-            if (s != null && (status == null || s.Status == status)) result.Add(s);
+            if (s != null && (status == null || s.Status == status))
+            {
+                result.Add(s);
+            }
         }
-        return result.OrderByDescending(s => s.UpdatedAt).ToList();
+        return [.. result.OrderByDescending(s => s.UpdatedAt)];
     }
 
     public async Task UpdateAsync(SetupSession session, CancellationToken ct = default)
@@ -87,7 +100,11 @@ public class DistributedSessionStore(IDistributedCache cache, ILogger<Distribute
 
     public async Task<bool> DeleteAsync(int tenantId, string id, CancellationToken ct = default)
     {
-        if (await GetAsync(tenantId, id, ct) == null) return false;
+        if (await GetAsync(tenantId, id, ct) == null)
+        {
+            return false;
+        }
+
         await cache.RemoveAsync(SessionKey(tenantId, id), ct);
         var ids = await ReadIndexAsync(tenantId, ct);
         ids.Remove(id);
@@ -101,7 +118,11 @@ public class DistributedSessionStore(IDistributedCache cache, ILogger<Distribute
     private async Task AddToIndexAsync(int tenantId, string id, CancellationToken ct)
     {
         var ids = await ReadIndexAsync(tenantId, ct);
-        if (!ids.Contains(id)) ids.Add(id);
+        if (!ids.Contains(id))
+        {
+            ids.Add(id);
+        }
+
         await cache.SetStringAsync(IndexKey(tenantId), JsonSerializer.Serialize(ids), Lifetime, ct);
     }
 
@@ -110,12 +131,12 @@ public class DistributedSessionStore(IDistributedCache cache, ILogger<Distribute
         try
         {
             var json = await cache.GetStringAsync(IndexKey(tenantId), ct);
-            return string.IsNullOrEmpty(json) ? new() : JsonSerializer.Deserialize<List<string>>(json) ?? new();
+            return string.IsNullOrEmpty(json) ? [] : JsonSerializer.Deserialize<List<string>>(json) ?? [];
         }
         catch (JsonException ex)
         {
-            logger.LogWarning(ex, "Session index for tenant {TenantId} was unreadable; starting a new one", tenantId);
-            return new();
+            Log.Warning(ex, "Session index for tenant {TenantId} was unreadable; starting a new one", tenantId);
+            return [];
         }
     }
 }

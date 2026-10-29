@@ -12,7 +12,10 @@ public class StepPusherTests
         var s = new SetupSession { TenantId = 7, TenantCode = "cheetah" };
         StepCatalog.Seed(s, _ => null);
         if (identityConfirmed)
+        {
             s.Step(StepKeys.Business).Checklist.Single(c => c.Id == StepCatalog.TenantIdentity).DoneAt = DateTime.UtcNow;
+        }
+
         return s;
     }
 
@@ -20,7 +23,7 @@ public class StepPusherTests
     {
         Code = code, Name = "Acme Freight", Address = "1 Market St", Suburb = "Kansas City", City = "MO",
         InvoiceScheduleId = 1, PaymentTermId = 2, InviteConfirmed = true,
-        PrimaryContact = new() { FirstName = "Ann", Email = "ann@acme.test" },
+        PrimaryContact = new ClientContactRow { FirstName = "Ann", Email = "ann@acme.test" }
     };
 
     // ── Clients ──
@@ -32,7 +35,7 @@ public class StepPusherTests
         var s = Session();
         s.Clients.Add(new ClientRow { Code = "ACME", Name = "Acme" });
 
-        await new ClientsPusher(apps).PushAsync(s, Make.Caller(country: "US"), default);
+        await new ClientsPusher(apps).PushAsync(s, Make.Caller(country: "US"), CancellationToken.None);
 
         Assert.Empty(apps.Posts("/api/v1/tenant/clients"));
         var row = s.Step(StepKeys.Clients).Rows.Single();
@@ -51,7 +54,7 @@ public class StepPusherTests
         var s = Session();
         s.Clients.Add(FullClient());
 
-        await new ClientsPusher(apps).PushAsync(s, Make.Caller(), default);
+        await new ClientsPusher(apps).PushAsync(s, Make.Caller(), CancellationToken.None);
 
         var body = apps.Posts("/api/v1/tenant/clients").Single().Body!.ToJsonString();
         foreach (var invented in new[] { "123 Main St", "10001", "\"NY\"", "Unknown", "Standard" })
@@ -66,15 +69,15 @@ public class StepPusherTests
         {
             Respond = c => c.Body?["code"]?.GetValue<string>() == "BAD"
                 ? ApiResult.Fail(c.App, 400, "A contact with email 'x' already exists.")
-                : ApiResult.Success(c.App, 200, new JsonObject { ["id"] = 900 }),
+                : ApiResult.Success(c.App, 200, new JsonObject { ["id"] = 900 })
         };
         var s = Session();
         s.Clients.Add(FullClient("BAD"));
         s.Clients.Add(FullClient("GOOD"));
 
         var pusher = new ClientsPusher(apps);
-        await pusher.PushAsync(s, Make.Caller(), default);
-        await pusher.PushAsync(s, Make.Caller(), default);
+        await pusher.PushAsync(s, Make.Caller(), CancellationToken.None);
+        await pusher.PushAsync(s, Make.Caller(), CancellationToken.None);
 
         var posted = apps.Posts("/api/v1/tenant/clients").Select(c => c.Body!["code"]!.GetValue<string>()).ToList();
         Assert.Equal(["BAD", "GOOD", "BAD"], posted); // GOOD once; the failed one retried
@@ -87,7 +90,7 @@ public class StepPusherTests
         var s = Session(identityConfirmed: false);
         s.Clients.Add(FullClient());
 
-        await new ClientsPusher(apps).PushAsync(s, Make.Caller(), default);
+        await new ClientsPusher(apps).PushAsync(s, Make.Caller(), CancellationToken.None);
 
         Assert.Empty(apps.Calls);
         Assert.Contains(s.Step(StepKeys.Clients).Rows.Single().Needs, n => n.Contains("system settings"));
@@ -102,7 +105,7 @@ public class StepPusherTests
         c.InviteConfirmed = false;
         s.Clients.Add(c);
 
-        await new ClientsPusher(apps).PushAsync(s, Make.Caller(), default);
+        await new ClientsPusher(apps).PushAsync(s, Make.Caller(), CancellationToken.None);
 
         Assert.Empty(apps.Calls);
     }
@@ -118,8 +121,8 @@ public class StepPusherTests
             ("GET", "/api/admin/roles?clientType=4") => ApiResult.Success(c.App, 200, new JsonArray()),
             ("POST", "/api/admin/roles") => ApiResult.Success(c.App, 200, new JsonObject { ["contactRoleId"] = 9 }),
             ("POST", "/api/admin/contacts") => ApiResult.Success(c.App, 200, new JsonObject { ["id"] = 300, ["inviteNotice"] = "Contact added." }),
-            _ => ApiResult.Success(c.App, 204, null),
-        },
+            _ => ApiResult.Success(c.App, 204, null)
+        }
     };
 
     [Fact]
@@ -130,7 +133,7 @@ public class StepPusherTests
         s.Team.Roles.Add(new RoleRow { Name = "Cheetah Admin", Tiles = ["hub-tile-configurator", "hub-tile-booking"] });
         s.Team.People.Add(new PersonRow { Email = "ruth@cheetahfm.com", FirstName = "Ruth", LastName = "Correa", RoleName = "Cheetah Admin", InviteConfirmed = true });
 
-        await new TeamPusher(apps).PushAsync(s, Make.Caller(clientTypeId: 5), default);
+        await new TeamPusher(apps).PushAsync(s, Make.Caller(clientTypeId: 5), CancellationToken.None);
 
         var role = apps.Posts("/api/admin/roles").Single().Body!;
         Assert.Equal(4, role["clientTypeIds"]![0]!.GetValue<int>());
@@ -152,7 +155,7 @@ public class StepPusherTests
         s.Team.Roles.Add(new RoleRow { Name = "Ops" });
         s.Team.People.Add(new PersonRow { Email = "a@b.test", FirstName = "A", RoleName = "Ops", InviteConfirmed = true });
 
-        await new TeamPusher(apps).PushAsync(s, Make.Caller(), default);
+        await new TeamPusher(apps).PushAsync(s, Make.Caller(), CancellationToken.None);
 
         Assert.DoesNotContain(apps.Calls, c => c.Path.Contains("/API/User", StringComparison.OrdinalIgnoreCase)
                                                 || c.Path.Contains("staff", StringComparison.OrdinalIgnoreCase));
@@ -167,7 +170,7 @@ public class StepPusherTests
         s.Team.Roles.Add(new RoleRow { Name = "Ops" });
         s.Team.People.Add(new PersonRow { Email = "a@b.test", FirstName = "A", RoleName = "Ops", InviteConfirmed = true });
 
-        await new TeamPusher(apps).PushAsync(s, Make.Caller(), default);
+        await new TeamPusher(apps).PushAsync(s, Make.Caller(), CancellationToken.None);
 
         Assert.Empty(apps.Posts("/api/admin/contacts"));
         var person = s.Step(StepKeys.Team).Rows.Single(r => r.Kind == TeamPusher.PersonKind);
@@ -181,7 +184,7 @@ public class StepPusherTests
         var s = Session();
         s.Team.Roles.Add(new RoleRow { Name = "Ops" });
 
-        await new TeamPusher(apps).PushAsync(s, Make.Caller(clientTypeId: 4), default);
+        await new TeamPusher(apps).PushAsync(s, Make.Caller(clientTypeId: 4), CancellationToken.None);
 
         Assert.Null(apps.Posts("/api/admin/roles").Single().Body!["tenantClientId"]);
     }
@@ -198,14 +201,14 @@ public class StepPusherTests
                 ("GET", "/api/v1/tenant/lookups/vehicle-sizes") => ApiResult.Success(c.App, 200, new JsonArray(new JsonObject { ["id"] = 3, ["name"] = "Van" })),
                 ("GET", "/api/v1/tenant/lookups/zone-names") => ApiResult.Success(c.App, 200, new JsonArray()),
                 ("POST", "/api/v1/tenant/pricing/zone-names") => ApiResult.Success(c.App, 200, new JsonObject { ["id"] = c.Body!["name"]!.GetValue<string>() == "Z1" ? 11 : 12 }),
-                _ => ApiResult.Success(c.App, 200, new JsonObject { ["id"] = 50 }),
-            },
+                _ => ApiResult.Success(c.App, 200, new JsonObject { ["id"] = 50 })
+            }
         };
         var s = Session();
-        s.Rates.ZoneGroups.Add(new ZoneGroupRow { Name = "KC", Zones = [new() { Name = "Z1", Zips = ["64101"] }, new() { Name = "Z2" }] });
+        s.Rates.ZoneGroups.Add(new ZoneGroupRow { Name = "KC", Zones = [new ZoneRow { Name = "Z1", Zips = ["64101"] }, new ZoneRow { Name = "Z2" }] });
         s.Rates.ZoneRates.Add(new ZoneRateRow { Name = "Z1-Z2 Van", FromZone = "Z1", ToZone = "Z2", SpeedId = 1, VehicleSizeNames = ["Van"], ChargeRate = 25m, DriverRate = 15m });
 
-        await new RatesPusher(apps).PushAsync(s, Make.Caller(), default);
+        await new RatesPusher(apps).PushAsync(s, Make.Caller(), CancellationToken.None);
 
         var rate = apps.Posts("/api/v1/tenant/pricing/zone-rates").Single().Body!;
         Assert.NotNull(rate["clientIds"]); // explicit [] = all customers, never omitted
@@ -223,7 +226,7 @@ public class StepPusherTests
         var s = Session();
         s.Rates.VehicleSizes.Add(new VehicleSizeRow { Name = "Van", FuelPercent = 12.5m });
 
-        await new RatesPusher(apps).PushAsync(s, Make.Caller(), default);
+        await new RatesPusher(apps).PushAsync(s, Make.Caller(), CancellationToken.None);
 
         Assert.Equal(0.125m, apps.Posts("/api/v1/tenant/pricing/vehicle-sizes").Single().Body!["fuelPercentage"]!.GetValue<decimal>());
     }
@@ -236,7 +239,7 @@ public class StepPusherTests
         var needs = SchedulesPusher.Validate(new ScheduleRow
         {
             Name = "KC Daily", RegionId = 1, OriginType = "client",
-            DayWindows = [new() { DayOfWeek = 1, StartTime = "09:00", EndTime = "17:00" }],
+            DayWindows = [new DayWindowRow { DayOfWeek = 1, StartTime = "09:00", EndTime = "17:00" }]
         });
         Assert.Contains(needs.Items, n => n.StartsWith("origin depot"));
         Assert.Contains(needs.Items, n => n.StartsWith("at least one customer"));
@@ -248,7 +251,7 @@ public class StepPusherTests
         var needs = SchedulesPusher.Validate(new ScheduleRow
         {
             Name = "x", RegionId = 1, OriginType = "direct",
-            DayWindows = [new() { DayOfWeek = 8, StartTime = "9am", EndTime = "17:00" }, new() { DayOfWeek = 8, StartTime = "09:00", EndTime = "10:00" }],
+            DayWindows = [new DayWindowRow { DayOfWeek = 8, StartTime = "9am", EndTime = "17:00" }, new DayWindowRow { DayOfWeek = 8, StartTime = "09:00", EndTime = "10:00" }]
         });
         Assert.Contains("day for window 1", needs.Items);
         Assert.Contains("start time (HH:mm) for window 1", needs.Items);
@@ -264,7 +267,7 @@ public class StepPusherTests
         var s = Session();
         s.Couriers.Couriers.Add(new CourierRow { FirstName = "Sam", SurName = "Lee", Email = "sam@x.test", InitialPassword = "correct-horse" });
 
-        await new CouriersPusher(apps).PushAsync(s, Make.Caller(), default);
+        await new CouriersPusher(apps).PushAsync(s, Make.Caller(), CancellationToken.None);
 
         Assert.Equal("correct-horse", apps.Posts("/api/v1/np/fleet").Single().Body!["password"]!.GetValue<string>());
         Assert.Null(s.Couriers.Couriers.Single().InitialPassword);

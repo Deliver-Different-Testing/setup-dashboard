@@ -1,6 +1,7 @@
 using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 using SetupDashboard.Models;
 using SetupDashboard.Services;
 using SetupDashboard.Services.Steps;
@@ -22,8 +23,7 @@ namespace SetupDashboard.Controllers;
 [Route("api/setup/import")]
 public class ImportController(
     SmartUploaderService uploader,
-    ISessionStore sessions,
-    ILogger<ImportController> logger) : ControllerBase
+    ISessionStore sessions) : ControllerBase
 {
     private async Task<SetupSession?> Load(string sessionId, CancellationToken ct)
         => CallerContext.From(User) is { } caller ? await sessions.GetAsync(caller.TenantId, sessionId, ct) : null;
@@ -32,16 +32,23 @@ public class ImportController(
     private static string CacheKey(SetupSession s) => $"{s.TenantId}:{s.Id}";
 
     [HttpPost("detect")]
-    public async Task<IActionResult> Detect([FromForm] string sessionId, [FromForm] IFormFile file, [FromForm] string? entityType, CancellationToken ct)
+    public async Task<IActionResult> Detect([FromForm] string sessionId, [FromForm] IFormFile? file, [FromForm] string? entityType, CancellationToken ct)
     {
-        if (await Load(sessionId, ct) is not { } session) return BadRequest(new { success = false, message = "Invalid session" });
-        if (file == null || file.Length == 0) return BadRequest(new { success = false, message = "No file provided" });
+        if (await Load(sessionId, ct) is not { } session)
+        {
+            return BadRequest(new { success = false, message = "Invalid session" });
+        }
+
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { success = false, message = "No file provided" });
+        }
 
         var type = entityType ?? GuessEntityType(file.FileName);
         try
         {
-            using var stream = file.OpenReadStream();
-            return Ok(await uploader.DetectAndMapAsync(stream, file.FileName, type, CacheKey(session)));
+            await using var stream = file.OpenReadStream();
+            return Ok(await uploader.DetectAndMapAsync(stream, file.FileName, type, CacheKey(session), ct));
         }
         catch (ArgumentException ex)
         {
@@ -49,7 +56,7 @@ public class ImportController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Import detect failed for {FileName} ({EntityType})", file.FileName, type);
+            Log.Error(ex, "Import detect failed for {FileName} ({EntityType})", file.FileName, type);
             return StatusCode(500, new { success = false, message = $"Failed to parse file: {ex.Message}" });
         }
     }
@@ -57,7 +64,11 @@ public class ImportController(
     [HttpPost("preview")]
     public async Task<IActionResult> Preview([FromBody] PreviewRequest req, CancellationToken ct)
     {
-        if (await Load(req.SessionId, ct) is not { } session) return BadRequest(new { success = false, message = "Invalid session" });
+        if (await Load(req.SessionId, ct) is not { } session)
+        {
+            return BadRequest(new { success = false, message = "Invalid session" });
+        }
+
         var result = uploader.GeneratePreview(CacheKey(session), req.Mappings, req.EntityType);
         return result.Success ? Ok(result) : UnprocessableEntity(result);
     }
@@ -66,7 +77,10 @@ public class ImportController(
     [HttpPost("execute")]
     public async Task<IActionResult> Execute([FromBody] ImportRequest req, CancellationToken ct)
     {
-        if (await Load(req.SessionId, ct) is not { } session) return BadRequest(new { success = false, message = "Invalid session" });
+        if (await Load(req.SessionId, ct) is not { } session)
+        {
+            return BadRequest(new { success = false, message = "Invalid session" });
+        }
 
         try
         {
@@ -84,7 +98,7 @@ public class ImportController(
                         return new PersonRow
                         {
                             FirstName = first, LastName = last, Email = V(r, "Email"),
-                            JobTitle = V(r, "JobTitle"), Mobile = V(r, "Mobile"), RoleName = V(r, "Role"),
+                            JobTitle = V(r, "JobTitle"), Mobile = V(r, "Mobile"), RoleName = V(r, "Role")
                         };
                     }));
                     break;
@@ -99,8 +113,8 @@ public class ImportController(
                         PrimaryContact = new ClientContactRow
                         {
                             FirstName = V(r, "ContactFirstName"), Surname = V(r, "ContactSurname"),
-                            Email = V(r, "ContactEmail"), Mobile = V(r, "ContactMobile"),
-                        },
+                            Email = V(r, "ContactEmail"), Mobile = V(r, "ContactMobile")
+                        }
                     }));
                     break;
 
@@ -121,7 +135,7 @@ public class ImportController(
                         client.Contacts.Add(new ClientContactRow
                         {
                             FirstName = V(r, "FirstName"), Surname = V(r, "LastName"), Email = V(r, "Email"),
-                            Mobile = V(r, "Phone"), JobTitle = V(r, "JobTitle"),
+                            Mobile = V(r, "Phone"), JobTitle = V(r, "JobTitle")
                         });
                         result.Imported++;
                     }
@@ -134,7 +148,7 @@ public class ImportController(
                     session.Couriers.Couriers.AddRange(rows.Select(r => new CourierRow
                     {
                         FirstName = V(r, "FirstName"), SurName = V(r, "SurName"), Email = V(r, "Email"),
-                        Code = V(r, "Code"), Mobile = V(r, "Phone"), VehicleType = V(r, "Vehicle"), FleetName = V(r, "Fleet"),
+                        Code = V(r, "Code"), Mobile = V(r, "Phone"), VehicleType = V(r, "Vehicle"), FleetName = V(r, "Fleet")
                     }));
                     break;
 
@@ -152,10 +166,22 @@ public class ImportController(
                             continue;
                         }
                         var group = session.Rates.ZoneGroups.FirstOrDefault(g => string.Equals(g.Name, groupName, StringComparison.OrdinalIgnoreCase));
-                        if (group == null) session.Rates.ZoneGroups.Add(group = new ZoneGroupRow { Name = groupName });
+                        if (group == null)
+                        {
+                            session.Rates.ZoneGroups.Add(group = new ZoneGroupRow { Name = groupName });
+                        }
+
                         var zone = group.Zones.FirstOrDefault(z => string.Equals(z.Name, zoneName, StringComparison.OrdinalIgnoreCase));
-                        if (zone == null) group.Zones.Add(zone = new ZoneRow { Name = zoneName });
-                        if (zip != null && !zone.Zips.Contains(zip)) zone.Zips.Add(zip);
+                        if (zone == null)
+                        {
+                            group.Zones.Add(zone = new ZoneRow { Name = zoneName });
+                        }
+
+                        if (zip != null && !zone.Zips.Contains(zip))
+                        {
+                            zone.Zips.Add(zip);
+                        }
+
                         result.Imported++;
                     }
                     break;
@@ -166,7 +192,7 @@ public class ImportController(
                     {
                         Name = V(r, "Name"), FromZone = V(r, "FromZone"), ToZone = V(r, "ToZone"),
                         ChargeRate = D(r, "ChargeRate"), DriverRate = D(r, "DriverRate"),
-                        VehicleSizeNames = V(r, "VehicleSize") is { } vs ? [vs] : [],
+                        VehicleSizeNames = V(r, "VehicleSize") is { } vs ? [vs] : []
                         // Speed is picked on the form: files name services in their old system's words.
                     }));
                     break;
@@ -175,7 +201,11 @@ public class ImportController(
                     return BadRequest(new { success = false, message = $"Unknown import type '{req.EntityType}'." });
             }
 
-            if (req.EntityType is not ("contacts" or "zones")) result.Imported = rows.Count;
+            if (req.EntityType is not ("contacts" or "zones"))
+            {
+                result.Imported = rows.Count;
+            }
+
             result.Success = result.Failed == 0 || result.Imported > 0;
             result.MappedData = rows;
 
@@ -187,7 +217,7 @@ public class ImportController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Import execution failed");
+            Log.Error(ex, "Import execution failed");
             return StatusCode(500, new ImportResult { Success = false, Errors = { ex.Message } });
         }
     }
@@ -197,7 +227,7 @@ public class ImportController(
     {
         try
         {
-            return File(uploader.GenerateTemplate(entityType), "text/csv", $"{entityType}-template.csv");
+            return File(SmartUploaderService.GenerateTemplate(entityType), "text/csv", $"{entityType}-template.csv");
         }
         catch (ArgumentException ex)
         {
@@ -214,7 +244,11 @@ public class ImportController(
     /// <summary>A file with one "Name" column maps it to FirstName; split it if there's no separate last name.</summary>
     internal static (string? First, string? Last) SplitName(string? first, string? last)
     {
-        if (first == null || last != null) return (first, last);
+        if (first == null || last != null)
+        {
+            return (first, last);
+        }
+
         var i = first.LastIndexOf(' ');
         return i > 0 ? (first[..i].Trim(), first[(i + 1)..].Trim()) : (first, null);
     }
@@ -222,12 +256,36 @@ public class ImportController(
     private static string GuessEntityType(string fileName)
     {
         var lower = fileName.ToLowerInvariant();
-        if (lower.Contains("contact")) return "contacts";
-        if (lower.Contains("client") || lower.Contains("customer") || lower.Contains("account")) return "clients";
-        if (lower.Contains("driver") || lower.Contains("courier") || lower.Contains("agent")) return "drivers";
-        if (lower.Contains("zone") || lower.Contains("zip") || lower.Contains("suburb")) return "zones";
-        if (lower.Contains("rate") || lower.Contains("price")) return "rates";
-        if (lower.Contains("team") || lower.Contains("staff") || lower.Contains("user")) return "team";
+        if (lower.Contains("contact"))
+        {
+            return "contacts";
+        }
+
+        if (lower.Contains("client") || lower.Contains("customer") || lower.Contains("account"))
+        {
+            return "clients";
+        }
+
+        if (lower.Contains("driver") || lower.Contains("courier") || lower.Contains("agent"))
+        {
+            return "drivers";
+        }
+
+        if (lower.Contains("zone") || lower.Contains("zip") || lower.Contains("suburb"))
+        {
+            return "zones";
+        }
+
+        if (lower.Contains("rate") || lower.Contains("price"))
+        {
+            return "rates";
+        }
+
+        if (lower.Contains("team") || lower.Contains("staff") || lower.Contains("user"))
+        {
+            return "team";
+        }
+
         return "clients";
     }
 }

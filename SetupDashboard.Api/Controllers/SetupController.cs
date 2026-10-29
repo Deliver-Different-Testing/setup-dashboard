@@ -3,7 +3,9 @@ using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using SetupDashboard.Core.Domain;
+using SetupDashboard.Interfaces;
 using SetupDashboard.Models;
 using SetupDashboard.Services;
 using SetupDashboard.Services.Steps;
@@ -30,8 +32,7 @@ public class SetupController(
     IPushLock pushLock,
     ITenantAppUrls urls,
     IDbContextFactory<DynamicDespatchDbContext> dbFactory,
-    ITenantLogoService logoService,
-    ILogger<SetupController> logger) : ControllerBase
+    ITenantLogoService logoService) : ControllerBase
 {
     private CallerContext? Caller => CallerContext.From(User);
 
@@ -40,7 +41,11 @@ public class SetupController(
     [HttpPost("session")]
     public async Task<IActionResult> CreateSession(CancellationToken ct)
     {
-        if (Caller is not { } caller) return Unauthorized(new { message = "Sign in through Hub first." });
+        if (Caller is not { } caller)
+        {
+            return Unauthorized(new { message = "Sign in through Hub first." });
+        }
+
         var session = await sessions.CreateAsync(caller.TenantId, caller.TenantCode, caller.ContactId, caller.Name, ct);
         Seed(session, caller);
         await sessions.UpdateAsync(session, ct);
@@ -50,7 +55,11 @@ public class SetupController(
     [HttpGet("sessions")]
     public async Task<IActionResult> ListSessions([FromQuery] string? status = "active", CancellationToken ct = default)
     {
-        if (Caller is not { } caller) return Unauthorized();
+        if (Caller is not { } caller)
+        {
+            return Unauthorized();
+        }
+
         var list = await sessions.ListAsync(caller.TenantId, status, ct);
         return Ok(new
         {
@@ -64,15 +73,19 @@ public class SetupController(
                 waitingOnTenant = s.Steps.Values.Sum(st => st.Requests.Count(r => r.FulfilledAt == null)),
                 stepsDone = s.Steps.Values.Count(st => st.Status == StepStatus.Done),
                 createdAt = s.CreatedAt.ToString("o"),
-                updatedAt = s.UpdatedAt.ToString("o"),
-            }),
+                updatedAt = s.UpdatedAt.ToString("o")
+            })
         });
     }
 
     [HttpGet("session/{id}")]
     public async Task<IActionResult> GetSession(string id, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } loaded) return NotFound(new { message = "Session not found" });
+        if (await Load(id, ct) is not { } loaded)
+        {
+            return NotFound(new { message = "Session not found" });
+        }
+
         return Ok(new { session = View(loaded.Session) });
     }
 
@@ -80,15 +93,27 @@ public class SetupController(
     [HttpDelete("session/{id}")]
     public async Task<IActionResult> DeleteSession(string id, CancellationToken ct)
     {
-        if (Caller is not { IsDfAdmin: true } caller) return Forbid();
+        if (Caller is not { IsDfAdmin: true } caller)
+        {
+            return Forbid();
+        }
+
         return await sessions.DeleteAsync(caller.TenantId, id, ct) ? Ok(new { success = true }) : NotFound();
     }
 
     [HttpPost("session/{id}/current-step")]
     public async Task<IActionResult> SetCurrentStep(string id, [FromBody] CurrentStepRequest req, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } loaded) return NotFound();
-        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
+        if (await Load(id, ct) is not { } loaded)
+        {
+            return NotFound();
+        }
+
+        if (await Busy(loaded.Session))
+        {
+            return Conflict(new { message = SendInProgress });
+        }
+
         loaded.Session.CurrentStep = Math.Clamp(req.Step, 0, StepKeys.All.Length - 1);
         await sessions.UpdateAsync(loaded.Session, ct);
         return Ok(new { success = true });
@@ -100,21 +125,29 @@ public class SetupController(
     [HttpPut("session/{id}/steps/{step}/data")]
     public async Task<IActionResult> SaveStepData(string id, string step, [FromBody] JsonElement body, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } loaded) return NotFound();
-        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
+        if (await Load(id, ct) is not { } loaded)
+        {
+            return NotFound();
+        }
+
+        if (await Busy(loaded.Session))
+        {
+            return Conflict(new { message = SendInProgress });
+        }
+
         var s = loaded.Session;
         var opts = DistributedSessionStore.Json;
         try
         {
             switch (step)
             {
-                case StepKeys.Business: s.Business = body.Deserialize<BusinessProfile>(opts) ?? new(); break;
-                case StepKeys.Team: s.Team = body.Deserialize<TeamStep>(opts) ?? new(); break;
-                case StepKeys.Clients: s.Clients = body.Deserialize<List<ClientRow>>(opts) ?? new(); break;
-                case StepKeys.Rates: s.Rates = body.Deserialize<RatesStep>(opts) ?? new(); break;
-                case StepKeys.Schedules: s.Schedules = body.Deserialize<List<ScheduleRow>>(opts) ?? new(); break;
-                case StepKeys.Couriers: s.Couriers = MergeCouriers(s.Couriers, body.Deserialize<CouriersStep>(opts) ?? new()); break;
-                case StepKeys.Partners: s.Partners = body.Deserialize<List<PartnerRow>>(opts) ?? new(); break;
+                case StepKeys.Business: s.Business = body.Deserialize<BusinessProfile>(opts) ?? new BusinessProfile(); break;
+                case StepKeys.Team: s.Team = body.Deserialize<TeamStep>(opts) ?? new TeamStep(); break;
+                case StepKeys.Clients: s.Clients = body.Deserialize<List<ClientRow>>(opts) ?? new List<ClientRow>(); break;
+                case StepKeys.Rates: s.Rates = body.Deserialize<RatesStep>(opts) ?? new RatesStep(); break;
+                case StepKeys.Schedules: s.Schedules = body.Deserialize<List<ScheduleRow>>(opts) ?? new List<ScheduleRow>(); break;
+                case StepKeys.Couriers: s.Couriers = MergeCouriers(s.Couriers, body.Deserialize<CouriersStep>(opts) ?? new CouriersStep()); break;
+                case StepKeys.Partners: s.Partners = body.Deserialize<List<PartnerRow>>(opts) ?? new List<PartnerRow>(); break;
                 default: return BadRequest(new { message = $"Step '{step}' has no data of its own." });
             }
         }
@@ -136,12 +169,21 @@ public class SetupController(
     [HttpPost("session/{id}/steps/{step}/push")]
     public async Task<IActionResult> PushStep(string id, string step, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } loaded) return NotFound();
+        if (await Load(id, ct) is not { } loaded)
+        {
+            return NotFound();
+        }
+
         var pusher = pushers.FirstOrDefault(p => p.StepKey == step);
-        if (pusher == null) return BadRequest(new { message = $"Step '{step}' is a checklist; there is nothing to send." });
+        if (pusher == null)
+        {
+            return BadRequest(new { message = $"Step '{step}' is a checklist; there is nothing to send." });
+        }
 
         if (!(await pushRunner.RunAsync(loaded.Session, loaded.Caller, pusher)).Ran)
+        {
             return Conflict(new { message = SendInProgress });
+        }
 
         var rows = loaded.Session.Step(step).Rows;
         return Ok(new
@@ -152,8 +194,8 @@ public class SetupController(
                 created = rows.Count(r => r.Status == RowStatus.Created),
                 needsData = rows.Count(r => r.Status == RowStatus.NeedsData),
                 failed = rows.Count(r => r.Status == RowStatus.Failed),
-                signInExpired = rows.Any(r => r.Errors.Any(e => e.StartsWith("Your sign-in has expired"))),
-            },
+                signInExpired = rows.Any(r => r.Errors.Any(e => e.StartsWith("Your sign-in has expired")))
+            }
         });
     }
 
@@ -164,9 +206,21 @@ public class SetupController(
     [HttpPost("session/{id}/steps/{step}/rows/retry")]
     public async Task<IActionResult> RetryRow(string id, string step, [FromBody] RowRef req, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } loaded) return NotFound();
-        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
-        if (!RowLedger.Retry(loaded.Session.Step(step), req.Kind, req.Key)) return NotFound(new { message = "No unanswered record with that key." });
+        if (await Load(id, ct) is not { } loaded)
+        {
+            return NotFound();
+        }
+
+        if (await Busy(loaded.Session))
+        {
+            return Conflict(new { message = SendInProgress });
+        }
+
+        if (!RowLedger.Retry(loaded.Session.Step(step), req.Kind, req.Key))
+        {
+            return NotFound(new { message = "No unanswered record with that key." });
+        }
+
         StepCatalog.Recompute(loaded.Session, step, hasData: false);
         await sessions.UpdateAsync(loaded.Session, ct);
         return Ok(new { session = View(loaded.Session) });
@@ -177,10 +231,25 @@ public class SetupController(
     [HttpPost("session/{id}/steps/{step}/requests")]
     public async Task<IActionResult> AddRequest(string id, string step, [FromBody] DataRequestCreate req, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } loaded) return NotFound();
-        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
-        if (!loaded.Caller.IsDfAdmin) return Forbid();
-        if (string.IsNullOrWhiteSpace(req.Item)) return BadRequest(new { message = "Say what you're asking the tenant for." });
+        if (await Load(id, ct) is not { } loaded)
+        {
+            return NotFound();
+        }
+
+        if (await Busy(loaded.Session))
+        {
+            return Conflict(new { message = SendInProgress });
+        }
+
+        if (!loaded.Caller.IsDfAdmin)
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrWhiteSpace(req.Item))
+        {
+            return BadRequest(new { message = "Say what you're asking the tenant for." });
+        }
 
         var st = loaded.Session.Step(step);
         st.Requests.Add(new DataRequest { Item = req.Item.Trim(), DueBy = req.DueBy, RequestedBy = loaded.Caller.Name });
@@ -192,10 +261,22 @@ public class SetupController(
     [HttpPost("session/{id}/steps/{step}/requests/{requestId}/fulfil")]
     public async Task<IActionResult> FulfilRequest(string id, string step, string requestId, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } loaded) return NotFound();
-        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
+        if (await Load(id, ct) is not { } loaded)
+        {
+            return NotFound();
+        }
+
+        if (await Busy(loaded.Session))
+        {
+            return Conflict(new { message = SendInProgress });
+        }
+
         var r = loaded.Session.Step(step).Requests.FirstOrDefault(x => x.Id == requestId);
-        if (r == null) return NotFound();
+        if (r == null)
+        {
+            return NotFound();
+        }
+
         r.FulfilledAt ??= DateTime.UtcNow;
         r.FulfilledBy ??= loaded.Caller.Name;
         StepCatalog.Recompute(loaded.Session, step, hasData: false);
@@ -207,12 +288,26 @@ public class SetupController(
     [HttpPost("session/{id}/steps/{step}/checklist/{itemId}")]
     public async Task<IActionResult> TickChecklist(string id, string step, string itemId, [FromBody] ChecklistTick req, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } loaded) return NotFound();
-        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
+        if (await Load(id, ct) is not { } loaded)
+        {
+            return NotFound();
+        }
+
+        if (await Busy(loaded.Session))
+        {
+            return Conflict(new { message = SendInProgress });
+        }
+
         var item = loaded.Session.Step(step).Checklist.FirstOrDefault(c => c.Id == itemId);
-        if (item == null) return NotFound();
+        if (item == null)
+        {
+            return NotFound();
+        }
+
         if (item.Owner == "DFRNT" && !loaded.Caller.IsDfAdmin)
+        {
             return StatusCode(403, new { message = "DFRNT ticks this one." });
+        }
 
         item.DoneAt = req.Done ? DateTime.UtcNow : null;
         item.DoneBy = req.Done ? loaded.Caller.Name : null;
@@ -224,15 +319,30 @@ public class SetupController(
     [HttpPost("session/{id}/steps/{step}/complete")]
     public async Task<IActionResult> CompleteStep(string id, string step, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } loaded) return NotFound();
-        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
-        if (StepCatalog.CompleteBlocker(loaded.Session, step) is { } why) return Conflict(new { message = why });
+        if (await Load(id, ct) is not { } loaded)
+        {
+            return NotFound();
+        }
+
+        if (await Busy(loaded.Session))
+        {
+            return Conflict(new { message = SendInProgress });
+        }
+
+        if (StepCatalog.CompleteBlocker(loaded.Session, step) is { } why)
+        {
+            return Conflict(new { message = why });
+        }
 
         var st = loaded.Session.Step(step);
         st.Status = StepStatus.Done;
         st.CompletedAt = DateTime.UtcNow;
         st.CompletedBy = loaded.Caller.Name;
-        if (loaded.Session.Steps.Values.All(x => x.Status == StepStatus.Done)) loaded.Session.Status = "completed";
+        if (loaded.Session.Steps.Values.All(x => x.Status == StepStatus.Done))
+        {
+            loaded.Session.Status = "completed";
+        }
+
         await sessions.UpdateAsync(loaded.Session, ct);
         return Ok(new { session = View(loaded.Session) });
     }
@@ -240,9 +350,21 @@ public class SetupController(
     [HttpPost("session/{id}/steps/{step}/reopen")]
     public async Task<IActionResult> ReopenStep(string id, string step, CancellationToken ct)
     {
-        if (await Load(id, ct) is not { } loaded) return NotFound();
-        if (await Busy(loaded.Session)) return Conflict(new { message = SendInProgress });
-        if (!loaded.Caller.IsDfAdmin) return Forbid();
+        if (await Load(id, ct) is not { } loaded)
+        {
+            return NotFound();
+        }
+
+        if (await Busy(loaded.Session))
+        {
+            return Conflict(new { message = SendInProgress });
+        }
+
+        if (!loaded.Caller.IsDfAdmin)
+        {
+            return Forbid();
+        }
+
         var st = loaded.Session.Step(step);
         st.Status = StepStatus.InProgress;
         st.CompletedAt = null;
@@ -258,20 +380,43 @@ public class SetupController(
     [HttpGet("session/{id}/tenant-summary")]
     public async Task<IActionResult> GetTenantSummary(string id, CancellationToken ct)
     {
-        if (await Load(id, ct) is null) return NotFound(new { message = "Session not found" });
+        if (await Load(id, ct) is null)
+        {
+            return NotFound(new { message = "Session not found" });
+        }
+
         try
         {
-            await using var db = dbFactory.CreateDbContext();
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
             var setting = await db.TblSettings.AsNoTracking().FirstOrDefaultAsync(ct);
             var settings = new Dictionary<string, string>();
-            if (setting != null)
+            if (setting == null)
             {
-                settings["SystemName"] = setting.SystemName ?? "";
-                settings["ApplicationName"] = setting.ApplicationName ?? "";
-                settings["AdminEmail"] = setting.AdminEmail ?? "";
-                settings["CountryCode"] = setting.CountryCode ?? "";
-                settings["CompanyAddress"] = setting.CompanyAddress ?? "";
+                return Ok(new TenantSummary
+                {
+                    Settings = settings,
+                    Counts = new TenantCounts
+                    {
+                        // Staff are contacts on the tenant's own client now, not tblUser rows.
+                        Team = await db.TucClientContacts.AsNoTracking().CountAsync(
+                            cc => cc.Active && cc.UcctClient != null &&
+                                  cc.UcctClient.ClientTypeId == CallerContext.TenantClientType, ct),
+                        Clients = await db.TucClients.AsNoTracking()
+                            .CountAsync(c => c.UcclActive && c.ClientTypeId == 2, ct),
+                        Contacts = await db.TucClientContacts.AsNoTracking().CountAsync(cc => cc.Active, ct),
+                        Couriers = await db.TucCouriers.Where(c => c.Active).CountAsync(ct),
+                        Zones = await db.ZoneNames.AsNoTracking().CountAsync(ct),
+                        Automations = await db.AutomationRules.AsNoTracking().CountAsync(a => a.IsActive, ct),
+                        Services = await db.TblServices.AsNoTracking().CountAsync(ct)
+                    }
+                });
             }
+
+            settings["SystemName"] = setting.SystemName ?? string.Empty;
+            settings["ApplicationName"] = setting.ApplicationName ?? string.Empty;
+            settings["AdminEmail"] = setting.AdminEmail ?? string.Empty;
+            settings["CountryCode"] = setting.CountryCode ?? string.Empty;
+            settings["CompanyAddress"] = setting.CompanyAddress ?? string.Empty;
 
             return Ok(new TenantSummary
             {
@@ -282,11 +427,11 @@ public class SetupController(
                     Team = await db.TucClientContacts.AsNoTracking().CountAsync(cc => cc.Active && cc.UcctClient != null && cc.UcctClient.ClientTypeId == CallerContext.TenantClientType, ct),
                     Clients = await db.TucClients.AsNoTracking().CountAsync(c => c.UcclActive && c.ClientTypeId == 2, ct),
                     Contacts = await db.TucClientContacts.AsNoTracking().CountAsync(cc => cc.Active, ct),
-                    Couriers = await db.Database.SqlQueryRaw<int>("SELECT COUNT(1) AS [Value] FROM tucCourier WHERE Active = 1").FirstAsync(ct),
+                    Couriers = await db.TucCouriers.AsNoTracking().CountAsync(cc => cc.Active, ct),
                     Zones = await db.ZoneNames.AsNoTracking().CountAsync(ct),
                     Automations = await db.AutomationRules.AsNoTracking().CountAsync(a => a.IsActive, ct),
-                    Services = await db.TblServices.AsNoTracking().CountAsync(ct),
-                },
+                    Services = await db.TblServices.AsNoTracking().CountAsync(ct)
+                }
             });
         }
         catch (UnauthorizedAccessException)
@@ -295,7 +440,7 @@ public class SetupController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to load tenant summary for session {SessionId}", id);
+            Log.Error(ex, "Failed to load tenant summary for session {SessionId}", id);
             return StatusCode(500, new { message = "Failed to load tenant summary" });
         }
     }
@@ -305,6 +450,18 @@ public class SetupController(
     {
         var url = await logoService.GetLogoUrlAsync(Caller?.TenantCode);
         return Ok(new { success = url != null, logoUrl = url });
+    }
+
+    /// <summary>
+    /// The tenant's Branding the whole UI themes from; 204 when none is saved (the built-in DFRNT
+    /// theme). Read-only and open to every signed-in user - it only changes how the page looks.
+    /// </summary>
+    [HttpGet("appearance")]
+    public async Task<IActionResult> GetAppearance(CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var json = await db.TblSettings.AsNoTracking().Select(s => s.AppearanceDefaultsJson).FirstOrDefaultAsync(ct);
+        return TenantAppearanceParser.Parse(json) is { } appearance ? Ok(appearance) : NoContent();
     }
 
     // ── helpers ─────────────────────────────────────────────────────────────
@@ -321,9 +478,17 @@ public class SetupController(
 
     private async Task<Loaded?> Load(string id, CancellationToken ct)
     {
-        if (Caller is not { } caller) return null;
+        if (Caller is not { } caller)
+        {
+            return null;
+        }
+
         var session = await sessions.GetAsync(caller.TenantId, id, ct);
-        if (session == null) return null;
+        if (session == null)
+        {
+            return null;
+        }
+
         Seed(session, caller);
         return new Loaded(session, caller);
     }
@@ -353,11 +518,11 @@ public class SetupController(
             couriers = s.Couriers.Couriers.Select(c => new
             {
                 c.Email, c.FirstName, c.SurName, c.Code, c.Mobile, c.VehicleType, c.CourierTypeId, c.FleetName,
-                hasInitialPassword = !string.IsNullOrEmpty(c.InitialPassword),
-            }),
+                hasInitialPassword = !string.IsNullOrEmpty(c.InitialPassword)
+            })
         },
         partners = s.Partners,
-        training = s.TrainingProgress,
+        training = s.TrainingProgress
     };
 
     /// <summary>The browser never has the passwords back, so a blank one means "keep what's stored".</summary>

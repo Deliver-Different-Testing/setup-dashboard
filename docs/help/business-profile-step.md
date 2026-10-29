@@ -8,6 +8,12 @@ tags: [business profile, company, trading name, legal name, primary contact, dep
 
 The Business profile step records who the tenant is: trading name (required), legal name, country, registration number, state of incorporation, business type, where and what they deliver, the system they are moving from, deliveries per month, and the primary contact for the setup (name and email required). This step writes nothing to any app.
 
+The fields are grouped as Company, Registration, Operations and Primary setup contact.
+
+- **Country** is a list: New Zealand, Australia, United States, United Kingdom, Canada or Other. Choose Other to type any other country.
+- **The registration number is named for the country**: NZBN, ABN, EIN, Company number or Business number. The state (or province) of incorporation only shows where it applies, and stays visible if it already holds a value. Business type suggests the usual types for the country, but you can type anything.
+- **Where they deliver** and **What they deliver** take one entry per chip. Press Enter or type a comma to add one. Pasting "Auckland, Wellington" makes two.
+
 Its job is the DFRNT checklist that must be done before anyone is invited.
 
 ## The DFRNT checklist on this step
@@ -19,7 +25,7 @@ Its job is the DFRNT checklist that must be done before anyone is invited.
 
 ## "This tenant's system settings now"
 
-The card shows the company address, admin email, country code and application name currently stored for this tenant, and counts of customers, staff, couriers, zones and active automations already in the system. Anything that doesn't look like yours is highlighted. Ask DFRNT to fix it in System Settings before the checklist item is ticked.
+The card shows the company address, admin email, country code and application name currently stored for this tenant, and counts of customers, staff, couriers, zones and active automations already in the system. An address or admin email that doesn't contain the trading or legal name is marked "Not this tenant". Nothing is checked until a trading name is entered. Ask DFRNT to fix it in System Settings before the checklist item is ticked.
 
 ## Trading name matters later
 

@@ -2,7 +2,6 @@ using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 using SetupDashboard.Controllers;
 using SetupDashboard.Core.Domain;
 using SetupDashboard.Models;
@@ -44,7 +43,7 @@ public class SafetyTests
     [Fact]
     public async Task Sessions_belong_to_one_tenant()
     {
-        var store = new DistributedSessionStore(Make.Cache(), NullLogger<DistributedSessionStore>.Instance);
+        var store = new DistributedSessionStore(Make.Cache());
         var mine = await store.CreateAsync(7, "cheetah", 42, "Dane");
 
         Assert.NotNull(await store.GetAsync(7, mine.Id));
@@ -69,8 +68,8 @@ public class SafetyTests
     [Fact]
     public void A_blank_password_from_the_browser_keeps_the_stored_one()
     {
-        var stored = new CouriersStep { Couriers = [new() { Email = "a@b", InitialPassword = "secret-123" }] };
-        var incoming = new CouriersStep { Couriers = [new() { Email = "A@B ", FirstName = "Al" }] };
+        var stored = new CouriersStep { Couriers = [new CourierRow { Email = "a@b", InitialPassword = "secret-123" }] };
+        var incoming = new CouriersStep { Couriers = [new CourierRow { Email = "A@B ", FirstName = "Al" }] };
 
         var merged = SetupController.MergeCouriers(stored, incoming);
 

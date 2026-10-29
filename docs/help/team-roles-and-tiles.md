@@ -6,13 +6,13 @@ audience: [admin]
 tags: [team, roles, users, staff, hub tiles, access control, tile access, invite, role actions, tenant admin, operations]
 ---
 
-The Team step creates roles, switches on the Hub tiles each role can open, then adds people to those roles. A role needs a name. A person needs an email, a first name, a role chosen from the roles on this step, and the "send sign-in invite" tick, because adding a person always emails them a Hub sign-in invite.
+The Team step creates roles, switches on the Hub tiles each role can open, then adds people to those roles. A role needs a name. A person needs an email, a first name, a role chosen from the roles on this step, and "Email a sign-in invite when sent" switched on, because adding a person always emails them a Hub sign-in invite. "Invite all" switches it on for everyone not yet invited; people already created show "Invited".
 
 Roles are created in Settings as Tenant Staff roles; people are created as contacts on the tenant's own client file. No staff file is created, and no password is set: the invite does that.
 
 ## Roles
 
-Start with two: an admin role and an operations role. New roles start with every tile denied; tick the tiles on the role. Some tiles show a condition in brackets (for example a feature that must be on for the tenant) and only work when it holds. If a role with the same name already exists in Settings it is reused: the tiles you ticked are switched on, none are switched off.
+Start with two: an admin role and an operations role. Roles are columns and Hub tiles are rows, so you can compare roles side by side. "Add role" offers a Tenant admin (every tile on) or a blank role (every tile off). Click a role's name to rename it, describe it (the description shows when choosing a role for a person) or remove it. Renaming a role moves its people with it; removing one leaves its people without a role. Some tiles show a condition in brackets (for example a feature that must be on for the tenant) and only work when it holds. If a role with the same name already exists in Settings it is reused: the tiles you ticked are switched on, none are switched off.
 
 ## People
 
