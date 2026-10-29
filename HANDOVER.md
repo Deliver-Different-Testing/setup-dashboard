@@ -34,7 +34,7 @@ Steps 6-8 are just launch pads — they link to existing Hub UI. Don't build ful
 ### Visual Studio (Recommended)
 ```bash
 # Open SetupDashboard.sln → F5
-# MSBuild runs "npm run build" → output to wwwroot/setup-dashboard/
+# SetupDashboard.Client.esproj runs "npm run build" → output to SetupDashboard.Api/wwwroot/setup-dashboard/
 # .NET starts on https://localhost:7200
 # Browser opens https://localhost:7200/setup-dashboard/
 ```
@@ -46,7 +46,7 @@ cd SetupDashboard.Api
 dotnet run           # → https://localhost:7200 / http://localhost:5200
 
 # For frontend hot reload (separate terminal)
-cd SetupDashboard.Api/ClientApp
+cd SetupDashboard.Client
 npm install
 npm run dev          # → http://localhost:5173/setup-dashboard/
 ```
@@ -158,9 +158,9 @@ The in-memory `SessionStore` is still used for wizard state (shopping cart). Per
 
 | File | What It Does |
 |------|-------------|
-| `SetupDashboard.Api/ClientApp/src/lib/api.ts` | Every single API call the frontend makes — start here |
-| `SetupDashboard.Api/ClientApp/src/store.ts` | Zustand state store — wizard state, current step, session data |
-| `SetupDashboard.Api/ClientApp/src/components/SmartImport.tsx` | The reusable smart upload modal |
+| `SetupDashboard.Client/src/lib/api.ts` | Every single API call the frontend makes — start here |
+| `SetupDashboard.Client/src/store.ts` | Zustand state store — wizard state, current step, session data |
+| `SetupDashboard.Client/src/components/SmartImport.tsx` | The reusable smart upload modal |
 | `SetupDashboard.Api/Program.cs` | DI, auth, EF Core, Redis, health checks |
 | `SetupDashboard.Api/Controllers/LoginController.cs` | Hub cookie auth + connection string caching |
 | `SetupDashboard.Api/Controllers/SetupController.cs` | Session CRUD + step save endpoints |
@@ -287,7 +287,7 @@ Auto-Mate (the chat sidebar) should be light theme — not dark `#0d0c2c`. Dark 
 
 ## Deploy
 
-Deploys to AWS EKS via the standard DFRNT GitLab CI pipeline (Auto DevOps + Helm). The frontend is built into the .NET app's `wwwroot/setup-dashboard/` by the `NpmBuild` MSBuild target during `dotnet publish`, then the whole thing ships as a single container image.
+Deploys to AWS EKS via the standard DFRNT GitLab CI pipeline (Auto DevOps + Helm). The frontend is built into the .NET app's `wwwroot/setup-dashboard/` by the `SetupDashboard.Client` project (`SetupDashboard.Client.esproj`, referenced by the API) during `dotnet publish`, then the whole thing ships as a single container image.
 
 - `.gitlab-ci.yml` → one-line include of `urgent-couriers/ci-templates`
 - `Dockerfile` → multi-stage SDK 10.0 + Node 20 → ASP.NET 10.0 runtime

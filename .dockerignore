@@ -11,7 +11,7 @@
 **/bin/
 **/obj/
 
-# Node modules & built SPA (rebuilt in Docker via MSBuild NpmBuild target)
+# Node modules & built SPA (rebuilt in Docker by SetupDashboard.Client.esproj)
 **/node_modules/
 **/wwwroot/setup-dashboard/
 

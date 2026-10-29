@@ -2,13 +2,13 @@
 
 Onboarding app for new DFRNT tenants: an 11-step journey the tenant and DFRNT both see, with progress, what DFRNT is waiting on the tenant for, and a checklist of DFRNT-owned work. Every record is written through the app that owns it (Settings, Routed Operations) as the signed-in person - never through Admin Manager, and never with placeholder data. Design and status: [`docs/REWRITE-DESIGN-2026-10-24.md`](docs/REWRITE-DESIGN-2026-10-24.md).
 
-Tests: `dotnet test SetupDashboard.Tests -p:SkipNpm=true` and `cd SetupDashboard.Api/ClientApp && npm test`.
+Tests: `dotnet test SetupDashboard.Tests -p:SkipNpm=true` and `cd SetupDashboard.Client && npm test`.
 
 ## Quick Start
 
 ### Visual Studio (Recommended)
 1. Open `SetupDashboard.sln`
-2. Press F5 — MSBuild builds the React frontend into `wwwroot/`, .NET starts, browser opens
+2. Press F5 — the SetupDashboard.Client project builds the React frontend into the API's `wwwroot/setup-dashboard/`, .NET starts, browser opens
 3. Browser opens `https://localhost:7200/setup-dashboard/`
 
 ### Terminal
@@ -18,7 +18,7 @@ cd SetupDashboard.Api
 dotnet run
 
 # For frontend hot reload (separate terminal)
-cd SetupDashboard.Api/ClientApp
+cd SetupDashboard.Client
 npm install
 npm run dev    # → http://localhost:5173/setup-dashboard/
 ```

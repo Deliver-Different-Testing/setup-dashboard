@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), ...(demo ? [demoApi()] : [])],
     base: demo ? './' : '/setup-dashboard/',
     build: {
-      outDir: demo ? 'dist-demo' : '../wwwroot/setup-dashboard',
+      outDir: demo ? 'dist-demo' : '../SetupDashboard.Api/wwwroot/setup-dashboard',
       emptyOutDir: true,
       manifest: !demo,
     },

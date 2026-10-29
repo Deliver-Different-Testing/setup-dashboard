@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build-env
 WORKDIR /App
 
-# Install Node.js 22 LTS (frontend is built via the .csproj NpmBuild MSBuild target)
+# Install Node.js 22 LTS (the frontend is built by SetupDashboard.Client.esproj)
 RUN apt-get update && apt-get install -y curl
 RUN curl -sL https://deb.nodesource.com/setup_22.x | bash -
 RUN apt-get install -y nodejs
@@ -16,6 +16,7 @@ ARG GITLAB_NUGET_USERNAME
 ARG GITLAB_NUGET_TOKEN
 COPY nuget.config Directory.Packages.props ./
 COPY SetupDashboard.Api/SetupDashboard.Api.csproj SetupDashboard.Api/
+COPY SetupDashboard.Client/SetupDashboard.Client.esproj SetupDashboard.Client/
 RUN GITLAB_NUGET_USERNAME=${GITLAB_NUGET_USERNAME} GITLAB_NUGET_TOKEN=${GITLAB_NUGET_TOKEN} dotnet restore SetupDashboard.Api/SetupDashboard.Api.csproj
 
 COPY . ./

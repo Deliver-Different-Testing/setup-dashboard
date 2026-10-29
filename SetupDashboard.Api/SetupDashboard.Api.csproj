@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>SetupDashboard</RootNamespace>
-    <SpaRoot>ClientApp\</SpaRoot>
+    <SpaRoot>..\SetupDashboard.Client\</SpaRoot>
     <SpaProxyServerUrl>http://localhost:5173</SpaProxyServerUrl>
     <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
   </PropertyGroup>
@@ -52,29 +52,21 @@
     <InternalsVisibleTo Include="SetupDashboard.Tests" />
   </ItemGroup>
 
-  <!-- Show ClientApp files in Solution Explorer -->
-  <ItemGroup>
-    <None Include="ClientApp\**" Exclude="ClientApp\node_modules\**;ClientApp\dist\**" />
-  </ItemGroup>
-
-  <!-- Exclude ClientApp from .NET compilation -->
-  <ItemGroup>
-    <Content Remove="ClientApp\**" />
-  </ItemGroup>
   <ItemGroup>
     <None Include="efpt.config.json.user" />
   </ItemGroup>
 
-  <!-- Pre-build: install + build frontend into wwwroot/setup-dashboard/ -->
-  <Target Name="NpmBuild" BeforeTargets="Build" Condition="'$(SkipNpm)' != 'true'">
-    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install --prefer-offline --no-audit" />
-    <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build" />
-  </Target>
+  <!-- Frontend: building the Client project runs npm install + npm run build,
+       which writes wwwroot/setup-dashboard/. SkipNpm=true leaves it out. -->
+  <ItemGroup Condition="'$(SkipNpm)' != 'true'">
+    <ProjectReference Include="..\SetupDashboard.Client\SetupDashboard.Client.esproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
 
-  <!-- Publish: always rebuild frontend -->
+  <!-- Publish: include the frontend the Client build just wrote (it isn't in
+       the static web assets computed before the build). -->
   <Target Name="PublishSpa" AfterTargets="ComputeFilesToPublish">
-    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install" />
-    <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build" />
     <ItemGroup>
       <DistFiles Include="wwwroot\setup-dashboard\**" />
       <ResolvedFileToPublish Include="@(DistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
