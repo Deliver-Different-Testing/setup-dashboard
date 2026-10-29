@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ActionIcon, Badge, Button, Checkbox, Group, Loader, NumberInput, Paper, Select, Text as MText, TextInput, Title, type MantineColor } from '@mantine/core'
+import { ActionIcon, Autocomplete, Badge, Button, Checkbox, Group, Loader, NumberInput, Paper, Select, TagsInput, Text as MText, TextInput, Title, type MantineColor } from '@mantine/core'
 import { X } from 'lucide-react'
 import type { RowStatus, StepStatus } from '../lib/api'
 
@@ -63,12 +63,17 @@ export function Num({ label, value, onChange, required, step = 'any', hint }: {
 
 export function Pick({ label, value, onChange, options, required, placeholder = 'Choose an option…', loading, error }: {
   label: string; value?: number | string; onChange: (v: never) => void; required?: boolean
-  options: { value: number | string; label: string }[]; placeholder?: string; loading?: boolean; error?: string | null
+  options: { value: number | string; label: string; description?: string }[]; placeholder?: string; loading?: boolean; error?: string | null
 }) {
   // Mantine's Select works in strings; the caller's ids may be numbers, so map back on change.
   const data = options.map(o => ({ value: String(o.value), label: o.label }))
+  const described = options.some(o => o.description)
   return (
     <Select label={label} withAsterisk={required} data={data} size="sm" searchable={data.length > 8} clearable={!required}
+      renderOption={described ? ({ option }) => {
+        const d = options.find(o => String(o.value) === option.value)?.description
+        return <div><MText size="sm">{option.label}</MText>{d && <MText fz={11} c="dimmed">{d}</MText>}</div>
+      } : undefined}
       value={value == null || value === '' ? null : String(value)}
       placeholder={loading ? 'Loading…' : error ? 'Could not load options' : placeholder}
       rightSection={loading ? <Loader size="xs" /> : undefined}
@@ -78,6 +83,31 @@ export function Pick({ label, value, onChange, options, required, placeholder = 
         ;(onChange as (v: unknown) => void)(raw == null ? undefined : opt ? opt.value : raw)
       }}
       styles={required && (value == null || value === '') ? missingStyles : undefined} />
+  )
+}
+
+/** Free text with suggestions - for values that are usually from a short list but needn't be. */
+export function Suggest({ label, value, onChange, options, required, placeholder, hint }: {
+  label: string; value?: string; onChange: (v: string | undefined) => void; options: string[]
+  required?: boolean; placeholder?: string; hint?: string
+}) {
+  return (
+    <Autocomplete label={label} description={hint} withAsterisk={required} data={options} size="sm"
+      value={value ?? ''} placeholder={placeholder}
+      onChange={v => onChange(v === '' ? undefined : v)}
+      styles={required && !value ? missingStyles : undefined} />
+  )
+}
+
+/** A list entered as chips. Typing or pasting a comma splits, so "Auckland, Wellington" becomes two. */
+export function Tags({ label, value, onChange, required, placeholder, hint }: {
+  label: string; value: string[]; onChange: (v: string[]) => void; required?: boolean; placeholder?: string; hint?: string
+}) {
+  return (
+    <TagsInput label={label} description={hint} withAsterisk={required} value={value} size="sm"
+      placeholder={placeholder} splitChars={[',']} clearable acceptValueOnBlur
+      onChange={v => onChange(v.map(x => x.trim()).filter(Boolean))}
+      styles={required && value.length === 0 ? missingStyles : undefined} />
   )
 }
 
