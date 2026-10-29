@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <defs>
+    <linearGradient id="dfrntGradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="24">
+      <stop offset="0%" stop-color="#5B3FE0"/>
+      <stop offset="100%" stop-color="#1FD3F2"/>
+    </linearGradient>
+  </defs>
+  <!-- orbit ring with a gap for the orbiting node (shared with dfrntcrm / integrationmanager) -->
+  <circle cx="12" cy="12" r="9" fill="none" stroke="url(#dfrntGradient)" stroke-width="2" stroke-linecap="round" stroke-dasharray="48.7 7.85" transform="rotate(-20 12 12)"/>
+  <circle cx="18.4" cy="5.6" r="1.8" fill="url(#dfrntGradient)"/>
+  <!-- setup complete: a bold check -->
+  <path d="M7.9 12.4l2.7 2.7 5.6-5.8" fill="none" stroke="url(#dfrntGradient)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
