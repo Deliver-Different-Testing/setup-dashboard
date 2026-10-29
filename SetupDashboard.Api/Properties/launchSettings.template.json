@@ -1,0 +1,62 @@
+{
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://setupdashboard.local.deliverdifferent.com:5200"
+    }
+  },
+  "profiles": {
+    "IIS Express": {
+      "commandName": "IISExpress",
+      "launchBrowser": true,
+      "launchUrl": "setup-dashboard/",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SQLHealthCheckConnection": "Server=<sql-server>;database=master-controller-seed;uid=<sql-user>;pwd=<sql-password>;TrustServerCertificate=True",
+        "MasterSQLConnection": "Server=<sql-server>;database=master-controller-seed;uid=<sql-user>;pwd=<sql-password>;TrustServerCertificate=True",
+        "SQLCredentials": "user id=<sql-user>;password=<sql-password>",
+        "PublicPath": "http://hub.local.deliverdifferent.com:51532/Account/login",
+        "RedisConfig": "<redis-host>:<port>,password=<redis-password>",
+        "Domain": "local.deliverdifferent.com",
+        "Environments__local__Name": "Local Development",
+        "Environments__local__BaseUrl": "http://adminmanager.local.deliverdifferent.com:63888",
+        "Environments__local__HubUrl": "http://hub.local.deliverdifferent.com:51532",
+        "Environments__local__HubLoginUrl": "http://hub.local.deliverdifferent.com:51532/Account/login",
+        "Environments__local__DispatchUrl": "http://despatchweb.local.deliverdifferent.com:63277",
+        "Environments__local__ApiUrl": "http://api.local.deliverdifferent.com:53750",
+        "Environments__local__SettingsUrl": "http://dfrntdriveconfig.local.deliverdifferent.com:62371",
+        "Environments__local__RoutedOpsUrl": "http://routedoperations.local.deliverdifferent.com:65243",
+        "Environments__local__IntegrationManagerUrl": "http://integrationmanager.local.deliverdifferent.com:5297",
+        "Environments__local__CspUrl": "http://localhost:5310",
+        "ANTHROPIC_API_KEY": "<anthropic-api-key - dfrntcrm launchSettings AutoMate__Anthropic__ApiKey>"
+      }
+    },
+    "SetupDashboard.Api": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "setup-dashboard/",
+      "applicationUrl": "https://localhost:7200;http://localhost:5200",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SQLHealthCheckConnection": "Server=<sql-server>;database=master-controller-seed;uid=<sql-user>;pwd=<sql-password>;TrustServerCertificate=True",
+        "MasterSQLConnection": "Server=<sql-server>;database=master-controller-seed;uid=<sql-user>;pwd=<sql-password>;TrustServerCertificate=True",
+        "SQLCredentials": "user id=<sql-user>;password=<sql-password>",
+        "PublicPath": "http://hub.local.deliverdifferent.com:51532/Account/login",
+        "RedisConfig": "<redis-host>:<port>,password=<redis-password>",
+        "Domain": "local.deliverdifferent.com",
+        "Environments__local__Name": "Local Development",
+        "Environments__local__BaseUrl": "http://adminmanager.local.deliverdifferent.com:63888",
+        "Environments__local__HubUrl": "http://hub.local.deliverdifferent.com:51532",
+        "Environments__local__HubLoginUrl": "http://hub.local.deliverdifferent.com:51532/Account/login",
+        "Environments__local__DispatchUrl": "http://despatchweb.local.deliverdifferent.com:63277",
+        "Environments__local__ApiUrl": "http://api.local.deliverdifferent.com:53750",
+        "Environments__local__SettingsUrl": "http://dfrntdriveconfig.local.deliverdifferent.com:62371",
+        "Environments__local__RoutedOpsUrl": "http://routedoperations.local.deliverdifferent.com:65243",
+        "Environments__local__IntegrationManagerUrl": "http://integrationmanager.local.deliverdifferent.com:5297",
+        "Environments__local__CspUrl": "http://localhost:5310",
+        "ANTHROPIC_API_KEY": "<anthropic-api-key - dfrntcrm launchSettings AutoMate__Anthropic__ApiKey>"
+      }
+    }
+  }
+}

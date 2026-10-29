@@ -33,7 +33,7 @@ npm run dev    # → http://localhost:5173/setup-dashboard/
 
 ## Environment Variables
 
-Set in `Properties/launchSettings.json` for dev (gitignored — contains local DB/Redis creds). For staging/prod, vars are injected from per-tenant `{TENANT}_STAGING_ENV` / `{TENANT}_PROD_ENV` GitLab CI file variables.
+Set in `SetupDashboard.Api/Properties/launchSettings.json` for dev (gitignored — contains local DB/Redis creds): copy `launchSettings.template.json` beside it and fill in the `<...>` placeholders. For staging/prod, vars are injected from per-tenant `{TENANT}_STAGING_ENV` / `{TENANT}_PROD_ENV` GitLab CI file variables.
 
 | Variable | Purpose |
 |----------|---------|
