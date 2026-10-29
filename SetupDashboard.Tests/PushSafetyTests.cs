@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.Logging.Abstractions;
 using SetupDashboard.Models;
 using SetupDashboard.Services;
 using SetupDashboard.Services.Steps;
@@ -168,7 +167,7 @@ public class PushSafetyTests
 
     private static (StepPushRunner Runner, DistributedSessionStore Store, InMemoryPushLock Lock) Runner(FakeApps apps)
     {
-        var store = new DistributedSessionStore(Make.Cache(), NullLogger<DistributedSessionStore>.Instance);
+        var store = new DistributedSessionStore(Make.Cache());
         var pushLock = new InMemoryPushLock();
         return (new StepPushRunner(store, pushLock, apps), store, pushLock);
     }

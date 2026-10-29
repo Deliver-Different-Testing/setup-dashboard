@@ -2,6 +2,7 @@ using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using SetupDashboard.Core.Domain;
 
 namespace SetupDashboard.Controllers;
@@ -15,7 +16,7 @@ namespace SetupDashboard.Controllers;
 [RequireFeature(FeatureKeys.SetupDashboard)]
 [ApiController]
 [Route("api/setup/validate")]
-public class ValidateController(IDbContextFactory<DynamicDespatchDbContext> dbFactory, ILogger<ValidateController> logger) : ControllerBase
+public class ValidateController(IDbContextFactory<DynamicDespatchDbContext> dbFactory) : ControllerBase
 {
     /// <summary>Staff, customer contacts and partner contacts all sign in by email; Settings rejects a duplicate.</summary>
     [HttpGet("contact-email")]
@@ -61,7 +62,7 @@ public class ValidateController(IDbContextFactory<DynamicDespatchDbContext> dbFa
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Validation check could not run");
+            Log.Warning(ex, "Validation check could not run");
             return Ok(new { available = (bool?)null, @unchecked = true });
         }
     }

@@ -2,30 +2,14 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Serilog;
 
 namespace SetupDashboard.Services.TenantApps;
-
-/// <summary>
-/// Auto-Mate's answers come from the Customer Success Platform (dfrntcrm): its Knowledge Base, which holds the
-/// shipped Setup Dashboard help articles, and its chat, which streams the answer as Server-Sent Events. This asks
-/// CSP's <c>POST /api/v1/chat/messages</c> as the signed-in person (Hub cookie forwarded server-side, as for the
-/// other tenant apps) and hands back the open event stream.
-/// </summary>
-/// <remarks>
-/// Only the question and CSP's session id are sent - never a company id, which would pull a client's health
-/// into the answer. CSP owns the sessions, the model, the API key and the rate limit; it keeps sessions per
-/// staff member, so a caller without a staff id gets a 401 from it.
-/// </remarks>
-public interface IAutoMateClient
-{
-    Task<AutoMateReply> AskAsync(string message, Guid? sessionId, CancellationToken ct = default);
-}
 
 public sealed class AutoMateClient(
     IHttpClientFactory httpClientFactory,
     IHttpContextAccessor httpContextAccessor,
-    ITenantAppUrls urls,
-    ILogger<AutoMateClient> logger) : IAutoMateClient
+    ITenantAppUrls urls) : IAutoMateClient
 {
     public const string HttpClientName = "auto-mate";
     private const string ChatPath = "/api/v1/chat/messages";
@@ -46,7 +30,7 @@ public sealed class AutoMateClient(
         var baseUrl = urls.BaseUrlForHost("csp", caller);
         if (baseUrl == null)
         {
-            return AutoMateReply.Fail("Auto-Mate isn't set up on this tenant yet. Open the dashboard on its deliverdifferent.com address, or add Csp to TenantApps:Hosts.");
+            return AutoMateReply.Fail("Auto-Mate isn't set up on this tenant yet. Set Environments__<key>__CspUrl.");
         }
 
         var request = new HttpRequestMessage(HttpMethod.Post, new Uri(new Uri(baseUrl), ChatPath))
@@ -66,21 +50,21 @@ public sealed class AutoMateClient(
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "Auto-Mate (CSP) unreachable at {BaseUrl}", baseUrl);
+            Log.Warning(ex, "Auto-Mate (CSP) unreachable at {BaseUrl}", baseUrl);
             request.Dispose();
             return AutoMateReply.Fail("Auto-Mate couldn't reach the help service. Try again in a moment.");
         }
 
         var error = ErrorFor(response);
-        if (error != null)
+        if (error == null)
         {
-            logger.LogWarning("Auto-Mate (CSP) answered {Status}", (int)response.StatusCode);
-            response.Dispose();
-            request.Dispose();
-            return AutoMateReply.Fail(error);
+            return AutoMateReply.Stream(request, response, await response.Content.ReadAsStreamAsync(ct));
         }
 
-        return AutoMateReply.Stream(request, response, await response.Content.ReadAsStreamAsync(ct));
+        Log.Warning("Auto-Mate (CSP) answered {Status}", (int)response.StatusCode);
+        response.Dispose();
+        request.Dispose();
+        return AutoMateReply.Fail(error);
     }
 
     private static string? ErrorFor(HttpResponseMessage response)

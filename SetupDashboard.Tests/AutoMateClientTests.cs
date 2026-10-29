@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
 using SetupDashboard.Services.TenantApps;
 
 namespace SetupDashboard.Tests;
@@ -22,8 +21,7 @@ public class AutoMateClientTests
         var handler = new RecordingHandler(respond);
         var http = Make.Http(Make.User(), ".AspNet.SharedCookie=abc; hub_session=zzz");
         var client = new AutoMateClient(new SingleClientFactory(handler), http,
-            new TenantAppUrls(new ConfigurationBuilder().AddInMemoryCollection(settings).Build(), http, Make.Production()),
-            NullLogger<AutoMateClient>.Instance);
+            new TenantAppUrls(new ConfigurationBuilder().AddInMemoryCollection(settings).Build(), http, Make.Production()));
         return (client, handler);
     }
 

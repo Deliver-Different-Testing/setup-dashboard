@@ -1,6 +1,7 @@
 using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 using SetupDashboard.Models;
 using SetupDashboard.Services;
 using SetupDashboard.Services.Steps;
@@ -22,8 +23,7 @@ namespace SetupDashboard.Controllers;
 [Route("api/setup/import")]
 public class ImportController(
     SmartUploaderService uploader,
-    ISessionStore sessions,
-    ILogger<ImportController> logger) : ControllerBase
+    ISessionStore sessions) : ControllerBase
 {
     private async Task<SetupSession?> Load(string sessionId, CancellationToken ct)
         => CallerContext.From(User) is { } caller ? await sessions.GetAsync(caller.TenantId, sessionId, ct) : null;
@@ -56,7 +56,7 @@ public class ImportController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Import detect failed for {FileName} ({EntityType})", file.FileName, type);
+            Log.Error(ex, "Import detect failed for {FileName} ({EntityType})", file.FileName, type);
             return StatusCode(500, new { success = false, message = $"Failed to parse file: {ex.Message}" });
         }
     }
@@ -217,7 +217,7 @@ public class ImportController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Import execution failed");
+            Log.Error(ex, "Import execution failed");
             return StatusCode(500, new ImportResult { Success = false, Errors = { ex.Message } });
         }
     }

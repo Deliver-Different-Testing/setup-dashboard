@@ -3,6 +3,7 @@ using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using SetupDashboard.Core.Domain;
 using SetupDashboard.Interfaces;
 using SetupDashboard.Models;
@@ -31,8 +32,7 @@ public class SetupController(
     IPushLock pushLock,
     ITenantAppUrls urls,
     IDbContextFactory<DynamicDespatchDbContext> dbFactory,
-    ITenantLogoService logoService,
-    ILogger<SetupController> logger) : ControllerBase
+    ITenantLogoService logoService) : ControllerBase
 {
     private CallerContext? Caller => CallerContext.From(User);
 
@@ -440,7 +440,7 @@ public class SetupController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to load tenant summary for session {SessionId}", id);
+            Log.Error(ex, "Failed to load tenant summary for session {SessionId}", id);
             return StatusCode(500, new { message = "Failed to load tenant summary" });
         }
     }

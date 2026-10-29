@@ -2,7 +2,6 @@ using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 using SetupDashboard.Controllers;
 using SetupDashboard.Core.Domain;
 using SetupDashboard.Models;
@@ -44,7 +43,7 @@ public class SafetyTests
     [Fact]
     public async Task Sessions_belong_to_one_tenant()
     {
-        var store = new DistributedSessionStore(Make.Cache(), NullLogger<DistributedSessionStore>.Instance);
+        var store = new DistributedSessionStore(Make.Cache());
         var mine = await store.CreateAsync(7, "cheetah", 42, "Dane");
 
         Assert.NotNull(await store.GetAsync(7, mine.Id));

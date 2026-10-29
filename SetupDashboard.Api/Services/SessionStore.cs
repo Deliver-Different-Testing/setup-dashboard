@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
+using Serilog;
 using SetupDashboard.Models;
 
 namespace SetupDashboard.Services;
@@ -27,7 +28,7 @@ public interface ISessionStore
 /// creation, which suits a demo and not an onboarding that waits on the tenant
 /// for weeks. Each write slides the expiry.
 /// </remarks>
-public class DistributedSessionStore(IDistributedCache cache, ILogger<DistributedSessionStore> logger) : ISessionStore
+public class DistributedSessionStore(IDistributedCache cache) : ISessionStore
 {
     private static readonly DistributedCacheEntryOptions Lifetime = new() { SlidingExpiration = TimeSpan.FromDays(120) };
 
@@ -88,7 +89,7 @@ public class DistributedSessionStore(IDistributedCache cache, ILogger<Distribute
                 result.Add(s);
             }
         }
-        return result.OrderByDescending(s => s.UpdatedAt).ToList();
+        return [.. result.OrderByDescending(s => s.UpdatedAt)];
     }
 
     public async Task UpdateAsync(SetupSession session, CancellationToken ct = default)
@@ -130,12 +131,12 @@ public class DistributedSessionStore(IDistributedCache cache, ILogger<Distribute
         try
         {
             var json = await cache.GetStringAsync(IndexKey(tenantId), ct);
-            return string.IsNullOrEmpty(json) ? new() : JsonSerializer.Deserialize<List<string>>(json) ?? new();
+            return string.IsNullOrEmpty(json) ? [] : JsonSerializer.Deserialize<List<string>>(json) ?? [];
         }
         catch (JsonException ex)
         {
-            logger.LogWarning(ex, "Session index for tenant {TenantId} was unreadable; starting a new one", tenantId);
-            return new();
+            Log.Warning(ex, "Session index for tenant {TenantId} was unreadable; starting a new one", tenantId);
+            return [];
         }
     }
 }

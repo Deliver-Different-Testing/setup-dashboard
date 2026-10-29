@@ -19,7 +19,7 @@ public class TenantAppUrlsTests
         ["TenantApps:Hosts:IntegrationManager"] = "integrationmanager",
         ["TenantApps:Hosts:AdminManager"] = "adminmanager",
         ["TenantApps:Hosts:Hub"] = "hub",
-        ["TenantApps:Hosts:Csp"] = "dfrntcrm",
+        ["TenantApps:Hosts:Csp"] = "dfrntcrm"
     };
 
     private static TenantAppUrls Urls(string? host, Dictionary<string, string?>? extra = null, string environment = "Production")
@@ -71,7 +71,7 @@ public class TenantAppUrlsTests
     [Fact]
     public void Local_runs_use_http_and_the_apps_local_port()
     {
-        var urls = Urls("setupdashboard.local.deliverdifferent.com:5200", new() { ["TenantApps:LocalPorts:Settings"] = "62371" }, Environments.Development);
+        var urls = Urls("setupdashboard.local.deliverdifferent.com:5200", new Dictionary<string, string?> { ["TenantApps:LocalPorts:Settings"] = "62371" }, Environments.Development);
         Assert.Equal("http://dfrntdriveconfig.local.deliverdifferent.com:62371", urls.BaseUrl(TenantApp.Settings, Make.Caller()));
     }
 
@@ -82,7 +82,7 @@ public class TenantAppUrlsTests
 
     [Fact]
     public void Outside_development_a_local_host_is_refused()
-        => Assert.Null(Urls("setupdashboard.local.deliverdifferent.com", new() { ["TenantApps:LocalPorts:Settings"] = "62371" })
+        => Assert.Null(Urls("setupdashboard.local.deliverdifferent.com", new Dictionary<string, string?> { ["TenantApps:LocalPorts:Settings"] = "62371" })
             .BaseUrl(TenantApp.Settings, Make.Caller()));
 
     [Theory]
@@ -91,7 +91,7 @@ public class TenantAppUrlsTests
     [InlineData(".deliverdifferent.com")]
     public void A_host_under_the_pods_cookie_domain_is_used(string domain)
         => Assert.Equal("https://dfrntdriveconfig.cheetah.staging.deliverdifferent.com",
-            Urls("setupdashboard.cheetah.staging.deliverdifferent.com", new() { ["Domain"] = domain }).BaseUrl(TenantApp.Settings, Make.Caller()));
+            Urls("setupdashboard.cheetah.staging.deliverdifferent.com", new Dictionary<string, string?> { ["Domain"] = domain }).BaseUrl(TenantApp.Settings, Make.Caller()));
 
     [Fact]
     public void Another_tenants_host_is_refused_when_the_pod_has_a_tenant_domain()

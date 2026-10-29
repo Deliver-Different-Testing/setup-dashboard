@@ -8,7 +8,11 @@ public class CsvParsingTests
     private static Task<(List<string> Headers, List<string[]> Rows)> Parse(string csv, bool bom = false)
     {
         var bytes = Encoding.UTF8.GetBytes(csv);
-        if (bom) bytes = Encoding.UTF8.GetPreamble().Concat(bytes).ToArray();
+        if (bom)
+        {
+            bytes = [.. Encoding.UTF8.GetPreamble(), .. bytes];
+        }
+
         return new SmartUploaderService().ParseFileAsync(new MemoryStream(bytes), "clients.csv");
     }
 

@@ -4,6 +4,7 @@ using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 using SetupDashboard.Services.TenantApps;
 
 namespace SetupDashboard.Controllers;
@@ -18,7 +19,7 @@ namespace SetupDashboard.Controllers;
 [RequireFeature(FeatureKeys.SetupDashboard)]
 [ApiController]
 [Route("api/setup/automate")]
-public class AutoMateController(IAutoMateClient autoMate, ILogger<AutoMateController> logger) : ControllerBase
+public class AutoMateController(IAutoMateClient autoMate) : ControllerBase
 {
     /// <summary>Same cap as CSP's, checked here so an over-long question never leaves the dashboard.</summary>
     private const int MaxMessageChars = 4000;
@@ -66,7 +67,7 @@ public class AutoMateController(IAutoMateClient autoMate, ILogger<AutoMateContro
         // rather than a stream that just stops.
         catch (Exception ex) when (ex is IOException or HttpRequestException && !ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "Auto-Mate (CSP) stream ended part-way through the answer");
+            Log.Warning(ex, "Auto-Mate (CSP) stream ended part-way through the answer");
             await WriteErrorAsync("The answer was cut off. Please try again.", ct);
         }
     }

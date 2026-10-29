@@ -1,6 +1,5 @@
 using System.Net;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
 using SetupDashboard.Services.TenantApps;
 
 namespace SetupDashboard.Tests;
@@ -22,7 +21,7 @@ public class TenantAppClientTests
         var config = Config();
         var http = Make.Http(Make.User(), cookie);
         var client = new TenantAppClient(new SingleClientFactory(handler), http,
-            new TenantAppUrls(config, http, Make.Production()), Make.Cache(), config, NullLogger<TenantAppClient>.Instance);
+            new TenantAppUrls(config, http, Make.Production()), Make.Cache(), config);
         return (client, handler);
     }
 

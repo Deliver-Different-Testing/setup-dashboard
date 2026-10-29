@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Caching.Distributed;
+using Serilog;
 
 namespace SetupDashboard.Services.TenantApps;
 
@@ -48,8 +49,7 @@ public sealed class TenantAppClient(
     IHttpContextAccessor httpContextAccessor,
     ITenantAppUrls urls,
     IDistributedCache cache,
-    IConfiguration configuration,
-    ILogger<TenantAppClient> logger) : ITenantAppClient
+    IConfiguration configuration) : ITenantAppClient
 {
     public const string HttpClientName = "tenant-apps";
     private const string SharedCookie = ".AspNet.SharedCookie";
@@ -145,7 +145,7 @@ public sealed class TenantAppClient(
         }
         catch (HttpRequestException ex)
         {
-            logger.LogWarning(ex, "{App} call {Method} {Path} failed", app, method, path);
+            Log.Warning(ex, "{App} call {Method} {Path} failed", app, method, path);
             return isWrite && ex.HttpRequestError == HttpRequestError.ResponseEnded
                 ? ApiResult.NoAnswer(app)
                 : ApiResult.Fail(app, 0, $"Could not reach {Label(app)}: {ex.Message}");
@@ -270,7 +270,7 @@ public sealed class ApiResult
             return AuthExpired(app);
         }
 
-        var text = response.Content == null ? string.Empty : await response.Content.ReadAsStringAsync(ct);
+        var text = await response.Content.ReadAsStringAsync(ct);
         JsonNode? body = null;
         if (!string.IsNullOrWhiteSpace(text))
         {
@@ -306,7 +306,7 @@ public sealed class ApiResult
         return new ApiResult { App = app, Ok = false, Status = status, Body = body, Messages = messages };
     }
 
-    internal static List<string> ExtractMessages(JsonNode? body)
+    private static List<string> ExtractMessages(JsonNode? body)
     {
         var list = new List<string>();
         if (body is not JsonObject o)

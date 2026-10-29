@@ -3,6 +3,7 @@ using Anthropic;
 using Anthropic.Exceptions;
 using Anthropic.Models.Beta;
 using Anthropic.Models.Beta.Messages;
+using Serilog;
 using SetupDashboard.Interfaces;
 using SetupDashboard.Models;
 
@@ -19,7 +20,7 @@ public sealed class NoColumnMappingAdvisor : IColumnMappingAdvisor
         => Task.FromResult<IReadOnlyDictionary<string, string>>(new Dictionary<string, string>());
 }
 
-public sealed class ClaudeColumnMappingAdvisor(AnthropicClient client, ILogger<ClaudeColumnMappingAdvisor> logger) : IColumnMappingAdvisor
+public sealed class ClaudeColumnMappingAdvisor(AnthropicClient client) : IColumnMappingAdvisor
 {
     private const string Model = "claude-opus-5-5";
 
@@ -65,7 +66,7 @@ public sealed class ClaudeColumnMappingAdvisor(AnthropicClient client, ILogger<C
 
             if (response.StopReason == "refusal")
             {
-                logger.LogWarning("Column mapping declined ({Category}); using the name match only",
+                Log.Warning("Column mapping declined ({Category}); using the name match only",
                     response.StopDetails?.Category);
                 return new Dictionary<string, string>();
             }
@@ -75,20 +76,20 @@ public sealed class ClaudeColumnMappingAdvisor(AnthropicClient client, ILogger<C
         }
         catch (AnthropicRateLimitException ex)
         {
-            logger.LogWarning(ex, "Column mapping rate limited; using the name match only");
+            Log.Warning(ex, "Column mapping rate limited; using the name match only");
         }
         catch (Anthropic5xxException ex)
         {
-            logger.LogWarning(ex, "Column mapping service error; using the name match only");
+            Log.Warning(ex, "Column mapping service error; using the name match only");
         }
         catch (AnthropicIOException ex)
         {
-            logger.LogWarning(ex, "Column mapping unreachable; using the name match only");
+            Log.Warning(ex, "Column mapping unreachable; using the name match only");
         }
         catch (AnthropicApiException ex)
         {
             // 400/401/403/404: the request or the key is wrong, and retrying won't help.
-            logger.LogError(ex, "Column mapping request rejected; using the name match only");
+            Log.Error(ex, "Column mapping request rejected; using the name match only");
         }
 
         return new Dictionary<string, string>();
