@@ -3,23 +3,13 @@ using Anthropic;
 using Anthropic.Exceptions;
 using Anthropic.Models.Beta;
 using Anthropic.Models.Beta.Messages;
+using SetupDashboard.Interfaces;
 using SetupDashboard.Models;
 
 namespace SetupDashboard.Services.Ai;
 
 /// <summary>A file column the name match couldn't place, with a few masked values from it.</summary>
 public sealed record ColumnSample(string Column, IReadOnlyList<string> Values);
-
-/// <summary>
-/// Second opinion for Smart Import: which target field each unmatched column most likely holds.
-/// Suggestions only - the person confirms every mapping in the preview before anything is loaded.
-/// </summary>
-public interface IColumnMappingAdvisor
-{
-    /// <summary>Column name to field name, for the columns it is confident about. Never throws for an API failure.</summary>
-    Task<IReadOnlyDictionary<string, string>> SuggestAsync(string entityType, IReadOnlyList<ColumnSample> columns,
-        IReadOnlyList<EntityFieldDefinition> fields, CancellationToken ct = default);
-}
 
 /// <summary>Used when no Anthropic API key is configured: Smart Import runs on the name match alone.</summary>
 public sealed class NoColumnMappingAdvisor : IColumnMappingAdvisor
@@ -41,6 +31,8 @@ public sealed class ClaudeColumnMappingAdvisor(AnthropicClient client, ILogger<C
         "them or you are unsure. Never give the same field to two columns.";
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly string[] Value = ["column", "field"];
+    private static readonly string[] ValueArray = ["mappings"];
 
     public async Task<IReadOnlyDictionary<string, string>> SuggestAsync(string entityType, IReadOnlyList<ColumnSample> columns,
         IReadOnlyList<EntityFieldDefinition> fields, CancellationToken ct = default)
@@ -122,7 +114,7 @@ public sealed class ClaudeColumnMappingAdvisor(AnthropicClient client, ILogger<C
         var used = new HashSet<string>();
         foreach (var m in answer?.Mappings ?? [])
         {
-            if (m.Column is { } column && m.Field is { } field && columns.Contains(column) && fields.Contains(field)
+            if (m is { Column: { } column, Field: { } field } && columns.Contains(column) && fields.Contains(field)
                 && !result.ContainsKey(column) && used.Add(field))
             {
                 result[column] = field;
@@ -145,15 +137,15 @@ public sealed class ClaudeColumnMappingAdvisor(AnthropicClient client, ILogger<C
                     type = "object",
                     properties = new
                     {
-                        column = new { type = "string", @enum = columns },
+                        column = new { type = "string", @enum = (IEnumerable<string>)columns },
                         field = new { type = "string", @enum = fields.Append(string.Empty) }
                     },
-                    required = new[] { "column", "field" },
+                    required = Value,
                     additionalProperties = false
                 }
             }
         }),
-        ["required"] = JsonSerializer.SerializeToElement(new[] { "mappings" }),
+        ["required"] = JsonSerializer.SerializeToElement(ValueArray),
         ["additionalProperties"] = JsonSerializer.SerializeToElement(false)
     };
 

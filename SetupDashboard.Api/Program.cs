@@ -200,12 +200,12 @@ try
     if (!string.IsNullOrWhiteSpace(anthropicKey))
     {
         builder.Services.AddSingleton(new Anthropic.AnthropicClient { ApiKey = anthropicKey, MaxRetries = 1 });
-        builder.Services.AddSingleton<SetupDashboard.Services.Ai.IColumnMappingAdvisor, SetupDashboard.Services.Ai.ClaudeColumnMappingAdvisor>();
+        builder.Services.AddSingleton<IColumnMappingAdvisor, SetupDashboard.Services.Ai.ClaudeColumnMappingAdvisor>();
     }
     else
     {
         Log.Information("ANTHROPIC_API_KEY not set - Smart Import column suggestions are off");
-        builder.Services.AddSingleton<SetupDashboard.Services.Ai.IColumnMappingAdvisor, SetupDashboard.Services.Ai.NoColumnMappingAdvisor>();
+        builder.Services.AddSingleton<IColumnMappingAdvisor, SetupDashboard.Services.Ai.NoColumnMappingAdvisor>();
     }
 
     builder.Services.AddSingleton<SmartUploaderService>();

@@ -21,7 +21,7 @@ namespace SetupDashboard.Controllers;
 public class AutoMateController(IAutoMateClient autoMate, ILogger<AutoMateController> logger) : ControllerBase
 {
     /// <summary>Same cap as CSP's, checked here so an over-long question never leaves the dashboard.</summary>
-    internal const int MaxMessageChars = 4000;
+    private const int MaxMessageChars = 4000;
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -37,7 +37,7 @@ public class AutoMateController(IAutoMateClient autoMate, ILogger<AutoMateContro
         HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
 
         var message = req.Message?.Trim() ?? string.Empty;
-        if (message.Length == 0 || message.Length > MaxMessageChars)
+        if (message.Length is 0 or > MaxMessageChars)
         {
             await WriteErrorAsync(message.Length == 0
                 ? "Type a question first."
