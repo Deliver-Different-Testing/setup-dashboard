@@ -89,6 +89,40 @@ A person can mark any step, or any checklist item, as **done another way**, with
 - The panel lists each step with its "Already in DFRNT" line and a checkbox, plus **"Mark the ticked steps done another way"**. That one note is applied to every ticked step, with the method "Already in DFRNT".
 - One action, one note, many steps, so a part-done tenant can be brought up to date in a minute.
 
+### D5. What Garry's tenant seed has already done
+
+Every new tenant database comes from Garry's automated tenant seed. That seed already does much of the Business and Team steps, so a fresh session should not show those as not started. Below is what the seed covered, as checked on Crisis production on 29 Oct 2026; the full write-up is the "Seed check" section of the tenant-setup how-to.
+
+| Seed did | Dashboard item it covers | How the dashboard can tell (read-only) |
+|---|---|---|
+| Tenant's own client file (client type Tenant; Crisis client 84) | Business checklist `tenant-client-file` | A `TucClients` row with `ClientTypeId == CallerContext.TenantClientType` |
+| Roles: *Tenant* Admin, *Tenant* Operations, Customer Admin, with their Hub tiles | Team step (roles exist); Team checklist `role-actions` only partly | `TblUserGroups` count > 0 (or the Settings roles API). Role actions still need a person to review them. |
+| System Settings cleared of Urgent's details (address, logos, Internet Root, reply-from addresses, switches), sign-up map centre | Part of Business checklist `tenant-identity` | `TblSettings.CompanyAddress` is set and is not Urgent's |
+| 15 of 16 notification templates reworded for the tenant | Part of `tenant-identity` | Not readable from `DespatchContext` today (`tblSMPPSettings`); leave it to a person |
+
+The seed does **not** do these. They stay open until a person ticks them; on Crisis they were done by hand on 29 to 31 Oct:
+
+- the Forgot Password template, which is the Hub invite and still carries Urgent's wording;
+- the Email Settings reply-to address;
+- the Internet Booker staff record and Internet Job Staff (the HOWTO says Garry is adding this to the seed);
+- System Name, which the seed leaves as "Despatch Manager";
+- CountryCode (NULL on Crisis);
+- the GST rate (0 on Crisis);
+- the Google SMTP user (Garry);
+- the S3 `tenantLogo.png`;
+- depots.
+
+So `tenant-identity` is split into two items, and the D3 strip reads the seed's results:
+
+- **`tenant-identity-seed`.** The seed's System Settings and templates. It is marked as "Seeded" automatically when the checks in the table pass, as a suggestion with a one-click confirm, never a silent tick. It is not required to be ticked by hand.
+- **`tenant-identity`** (required). Unchanged, but the text now lists only what the seed leaves:
+  - "Forgot Password / Hub invite wording, Email Settings reply-to, System Name (not 'Despatch Manager'), CountryCode, GST rate, Internet Booker."
+  - The Business strip shows the live values of `SystemName`, `CountryCode` and the GST rate, so a wrong one stands out (for example "Despatch Manager", or a blank CountryCode).
+
+`InviteBlocker` keeps keying on `tenant-identity` (the hand-checked part), because the seed alone has left Urgent's invite wording in place.
+
+**Ask Garry (Questions, item 3):** could the seed write a marker the dashboard can read, such as a seed version and date in a tenant setting or in Master Controller? Then the dashboard can say "Tenant seed v{n} ran on {date}" and pre-confirm the seeded items without inferring them.
+
 ## Out of scope
 
 - Detecting whether a checklist item is done (identity wording, logo, role actions). A person still ticks those.
@@ -101,6 +135,7 @@ A person can mark any step, or any checklist item, as **done another way**, with
 | M1 | Done another way on a step (D1) | Endpoint body, `StepState` fields, `RowStatus.Skipped`, dialog, pill/progress/PDF display, Reopen clears it; xUnit covers blocker bypass, skipped rows not re-sent, Reopen |
 | M2 | Checklist item note (D2) | Note stored and shown with who/when; DFRNT ownership rule unchanged |
 | M3 | Already in DFRNT strip (D3) | `getTenantSummary` called, `TenantCounts` extended, strip on each step, button pre-fills D1, Business draft pre-filled from `TblSettings` |
+| M3b | Tenant seed recognised (D5) | `tenant-identity` split into `tenant-identity-seed` (auto-suggested from the read-only checks) and the hand-checked `tenant-identity` with the narrowed text; Business strip shows SystemName, CountryCode, GST rate; tenant client file and roles detected |
 | M4 | Where this tenant is up to (D4) | New sessions on a tenant with data open on the panel; bulk mark with one note |
 | M5 | Staging test on Crisis | On Crisis staging: open Crisis, panel shows its counts, mark Business, Team and Rates done another way, reopen one, PDF shows method and note; MR raised to develop |
 
@@ -108,3 +143,4 @@ A person can mark any step, or any checklist item, as **done another way**, with
 
 1. Should "Done another way" be DF Admin only, which is the default here, or also open to the tenant's admin?
 2. Should skipped rows stay visible in Row results with a "Skipped" badge (default), or be hidden?
+3. (Garry) Can the tenant seed record its version and run date somewhere the dashboard can read, and is the Internet Booker step in the seed yet?
