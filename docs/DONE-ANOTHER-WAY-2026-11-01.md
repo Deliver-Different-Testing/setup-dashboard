@@ -41,10 +41,10 @@ A person can mark any step, or any checklist item, as **done another way**, with
 - **API.** `POST session/{id}/steps/{step}/complete` accepts an optional body `{ how: "elsewhere", method: string, note: string }`. With `how = "elsewhere"`:
   - `CompleteBlocker` is skipped. The `Busy` check stays, so you cannot mark a step done while a send is running.
   - Open requests are fulfilled with `FulfilledBy = caller` and the note.
-  - Rows still `pending`, `needs_data`, `failed` or `unknown` move to a new `RowStatus.Skipped = "skipped"`. A skipped row is never sent again, and "Save and send" ignores it.
+  - Rows still `pending`, `needs_data`, `failed` or `unknown` move to a new `RowStatus.Skipped = "skipped"`. A skipped row is never sent again, and "Save and send" ignores it. `RowResults` shows it with a grey "Skipped" badge and the step's note as the tooltip.
   - Required checklist items stay as they are, but the step is done. The checklist shows them as "Covered by the step note".
 - **Model.** `StepState` gains `CompletedHow` ("dashboard" | "elsewhere", default "dashboard"), `CompletedMethod` (string?) and `CompletedNote` (string?). Old sessions deserialise with the default.
-- **Who.** DF Admin only, the same as Reopen. The tenant's own users keep the normal "Mark as done". (Decision for Steve, see Questions.)
+- **Who (decided by Steve, 1 Nov).** DF Admin, or a tenant admin. "Tenant admin" here means tenant staff (`ClientTypeId == CallerContext.TenantClientType`) whose role has the "Edit Settings" role action in Settings. The dashboard has no admin flag of its own today, so add `CallerContext.IsTenantAdmin`. Read it once per session from the Settings roles API, the same way `TeamPusher` already reads roles, and cache it on the caller. Everyone else keeps the normal "Mark as done". Reopen stays DF Admin only.
 - **Display.**
   - The step header reads "Done another way by {name} on {date}: {method}. {note}".
   - `StepPill` and `ProgressBar` show done with a small "elsewhere" marker. It counts as done for `stepsDone` and for `Session.Status = "completed"`.
@@ -132,7 +132,7 @@ So `tenant-identity` is split into two items, and the D3 strip reads the seed's 
 
 | # | Title | Done when |
 |---|---|---|
-| M1 | Done another way on a step (D1) | Endpoint body, `StepState` fields, `RowStatus.Skipped`, dialog, pill/progress/PDF display, Reopen clears it; xUnit covers blocker bypass, skipped rows not re-sent, Reopen |
+| M1 | Done another way on a step (D1) | `IsTenantAdmin` (Edit Settings role action), endpoint body, `StepState` fields, `RowStatus.Skipped`, dialog, pill/progress/PDF display, "Skipped" badge in Row results, Reopen clears it; xUnit covers blocker bypass, skipped rows not re-sent, Reopen |
 | M2 | Checklist item note (D2) | Note stored and shown with who/when; DFRNT ownership rule unchanged |
 | M3 | Already in DFRNT strip (D3) | `getTenantSummary` called, `TenantCounts` extended, strip on each step, button pre-fills D1, Business draft pre-filled from `TblSettings` |
 | M3b | Tenant seed recognised (D5) | `tenant-identity` split into `tenant-identity-seed` (auto-suggested from the read-only checks) and the hand-checked `tenant-identity` with the narrowed text; Business strip shows SystemName, CountryCode, GST rate; tenant client file and roles detected |
@@ -141,6 +141,6 @@ So `tenant-identity` is split into two items, and the D3 strip reads the seed's 
 
 ## Questions for Steve
 
-1. Should "Done another way" be DF Admin only, which is the default here, or also open to the tenant's admin?
-2. Should skipped rows stay visible in Row results with a "Skipped" badge (default), or be hidden?
+1. ~~Who can use "Done another way"?~~ Decided 1 Nov: DF Admin or a tenant admin (see D1).
+2. ~~Skipped rows visible or hidden?~~ Decided 1 Nov: visible in Row results with a grey "Skipped" badge and the step note as its tooltip.
 3. (Garry) Can the tenant seed record its version and run date somewhere the dashboard can read, and is the Internet Booker step in the seed yet?
