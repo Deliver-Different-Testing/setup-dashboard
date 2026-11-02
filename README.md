@@ -2,7 +2,7 @@
 
 Onboarding app for new DFRNT tenants: an 11-step journey the tenant and DFRNT both see, with progress, what DFRNT is waiting on the tenant for, and a checklist of DFRNT-owned work. Every record is written through the app that owns it (Settings, Routed Operations) as the signed-in person - never through Admin Manager, and never with placeholder data. Design and status: [`docs/REWRITE-DESIGN-2026-10-24.md`](docs/REWRITE-DESIGN-2026-10-24.md).
 
-Tests: `dotnet test SetupDashboard.Tests -p:SkipNpm=true` and `cd SetupDashboard.Client && npm test`.
+Tests: `dotnet test tests/SetupDashboard.Tests -p:SkipNpm=true` and `cd src/SetupDashboard.Client && npm test`.
 
 ## Quick Start
 
@@ -14,11 +14,11 @@ Tests: `dotnet test SetupDashboard.Tests -p:SkipNpm=true` and `cd SetupDashboard
 ### Terminal
 ```bash
 # Backend (builds frontend automatically on first run)
-cd SetupDashboard.Api
+cd src/SetupDashboard.Api
 dotnet run
 
 # For frontend hot reload (separate terminal)
-cd SetupDashboard.Client
+cd src/SetupDashboard.Client
 npm install
 npm run dev    # → http://localhost:5173/setup-dashboard/
 ```
@@ -33,7 +33,7 @@ npm run dev    # → http://localhost:5173/setup-dashboard/
 
 ## Environment Variables
 
-Set in `SetupDashboard.Api/Properties/launchSettings.json` for dev (gitignored — contains local DB/Redis creds): copy `launchSettings.template.json` beside it and fill in the `<...>` placeholders. For staging/prod, vars are injected from per-tenant `{TENANT}_STAGING_ENV` / `{TENANT}_PROD_ENV` GitLab CI file variables.
+Set in `src/SetupDashboard.Api/Properties/launchSettings.json` for dev (gitignored — contains local DB/Redis creds): copy `launchSettings.template.json` beside it and fill in the `<...>` placeholders. For staging/prod, vars are injected from per-tenant `{TENANT}_STAGING_ENV` / `{TENANT}_PROD_ENV` GitLab CI file variables.
 
 | Variable | Purpose |
 |----------|---------|
@@ -48,9 +48,9 @@ Set in `SetupDashboard.Api/Properties/launchSettings.json` for dev (gitignored �
 The other apps (Settings, Routed Ops, Integration Manager, Hub, Admin Manager, the Customer Success Platform for Auto-Mate) need no URL settings. Each is reached at the address the dashboard is on with the first label swapped for its host name from `TenantApps:Hosts` in `appsettings.json`: `setupdashboard.cheetah.staging.deliverdifferent.com` calls `dfrntdriveconfig.cheetah.staging.deliverdifferent.com`. Only hosts under `TenantApps:RootDomain` and under the pod's cookie `Domain` are used (a forged `Host` can't point the calls at another tenant), and http plus local ports apply in Development only, so run locally on `setupdashboard.local.deliverdifferent.com` (the IIS Express profile); `localhost` has no app addresses. Local ports per app are in `appsettings.Development.json` (`TenantApps:LocalPorts`).
 
 ## Documentation
-- `HANDOVER.md` — Handover guide (start here)
-- `IMPLEMENTATION.md` — Detailed technical reference
-- `PLANNING.md` — Architecture and roadmap
-- `MIGRATION-MAPPING.md` — Competitor TMS column mappings
+- `docs/HANDOVER.md` — Handover guide (start here)
+- `docs/IMPLEMENTATION.md` — Detailed technical reference
+- `docs/PLANNING.md` — Architecture and roadmap
+- `docs/MIGRATION-MAPPING.md` — Competitor TMS column mappings
 - `docs/setup-guide.md` — index of the help centre in `docs/help/` (articles + FAQs for the CSP Knowledge Base / Ask Auto-Mate)
 - `changes.log` — Detailed change history
