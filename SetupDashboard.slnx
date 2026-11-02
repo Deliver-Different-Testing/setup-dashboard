@@ -1,0 +1,23 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path="HANDOVER.md" />
+    <File Path="IMPLEMENTATION.md" />
+    <File Path="MIGRATION-MAPPING.md" />
+    <File Path="PLANNING.md" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/Solution Items/docs/">
+    <File Path="docs/setup-guide.md" />
+  </Folder>
+  <Project Path="SetupDashboard.Api/SetupDashboard.Api.csproj" />
+  <Project Path="SetupDashboard.Client/SetupDashboard.Client.esproj">
+    <Platform Project="AnyCPU" />
+    <Build />
+  </Project>
+  <Project Path="SetupDashboard.Tests/SetupDashboard.Tests.csproj" />
+</Solution>

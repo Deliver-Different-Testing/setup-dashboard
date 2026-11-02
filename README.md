@@ -7,7 +7,7 @@ Tests: `dotnet test SetupDashboard.Tests -p:SkipNpm=true` and `cd SetupDashboard
 ## Quick Start
 
 ### Visual Studio (Recommended)
-1. Open `SetupDashboard.sln`
+1. Open `SetupDashboard.slnx`
 2. Press F5 — the SetupDashboard.Client project builds the React frontend into the API's `wwwroot/setup-dashboard/`, .NET starts, browser opens
 3. Browser opens `https://localhost:7200/setup-dashboard/`
 
