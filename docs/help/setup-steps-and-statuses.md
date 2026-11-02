@@ -16,7 +16,7 @@ Any step can carry a request such as "Customer list with addresses" with an opti
 
 ## Row results
 
-After Save & send each row shows one of: Pending (not sent yet), Needs data (held back, with the list of what's missing), Created (with the record's id in the owning app), Failed (with the owning app's own message, word for word), or Skipped. Sending again only sends rows that are not yet Created, so you can fix one row and resend without duplicating the others. A failed row never causes rows after it to be sent twice.
+After Save & send each row shows one of: Pending (not sent yet), Needs data (held back, with the list of what's missing), Created (with the record's id in the owning app), Failed (with the owning app's own message, word for word), or Skipped (left unsent because the step was marked done another way; it is never sent, and Reopen puts it back to Pending). Sending again only sends rows that are not yet Created, so you can fix one row and resend without duplicating the others. A failed row never causes rows after it to be sent twice.
 
 ## Checklist items
 

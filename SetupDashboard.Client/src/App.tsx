@@ -16,6 +16,7 @@ import { CouriersStep } from './components/steps/CouriersStep'
 import { PartnersStep } from './components/steps/PartnersStep'
 import { AppConfigStep, AutomationsStep, IntegrationsStep } from './components/steps/ChecklistStep'
 import { TrainingStep } from './components/steps/TrainingStep'
+import { TenantUpToPanel } from './components/TenantUpToPanel'
 
 const SCREENS: Record<StepKey, ComponentType> = {
   business: BusinessStep,
@@ -32,7 +33,7 @@ const SCREENS: Record<StepKey, ComponentType> = {
 }
 
 function App() {
-  const { init, isInitializing, fatal, session, currentStep, setCurrentStep } = useStore()
+  const { init, isInitializing, fatal, session, currentStep, setCurrentStep, showUpTo } = useStore()
 
   useEffect(() => { init() }, [init])
 
@@ -68,7 +69,8 @@ function App() {
         <ChatSidebar />
         <Box component="main" style={{ flex: 1, overflowY: 'auto' }}>
           <ProgressBar />
-          {session && (
+          {session && showUpTo && <Box px={32} pb={40} pt="md"><TenantUpToPanel /></Box>}
+          {session && !showUpTo && (
             <Box px={32} pb={40} pt="md">
               <Screen key={step.key} />
               <Container size="lg" p={0} mt={32}>

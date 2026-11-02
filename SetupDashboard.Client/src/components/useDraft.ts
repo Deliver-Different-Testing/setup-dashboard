@@ -25,6 +25,12 @@ export function useDraft<T>(select: (s: Session) => T) {
     setDirty(true)
   }
   const markSaved = () => setDirty(false)
+  /** Throws the unsaved edits away and goes back to what is saved. */
+  const discard = () => {
+    setDirty(false)
+    setBase(savedJson)
+    setDraftState(JSON.parse(savedJson) as T)
+  }
 
-  return { draft, setDraft, dirty, markSaved }
+  return { draft, setDraft, dirty, markSaved, discard }
 }

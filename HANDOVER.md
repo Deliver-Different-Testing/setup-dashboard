@@ -33,7 +33,7 @@ Steps 6-8 are just launch pads — they link to existing Hub UI. Don't build ful
 
 ### Visual Studio (Recommended)
 ```bash
-# Open SetupDashboard.sln → F5
+# Open SetupDashboard.slnx → F5
 # SetupDashboard.Client.esproj runs "npm run build" → output to SetupDashboard.Api/wwwroot/setup-dashboard/
 # .NET starts on https://localhost:7200
 # Browser opens https://localhost:7200/setup-dashboard/

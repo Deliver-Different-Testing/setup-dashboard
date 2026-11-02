@@ -42,7 +42,7 @@ type Filter = 'all' | 'needs' | 'ready'
 export function ClientsStep() {
   const me = useStore(s => s.me)
   const reload = useStore(s => s.reload)
-  const { draft, setDraft, dirty, markSaved } = useDraft<ClientRow[]>(s => s.clients)
+  const { draft, setDraft, dirty, markSaved, discard } = useDraft<ClientRow[]>(s => s.clients)
   const schedules = useOptions('invoice-schedules')
   const terms = useOptions('payment-terms')
   const [importing, setImporting] = useState<'clients' | 'contacts' | null>(null)
@@ -78,7 +78,7 @@ export function ClientsStep() {
   }
 
   return (
-    <StepFrame step="clients" title="Customers and booking contacts" sendsTo="Settings" draft={draft} dirty={dirty} onSaved={() => { markSaved(); setUndo(null) }}
+    <StepFrame step="clients" title="Customers and booking contacts" sendsTo="Settings" draft={draft} dirty={dirty} onDiscard={discard} onSaved={() => { markSaved(); setUndo(null) }}
       intro={<>
         Customers are created in Settings &gt; Clients &amp; Customers. Each needs a code, name, real address, invoice schedule,
         payment term and primary contact. Settings <b>emails the primary contact a booking sign-in</b> when it creates the customer.

@@ -3,6 +3,7 @@ import { jsPDF } from 'jspdf'
 import { Button, useMantineTheme } from '@mantine/core'
 import { Download } from 'lucide-react'
 import { STEPS, useStore } from '../store'
+import { isElsewhere } from '../lib/doneAnotherWay'
 
 const STATUS_LABEL: Record<string, string> = {
   not_started: 'Not started', waiting_on_tenant: 'Waiting on tenant', in_progress: 'In progress', done: 'Done',
@@ -37,11 +38,14 @@ export function PdfSummary() {
         const created = st.rows.filter(r => r.status === 'created').length
         const needs = st.rows.filter(r => r.status === 'needs_data').length
         const failed = st.rows.filter(r => r.status === 'failed').length
-        line(`${s.title} - ${STATUS_LABEL[st.status] ?? st.status}`, 11, true, [13, 12, 44])
-        if (st.rows.length) line(`${created} created${needs ? `, ${needs} missing details` : ''}${failed ? `, ${failed} failed to send` : ''}`, 9)
+        const skipped = st.rows.filter(r => r.status === 'skipped').length
+        const elsewhere = isElsewhere(st)
+        line(`${s.title} - ${elsewhere ? 'Done another way' : STATUS_LABEL[st.status] ?? st.status}`, 11, true, [13, 12, 44])
+        if (elsewhere) line(`${st.completedMethod ?? 'Other'}${st.completedBy ? ` (${st.completedBy})` : ''}: ${st.completedNote ?? ''}`, 9)
+        if (st.rows.length) line(`${created} created${needs ? `, ${needs} missing details` : ''}${failed ? `, ${failed} failed to send` : ''}${skipped ? `, ${skipped} skipped` : ''}`, 9)
         for (const r of st.requests.filter(r => !r.fulfilledAt))
           line(`Waiting on tenant: ${r.item} (requested ${new Date(r.requestedAt).toLocaleDateString()})`, 9, false, [180, 110, 0])
-        for (const c of st.checklist.filter(c => c.required && !c.doneAt))
+        for (const c of st.checklist.filter(c => c.required && !c.doneAt && !elsewhere))
           line(`To do (${c.owner}): ${c.item}`, 9, false, [100, 100, 100])
         y += 2
       }

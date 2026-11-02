@@ -49,7 +49,7 @@ public sealed class ClientsPusher(ITenantAppClient apps) : IStepPusher
             var row = ledger.Row(ClientKind, code.Length > 0 ? code : c.Name?.Trim() ?? "(no code)");
 
             int? clientId;
-            if (ledger.IsUnknown(ClientKind, row.Key))
+            if (ledger.IsHeld(ClientKind, row.Key))
             {
                 continue;
             }
@@ -117,7 +117,7 @@ public sealed class ClientsPusher(ITenantAppClient apps) : IStepPusher
                     continue;
                 }
 
-                if (ledger.IsUnknown(ContactKind, cKey))
+                if (ledger.IsHeld(ContactKind, cKey))
                 {
                     continue;
                 }

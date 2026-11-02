@@ -56,7 +56,7 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
         {
             var key = role.Name?.Trim() ?? string.Empty;
             var row = ledger.Row(RoleKind, key.Length > 0 ? key : "(unnamed role)");
-            if (ledger.IsUnknown(RoleKind, key))
+            if (ledger.IsHeld(RoleKind, key))
             {
                 continue;
             }
@@ -127,7 +127,7 @@ public sealed class TeamPusher(ITenantAppClient apps) : IStepPusher
                 continue;
             }
 
-            if (ledger.IsUnknown(PersonKind, key))
+            if (ledger.IsHeld(PersonKind, key))
             {
                 continue;
             }

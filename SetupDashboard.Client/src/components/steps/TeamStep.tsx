@@ -15,7 +15,7 @@ const newPerson = (): PersonRow => ({ inviteConfirmed: false })
 
 export function TeamStep() {
   const reload = useStore(s => s.reload)
-  const { draft, setDraft, dirty, markSaved } = useDraft<Team>(s => s.team)
+  const { draft, setDraft, dirty, markSaved, discard } = useDraft<Team>(s => s.team)
   const tiles = useLookup<Tile[]>('tiles')
   const [importing, setImporting] = useState(false)
   const [editing, setEditing] = useState<number | null>(null)
@@ -27,7 +27,7 @@ export function TeamStep() {
   const warnings = teamWarnings(draft)
 
   return (
-    <StepFrame step="team" title="Team, roles and access" sendsTo="Settings" draft={draft} dirty={dirty} onSaved={markSaved}
+    <StepFrame step="team" title="Team, roles and access" sendsTo="Settings" draft={draft} dirty={dirty} onDiscard={discard} onSaved={markSaved}
       intro={<>Set up the roles the tenant's staff sign in with, what each role can open in the Hub, and who's on each role.
         People are only emailed a sign-in invite when you switch it on for them and send.</>}>
       <Card title="Roles and what they can open" right={

@@ -7,7 +7,7 @@ A **Deliver Different internal tool** for onboarding new tenants onto the DFRNT 
 **Repo**: `urgent-couriers/setup-dashboard` (GitLab — to be created)
 **Stack**: React 19 + Vite 7 + Tailwind v4 (frontend) / .NET 10 + EF Core 10 + SQL Server (backend) — single deployable, frontend served from .NET `wwwroot/`
 **Deploy**: AWS EKS via GitLab CI + Helm (Auto DevOps), per-tenant Helm values
-**Solution**: `SetupDashboard.sln` — open in Visual Studio, F5 to debug both
+**Solution**: `SetupDashboard.slnx` — open in Visual Studio, F5 to debug both
 
 ---
 
@@ -75,7 +75,7 @@ A **Deliver Different internal tool** for onboarding new tenants onto the DFRNT 
 - Smart Uploader: CSV/Excel parse + fuzzy column matching (FuzzySharp)
 - Serilog structured logging
 - Health checks at `/healthz` and `/health/live`
-- Visual Studio solution (SetupDashboard.sln) with pre-built frontend for F5 debugging
+- Visual Studio solution (SetupDashboard.slnx) with pre-built frontend for F5 debugging
 - Two launch profiles: IIS Express (local hub) + Project (staging hub)
 - Environment variables in launchSettings.json (matches AdminManager/DespatchWeb pattern)
 - AWS SSM Data Protection for production deployment
@@ -231,7 +231,7 @@ The backend's `AdminManagerClient.cs` is adapted from the MCP server. Same:
 
 ```
 setup-dashboard/
-├── SetupDashboard.sln                # Visual Studio solution (Solution Items + API project)
+├── SetupDashboard.slnx                # Visual Studio solution (Solution Items + API project)
 ├── README.md                         # Quick start guide
 ├── PLANNING.md                       # This file
 ├── HANDOVER.md                       # Handover documentation

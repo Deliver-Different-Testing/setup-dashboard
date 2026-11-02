@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 import { Building2, CalendarClock, Contact, GraduationCap, Handshake, Plug, Settings, Tag, Truck, Users, Zap, type LucideIcon } from 'lucide-react'
 import * as api from './lib/api'
-import type { Me, PushSummary, Session, SessionSummary, StepKey } from './lib/api'
+import type { Elsewhere, Me, PushSummary, Session, SessionSummary, StepKey, TenantSummary } from './lib/api'
 import { errorMessage } from './lib/helpers'
+import { markEach, tenantHasData } from './lib/alreadyInDfrnt'
+import { ALREADY_IN_DFRNT } from './lib/doneAnotherWay'
 
 // The server session is the single source of truth. Step forms edit a local copy and
 // save it with saveStep; "Send" pushes the saved rows to Settings / Routed Ops.
@@ -36,6 +38,18 @@ interface State {
   errors: Partial<Record<StepKey, string | null>>
   lastPush: Partial<Record<StepKey, PushSummary | null>>
   fatal: string | null
+  /** What the tenant already has; null until loaded, or when it couldn't be read. */
+  tenantSummary: TenantSummary | null
+  loadTenantSummary: () => Promise<TenantSummary | null>
+  /** A new setup on a tenant that already has data opens on "Where this tenant is up to". */
+  showUpTo: boolean
+  closeUpTo: () => void
+  /** Marks each step done another way ("Already in DFRNT") with the one note. Returns the steps that failed. */
+  markAlreadyInDfrnt: (steps: StepKey[], note: string) => Promise<{ step: StepKey; message: string }[]>
+  /** The "Done another way" dialog, opened from a step's buttons or its Already in DFRNT strip. */
+  elsewhereDialog: { step: StepKey; initial?: Partial<Elsewhere> } | null
+  openElsewhere: (step: StepKey, initial?: Partial<Elsewhere>) => void
+  closeElsewhere: () => void
 
   // Auto-Mate sidebar: scripted step intros; typed questions are answered from the CSP Knowledge Base
   chatHistory: ChatMessage[]
@@ -54,8 +68,8 @@ interface State {
   sendStep: (step: StepKey) => Promise<PushSummary | null>
   addRequest: (step: StepKey, item: string, dueBy?: string) => Promise<void>
   fulfilRequest: (step: StepKey, requestId: string) => Promise<void>
-  tick: (step: StepKey, itemId: string, done: boolean) => Promise<void>
-  complete: (step: StepKey) => Promise<void>
+  tick: (step: StepKey, itemId: string, done: boolean, note?: string) => Promise<void>
+  complete: (step: StepKey, elsewhere?: Elsewhere) => Promise<void>
   reopen: (step: StepKey) => Promise<void>
   retryRow: (step: StepKey, kind: string, key: string) => Promise<void>
   removeSession: (id: string) => Promise<void>
@@ -97,6 +111,34 @@ export const useStore = create<State>((set, get) => {
     errors: {},
     lastPush: {},
     fatal: null,
+    tenantSummary: null,
+    loadTenantSummary: async () => {
+      const s = get().session
+      if (!s) return null
+      try {
+        const tenantSummary = await api.getTenantSummary(s.id)
+        if (get().session?.id === s.id) set({ tenantSummary })
+        return tenantSummary
+      } catch {
+        return null // the strips just don't show
+      }
+    },
+    showUpTo: false,
+    closeUpTo: () => {
+      const s = get().session
+      const first = s ? STEPS.findIndex(x => s.steps[x.key].status !== 'done') : 0
+      set({ showUpTo: false })
+      get().setCurrentStep(first < 0 ? 0 : first)
+    },
+    markAlreadyInDfrnt: async (steps, note) => {
+      const s = withSession()
+      const { last, failed } = await markEach(steps, async step => (await api.completeStep(s.id, step, { method: ALREADY_IN_DFRNT, note })).session)
+      if (last && get().session?.id === s.id) set({ session: last })
+      return failed
+    },
+    elsewhereDialog: null,
+    openElsewhere: (step, initial) => set({ elsewhereDialog: { step, initial } }),
+    closeElsewhere: () => set({ elsewhereDialog: null }),
 
     chatHistory: [],
     shownChatSteps: new Set(),
@@ -124,13 +166,16 @@ export const useStore = create<State>((set, get) => {
     startNew: async () => {
       const { session } = await api.createSession()
       rememberSession(session.id)
-      set({ session, currentStep: 0, showResumePrompt: false })
+      set({ session, currentStep: 0, showResumePrompt: false, tenantSummary: null, showUpTo: false })
+      const summary = await get().loadTenantSummary()
+      if (summary && tenantHasData(summary) && get().session?.id === session.id) set({ showUpTo: true })
     },
 
     resume: async id => {
       const { session } = await api.getSession(id)
       rememberSession(session.id)
-      set({ session, currentStep: session.currentStep ?? 0, showResumePrompt: false })
+      set({ session, currentStep: session.currentStep ?? 0, showResumePrompt: false, tenantSummary: null, showUpTo: false })
+      void get().loadTenantSummary()
     },
 
     reload: async () => {
@@ -141,7 +186,7 @@ export const useStore = create<State>((set, get) => {
     },
 
     setCurrentStep: i => {
-      set({ currentStep: i })
+      set({ currentStep: i, showUpTo: false })
       const s = get().session
       if (s) api.setCurrentStep(s.id, i).catch(() => { /* position only */ })
     },
@@ -166,6 +211,7 @@ export const useStore = create<State>((set, get) => {
           summary = res.summary
           set(st => ({ session: res.session, lastPush: { ...st.lastPush, [step]: res.summary } }))
         })
+        void get().loadTenantSummary()
       } catch { /* error shown on the step */ }
       return summary
     },
@@ -178,13 +224,13 @@ export const useStore = create<State>((set, get) => {
       const s = withSession()
       await guard(step, 'saving', async () => set({ session: (await api.fulfilRequest(s.id, step, requestId)).session }))
     },
-    tick: async (step, itemId, done) => {
+    tick: async (step, itemId, done, note) => {
       const s = withSession()
-      await guard(step, 'saving', async () => set({ session: (await api.tickChecklist(s.id, step, itemId, done)).session }))
+      await guard(step, 'saving', async () => set({ session: (await api.tickChecklist(s.id, step, itemId, done, note)).session }))
     },
-    complete: async step => {
+    complete: async (step, elsewhere) => {
       const s = withSession()
-      await guard(step, 'saving', async () => set({ session: (await api.completeStep(s.id, step)).session }))
+      await guard(step, 'saving', async () => set({ session: (await api.completeStep(s.id, step, elsewhere)).session }))
     },
     reopen: async step => {
       const s = withSession()

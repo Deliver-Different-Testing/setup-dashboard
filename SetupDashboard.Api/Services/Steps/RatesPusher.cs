@@ -66,7 +66,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
                 continue;
             }
 
-            if (ledger.IsUnknown(VehicleKind, key))
+            if (ledger.IsHeld(VehicleKind, key))
             {
                 continue;
             }
@@ -94,7 +94,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
             var gRow = ledger.Row(ZoneGroupKind, gKey.Length > 0 ? gKey : "(unnamed zone group)");
             if (gKey.Length == 0) { RowLedger.NeedsData(gRow, ["name"]); continue; }
 
-            if (ledger.IsUnknown(ZoneGroupKind, gKey))
+            if (ledger.IsHeld(ZoneGroupKind, gKey))
             {
                 continue;
             }
@@ -119,7 +119,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
                 var zRow = ledger.Row(ZoneKind, zName.Length > 0 ? zKey : $"(unnamed zone in {gKey})");
                 if (zName.Length == 0) { RowLedger.NeedsData(zRow, ["name"]); continue; }
 
-                if (ledger.IsUnknown(ZoneKind, zKey))
+                if (ledger.IsHeld(ZoneKind, zKey))
                 {
                     continue;
                 }
@@ -145,7 +145,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
                         continue;
                     }
 
-                    if (ledger.IsUnknown(ZipKind, zipKey))
+                    if (ledger.IsHeld(ZipKind, zipKey))
                     {
                         continue;
                     }
@@ -167,7 +167,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
                 continue;
             }
 
-            if (ledger.IsUnknown(FuelKind, key))
+            if (ledger.IsHeld(FuelKind, key))
             {
                 continue;
             }
@@ -202,7 +202,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
                 continue;
             }
 
-            if (ledger.IsUnknown(ZoneRateKind, key))
+            if (ledger.IsHeld(ZoneRateKind, key))
             {
                 continue;
             }
@@ -239,7 +239,7 @@ public sealed class RatesPusher(ITenantAppClient apps) : IStepPusher
                 continue;
             }
 
-            if (ledger.IsUnknown(DistanceRateKind, key))
+            if (ledger.IsHeld(DistanceRateKind, key))
             {
                 continue;
             }

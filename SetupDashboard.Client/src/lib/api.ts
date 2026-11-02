@@ -51,10 +51,12 @@ export type StepKey =
 export type StepStatus = 'not_started' | 'waiting_on_tenant' | 'in_progress' | 'done'
 export type RowStatus = 'pending' | 'needs_data' | 'created' | 'failed' | 'skipped' | 'unknown'
 
-export interface DataRequest { id: string; item: string; requestedAt: string; requestedBy?: string; dueBy?: string; fulfilledAt?: string; fulfilledBy?: string }
+export interface DataRequest { id: string; item: string; requestedAt: string; requestedBy?: string; dueBy?: string; fulfilledAt?: string; fulfilledBy?: string; fulfilledNote?: string }
 export interface RowResult { key: string; kind: string; status: RowStatus; entityId?: number; needs: string[]; errors: string[]; notice?: string; updatedAt: string }
-export interface ChecklistItem { id: string; item: string; owner: 'DFRNT' | 'Tenant'; link?: string; required: boolean; doneAt?: string; doneBy?: string }
-export interface StepState { key: StepKey; status: StepStatus; requests: DataRequest[]; rows: RowResult[]; checklist: ChecklistItem[]; completedAt?: string; completedBy?: string; updatedAt: string }
+export interface ChecklistItem { id: string; item: string; owner: 'DFRNT' | 'Tenant'; link?: string; required: boolean; doneAt?: string; doneBy?: string; note?: string }
+export interface StepState { key: StepKey; status: StepStatus; requests: DataRequest[]; rows: RowResult[]; checklist: ChecklistItem[]; completedAt?: string; completedBy?: string
+  /** 'elsewhere' when the work was done outside the dashboard; absent on sessions saved before that existed. */
+  completedHow?: 'dashboard' | 'elsewhere'; completedMethod?: string; completedNote?: string; updatedAt: string }
 
 export interface ContactInfo { name?: string; email?: string; phone?: string; title?: string }
 export interface BusinessProfile {
@@ -124,10 +126,20 @@ export interface SessionSummary {
 }
 
 export interface Me {
-  success: boolean; tenantId: string; tenantCode?: string; clientTypeId?: number; isDfAdmin: boolean; isUsTenant: boolean; name?: string
+  success: boolean; tenantId: string; tenantCode?: string; clientTypeId?: number; isDfAdmin: boolean; isTenantAdmin?: boolean; isUsTenant: boolean; name?: string
   contactProfile?: { firstName?: string; lastName?: string; email?: string } | null
   clientProfile?: { name?: string } | null
 }
+
+/** What the tenant already has (SetupController.GetTenantSummary). Settings keys are tblSetting column names. */
+export interface TenantCounts {
+  team: number; clients: number; contacts: number; couriers: number; zones: number; automations: number; services: number
+  rateCards: number; zoneZips: number; extraCharges: number; partners: number
+  /** From Settings; null when it didn't answer. */
+  roles: number | null; depots: number | null
+  tenantClientFile: boolean
+}
+export interface TenantSummary { settings: Record<string, string>; counts: TenantCounts; seedLooksDone: boolean }
 
 export interface PushSummary { created: number; needsData: number; failed: number; signInExpired: boolean }
 export interface LookupItem { id: number; name: string }
@@ -154,14 +166,18 @@ export const addRequest = (id: string, step: StepKey, item: string, dueBy?: stri
   request<{ session: Session }>(`/setup/session/${id}/steps/${step}/requests`, { method: 'POST', body: json({ item, dueBy: dueBy || null }) })
 export const fulfilRequest = (id: string, step: StepKey, requestId: string) =>
   request<{ session: Session }>(`/setup/session/${id}/steps/${step}/requests/${requestId}/fulfil`, { method: 'POST' })
-export const tickChecklist = (id: string, step: StepKey, itemId: string, done: boolean) =>
-  request<{ session: Session }>(`/setup/session/${id}/steps/${step}/checklist/${itemId}`, { method: 'POST', body: json({ done }) })
-export const completeStep = (id: string, step: StepKey) =>
-  request<{ session: Session }>(`/setup/session/${id}/steps/${step}/complete`, { method: 'POST' })
+export const tickChecklist = (id: string, step: StepKey, itemId: string, done: boolean, note?: string) =>
+  request<{ session: Session }>(`/setup/session/${id}/steps/${step}/checklist/${itemId}`, { method: 'POST', body: json({ done, note: note || null }) })
+export interface Elsewhere { method: string; note: string }
+/** With `elsewhere` the step was done outside the dashboard: blockers are skipped and unsent rows are skipped. */
+export const completeStep = (id: string, step: StepKey, elsewhere?: Elsewhere) =>
+  request<{ session: Session }>(`/setup/session/${id}/steps/${step}/complete`, {
+    method: 'POST', body: elsewhere ? json({ how: 'elsewhere', ...elsewhere }) : undefined,
+  })
 export const reopenStep = (id: string, step: StepKey) =>
   request<{ session: Session }>(`/setup/session/${id}/steps/${step}/reopen`, { method: 'POST' })
 
-export const getTenantSummary = (id: string) => request<{ settings: Record<string, string>; counts: Record<string, number> }>(`/setup/session/${id}/tenant-summary`)
+export const getTenantSummary = (id: string) => request<TenantSummary>(`/setup/session/${id}/tenant-summary`)
 export const getTenantLogo = () => request<{ success: boolean; logoUrl: string | null }>('/setup/logo')
 /** The tenant's Branding (tblSetting.AppearanceDefaultsJson); null (204) when none is saved. */
 export const getTenantAppearance = () => request<unknown>('/setup/appearance')

@@ -42,7 +42,7 @@ public sealed class PartnersPusher(ITenantAppClient apps) : IStepPusher
                 continue;
             }
 
-            if (ledger.IsUnknown(PartnerKind, key))
+            if (ledger.IsHeld(PartnerKind, key))
             {
                 continue;
             }

@@ -177,9 +177,10 @@ const STEP_PILL: Record<StepStatus, [string, MantineColor]> = {
   in_progress: ['In progress', 'brand'],
   done: ['Done', 'green'],
 }
-export function StepPill({ status }: { status: StepStatus }) {
+/** `elsewhere`: done outside the dashboard, with a note. Counts as done everywhere. */
+export function StepPill({ status, elsewhere }: { status: StepStatus; elsewhere?: boolean }) {
   const [text, color] = STEP_PILL[status] ?? STEP_PILL.not_started
-  return <StatusBadge text={text} color={color} />
+  return <StatusBadge text={status === 'done' && elsewhere ? `${text} · elsewhere` : text} color={color} />
 }
 
 const ROW_PILL: Record<RowStatus, [string, MantineColor]> = {

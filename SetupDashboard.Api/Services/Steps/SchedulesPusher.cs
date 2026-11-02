@@ -63,7 +63,7 @@ public sealed class SchedulesPusher(ITenantAppClient apps) : IStepPusher
                 continue;
             }
 
-            if (ledger.IsUnknown(ScheduleKind, key))
+            if (ledger.IsHeld(ScheduleKind, key))
             {
                 continue;
             }

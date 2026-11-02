@@ -80,6 +80,11 @@ public class StepState
     public List<ChecklistItem> Checklist { get; set; } = [];
     public DateTime? CompletedAt { get; set; }
     public string? CompletedBy { get; set; }
+
+    /// <summary>"dashboard", or "elsewhere" when the work was done outside the dashboard (Settings, Admin Manager, Claude).</summary>
+    public string CompletedHow { get; set; } = "dashboard";
+    public string? CompletedMethod { get; set; }
+    public string? CompletedNote { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
@@ -93,6 +98,7 @@ public class DataRequest
     public DateTime? DueBy { get; set; }
     public DateTime? FulfilledAt { get; set; }
     public string? FulfilledBy { get; set; }
+    public string? FulfilledNote { get; set; }
 }
 
 /// <summary>Outcome of one record pushed to its owning app, keyed by a natural key (code, email, name).</summary>
@@ -117,6 +123,9 @@ public static class RowStatus
 
     /// <summary>Sent, but no answer came back: it may exist in the target app. Not re-sent until someone chooses Send again.</summary>
     public const string Unknown = "unknown";
+
+    /// <summary>Left unsent because the step was marked done another way. Never sent; Reopen puts it back to pending.</summary>
+    public const string Skipped = "skipped";
 }
 
 /// <summary>Work that has no API yet, or is done in another app's screens. Ticked by a person.</summary>
@@ -129,6 +138,9 @@ public class ChecklistItem
     public bool Required { get; set; }
     public DateTime? DoneAt { get; set; }
     public string? DoneBy { get; set; }
+
+    /// <summary>How it was done, when that's worth saying (e.g. "made by hand in Admin Manager").</summary>
+    public string? Note { get; set; }
 }
 
 // ── Step 0: Business ────────────────────────────────────────────────────────
@@ -383,6 +395,9 @@ public class TenantSummary
 {
     public Dictionary<string, string> Settings { get; set; } = new();
     public TenantCounts Counts { get; set; } = new();
+
+    /// <summary>The tenant seed's System Settings look done (TenantSeed.LooksDone). A suggestion; a person confirms.</summary>
+    public bool SeedLooksDone { get; set; }
 }
 
 public class TenantCounts
@@ -394,6 +409,17 @@ public class TenantCounts
     public int Zones { get; set; }
     public int Automations { get; set; }
     public int Services { get; set; }
+    public int RateCards { get; set; }
+    public int ZoneZips { get; set; }
+    public int ExtraCharges { get; set; }
+    public int Partners { get; set; }
+
+    /// <summary>From Settings; null when it didn't answer.</summary>
+    public int? Roles { get; set; }
+
+    /// <summary>From Settings' regions; null when it didn't answer.</summary>
+    public int? Depots { get; set; }
+    public bool TenantClientFile { get; set; }
 }
 
 public class TrainingMember
