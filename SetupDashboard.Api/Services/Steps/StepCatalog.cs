@@ -10,6 +10,7 @@ namespace SetupDashboard.Services.Steps;
 public static class StepCatalog
 {
     public const string TenantIdentity = "tenant-identity";
+    public const string TenantIdentitySeed = "tenant-identity-seed";
     private const string TenantClientFile = "tenant-client-file";
     public const string Depots = "depots";
 
@@ -19,8 +20,11 @@ public static class StepCatalog
         [
             new ChecklistItem { Id = TenantClientFile, Required = true, Owner = "DFRNT",
                 Item = "Tenant's own client file exists (client type Tenant). Staff and roles hang off it; there is no API to create it yet." },
+            new ChecklistItem { Id = TenantIdentitySeed, Owner = "DFRNT",
+                Item = "Tenant seed ran: System Settings cleared of Urgent's details (address, logos, Internet Root, reply-from addresses) and the notification templates reworded for this tenant.",
+                Link = link("adminmanager") is { } am0 ? $"{am0}/#/setting/1" : null },
             new ChecklistItem { Id = TenantIdentity, Required = true, Owner = "DFRNT",
-                Item = "System settings and email wording are this tenant's: company name, address, bank/tax, sender and reply addresses, sign-in invite and password-reset wording. New tenant databases can carry another tenant's values - check before anyone is invited.",
+                Item = "What the tenant seed leaves: Forgot Password / Hub invite wording, Email Settings reply-to, System Name (not 'Despatch Manager'), CountryCode, GST rate, Internet Booker. Check before anyone is invited.",
                 Link = link("adminmanager") is { } am ? $"{am}/#/setting/1" : null },
             new ChecklistItem { Id = Depots, Required = true, Owner = "DFRNT",
                 Item = "Depots created (needed by schedules, distance rates and fleets). Admin Manager only for now." },
@@ -125,6 +129,98 @@ public static class StepCatalog
         }
 
         step.UpdatedAt = DateTime.UtcNow;
+    }
+
+    public const string CompletedOnDashboard = "dashboard";
+    public const string CompletedElsewhere = "elsewhere";
+    public const int ElsewhereNoteMin = 3;
+    public const int ElsewhereNoteMax = 500;
+
+    /// <summary>A person marks the step done. The session completes when every step is done, however it was done.</summary>
+    public static void Complete(SetupSession session, string stepKey, string? by)
+    {
+        var step = session.Step(stepKey);
+        step.Status = StepStatus.Done;
+        step.CompletedAt = DateTime.UtcNow;
+        step.CompletedBy = by;
+        step.CompletedHow = CompletedOnDashboard;
+        step.CompletedMethod = null;
+        step.CompletedNote = null;
+        step.UpdatedAt = DateTime.UtcNow;
+        if (session.Steps.Values.All(x => x.Status == StepStatus.Done))
+        {
+            session.Status = "completed";
+        }
+    }
+
+    /// <summary>Ticks or unticks a checklist item. Unticking clears who, when and the note.</summary>
+    public static void Tick(ChecklistItem item, bool done, string? by, string? note)
+    {
+        item.DoneAt = done ? DateTime.UtcNow : null;
+        item.DoneBy = done ? by : null;
+        var n = note?.Trim();
+        item.Note = done && !string.IsNullOrEmpty(n) ? n[..Math.Min(n.Length, ElsewhereNoteMax)] : null;
+    }
+
+    /// <summary>Why a "done another way" request can't be accepted, or null when it can.</summary>
+    public static string? ElsewhereProblem(string? method, string? note)
+    {
+        if (string.IsNullOrWhiteSpace(method))
+        {
+            return "Say how it was done.";
+        }
+
+        var n = note?.Trim() ?? string.Empty;
+        return n.Length is < ElsewhereNoteMin or > ElsewhereNoteMax
+            ? $"Add a note of {ElsewhereNoteMin} to {ElsewhereNoteMax} characters saying how it was done."
+            : null;
+    }
+
+    /// <summary>
+    /// The step's work was done outside the dashboard. Skips <see cref="CompleteBlocker"/>: open requests
+    /// are fulfilled with the note, and rows not created yet are skipped so no send ever repeats the work.
+    /// Required checklist items stay as they are; the note covers them.
+    /// </summary>
+    public static void CompleteElsewhere(SetupSession session, string stepKey, string? by, string method, string note)
+    {
+        var step = session.Step(stepKey);
+        foreach (var r in step.Requests.Where(r => r.FulfilledAt == null))
+        {
+            r.FulfilledAt = DateTime.UtcNow;
+            r.FulfilledBy = by;
+            r.FulfilledNote = note.Trim();
+        }
+
+        foreach (var row in step.Rows.Where(r => r.Status is RowStatus.Pending or RowStatus.NeedsData or RowStatus.Failed or RowStatus.Unknown))
+        {
+            row.Status = RowStatus.Skipped;
+            row.UpdatedAt = DateTime.UtcNow;
+        }
+
+        Complete(session, stepKey, by);
+        step.CompletedHow = CompletedElsewhere;
+        step.CompletedMethod = method.Trim();
+        step.CompletedNote = note.Trim();
+    }
+
+    /// <summary>Back to in progress. Skipped rows go back to pending so they can be sent if wanted.</summary>
+    public static void Reopen(SetupSession session, string stepKey)
+    {
+        var step = session.Step(stepKey);
+        step.Status = StepStatus.InProgress;
+        step.CompletedAt = null;
+        step.CompletedBy = null;
+        step.CompletedHow = CompletedOnDashboard;
+        step.CompletedMethod = null;
+        step.CompletedNote = null;
+        foreach (var row in step.Rows.Where(r => r.Status == RowStatus.Skipped))
+        {
+            row.Status = RowStatus.Pending;
+            row.UpdatedAt = DateTime.UtcNow;
+        }
+
+        session.Status = "active";
+        Recompute(session, stepKey, hasData: false);
     }
 
     /// <summary>Why a step can't be marked done yet, or null when it can.</summary>

@@ -22,7 +22,8 @@ namespace SetupDashboard.Controllers;
 [ApiController]
 public class LoginController(
     IConnectionStringManager connectionStringManager,
-    IDbContextFactory<DynamicDespatchDbContext> dbFactory) : ControllerBase
+    IDbContextFactory<DynamicDespatchDbContext> dbFactory,
+    Services.ITenantAdminCheck tenantAdmin) : ControllerBase
 {
     [HttpPost("Validate")]
     public async Task<IActionResult> Validate()
@@ -157,6 +158,8 @@ public class LoginController(
             }
 
             var caller = Services.CallerContext.From(HttpContext.User);
+            var isTenantAdmin = caller != null && !caller.IsDfAdmin
+                                && await tenantAdmin.IsTenantAdminAsync(caller, HttpContext.RequestAborted);
             return Ok(new
             {
                 success = true,
@@ -166,6 +169,7 @@ public class LoginController(
                 tenantCode,
                 clientTypeId = caller?.ClientTypeId,
                 isDfAdmin = caller?.IsDfAdmin ?? false,
+                isTenantAdmin,
                 isUsTenant = caller?.IsUsTenant ?? false,
                 name = caller?.Name,
                 clientProfile,

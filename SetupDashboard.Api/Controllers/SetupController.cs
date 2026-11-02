@@ -2,6 +2,7 @@ using System.Text.Json;
 using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using SetupDashboard.Core.Domain;
@@ -32,7 +33,9 @@ public class SetupController(
     IPushLock pushLock,
     ITenantAppUrls urls,
     IDbContextFactory<DynamicDespatchDbContext> dbFactory,
-    ITenantLogoService logoService) : ControllerBase
+    ITenantLogoService logoService,
+    ITenantAdminCheck tenantAdmin,
+    ITenantAppClient apps) : ControllerBase
 {
     private CallerContext? Caller => CallerContext.From(User);
 
@@ -309,15 +312,19 @@ public class SetupController(
             return StatusCode(403, new { message = "DFRNT ticks this one." });
         }
 
-        item.DoneAt = req.Done ? DateTime.UtcNow : null;
-        item.DoneBy = req.Done ? loaded.Caller.Name : null;
+        StepCatalog.Tick(item, req.Done, loaded.Caller.Name, req.Note);
         StepCatalog.Recompute(loaded.Session, step, hasData: false);
         await sessions.UpdateAsync(loaded.Session, ct);
         return Ok(new { session = View(loaded.Session) });
     }
 
+    /// <summary>
+    /// Marks a step done. With <c>how = "elsewhere"</c> the work was done outside the dashboard: DF Admin or
+    /// a tenant admin only, a note is required, and the usual blockers are skipped (see StepCatalog.CompleteElsewhere).
+    /// </summary>
     [HttpPost("session/{id}/steps/{step}/complete")]
-    public async Task<IActionResult> CompleteStep(string id, string step, CancellationToken ct)
+    public async Task<IActionResult> CompleteStep(string id, string step,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] StepCompleteBody? body, CancellationToken ct)
     {
         if (await Load(id, ct) is not { } loaded)
         {
@@ -329,18 +336,28 @@ public class SetupController(
             return Conflict(new { message = SendInProgress });
         }
 
-        if (StepCatalog.CompleteBlocker(loaded.Session, step) is { } why)
+        if (string.Equals(body?.How, StepCatalog.CompletedElsewhere, StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict(new { message = why });
-        }
+            if (!loaded.Caller.IsDfAdmin && !await tenantAdmin.IsTenantAdminAsync(loaded.Caller, ct))
+            {
+                return StatusCode(403, new { message = "Only DFRNT or a tenant admin (Edit Settings) can mark a step done another way." });
+            }
 
-        var st = loaded.Session.Step(step);
-        st.Status = StepStatus.Done;
-        st.CompletedAt = DateTime.UtcNow;
-        st.CompletedBy = loaded.Caller.Name;
-        if (loaded.Session.Steps.Values.All(x => x.Status == StepStatus.Done))
+            if (StepCatalog.ElsewhereProblem(body!.Method, body.Note) is { } problem)
+            {
+                return BadRequest(new { message = problem });
+            }
+
+            StepCatalog.CompleteElsewhere(loaded.Session, step, loaded.Caller.Name, body.Method!, body.Note!);
+        }
+        else
         {
-            loaded.Session.Status = "completed";
+            if (StepCatalog.CompleteBlocker(loaded.Session, step) is { } why)
+            {
+                return Conflict(new { message = why });
+            }
+
+            StepCatalog.Complete(loaded.Session, step, loaded.Caller.Name);
         }
 
         await sessions.UpdateAsync(loaded.Session, ct);
@@ -365,18 +382,18 @@ public class SetupController(
             return Forbid();
         }
 
-        var st = loaded.Session.Step(step);
-        st.Status = StepStatus.InProgress;
-        st.CompletedAt = null;
-        st.CompletedBy = null;
-        loaded.Session.Status = "active";
-        StepCatalog.Recompute(loaded.Session, step, hasData: false);
+        StepCatalog.Reopen(loaded.Session, step);
         await sessions.UpdateAsync(loaded.Session, ct);
         return Ok(new { session = View(loaded.Session) });
     }
 
     // ── Tenant summary (read-only, tenant DB) ───────────────────────────────
 
+    /// <summary>
+    /// What the tenant already has, so work done outside the dashboard shows on each step. Counts only
+    /// suggest; nothing here marks a step or ticks an item. Read-only on the tenant database; roles and
+    /// depots come from Settings (null when it doesn't answer).
+    /// </summary>
     [HttpGet("session/{id}/tenant-summary")]
     public async Task<IActionResult> GetTenantSummary(string id, CancellationToken ct)
     {
@@ -390,33 +407,19 @@ public class SetupController(
             await using var db = await dbFactory.CreateDbContextAsync(ct);
             var setting = await db.TblSettings.AsNoTracking().FirstOrDefaultAsync(ct);
             var settings = new Dictionary<string, string>();
-            if (setting == null)
+            if (setting != null)
             {
-                return Ok(new TenantSummary
-                {
-                    Settings = settings,
-                    Counts = new TenantCounts
-                    {
-                        // Staff are contacts on the tenant's own client now, not tblUser rows.
-                        Team = await db.TucClientContacts.AsNoTracking().CountAsync(
-                            cc => cc.Active && cc.UcctClient != null &&
-                                  cc.UcctClient.ClientTypeId == CallerContext.TenantClientType, ct),
-                        Clients = await db.TucClients.AsNoTracking()
-                            .CountAsync(c => c.UcclActive && c.ClientTypeId == 2, ct),
-                        Contacts = await db.TucClientContacts.AsNoTracking().CountAsync(cc => cc.Active, ct),
-                        Couriers = await db.TucCouriers.Where(c => c.Active).CountAsync(ct),
-                        Zones = await db.ZoneNames.AsNoTracking().CountAsync(ct),
-                        Automations = await db.AutomationRules.AsNoTracking().CountAsync(a => a.IsActive, ct),
-                        Services = await db.TblServices.AsNoTracking().CountAsync(ct)
-                    }
-                });
+                settings["SystemName"] = setting.SystemName ?? string.Empty;
+                settings["ApplicationName"] = setting.ApplicationName ?? string.Empty;
+                settings["AdminEmail"] = setting.AdminEmail ?? string.Empty;
+                settings["CountryCode"] = setting.CountryCode ?? string.Empty;
+                settings["CompanyAddress"] = setting.CompanyAddress ?? string.Empty;
+                settings["Gstrate"] = setting.Gstrate?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
             }
 
-            settings["SystemName"] = setting.SystemName ?? string.Empty;
-            settings["ApplicationName"] = setting.ApplicationName ?? string.Empty;
-            settings["AdminEmail"] = setting.AdminEmail ?? string.Empty;
-            settings["CountryCode"] = setting.CountryCode ?? string.Empty;
-            settings["CompanyAddress"] = setting.CompanyAddress ?? string.Empty;
+            var tenantClientFile = await db.TucClients.AsNoTracking().AnyAsync(c => c.ClientTypeId == CallerContext.TenantClientType, ct);
+            var roles = await apps.GetAsync(TenantApp.Settings, $"/api/admin/roles?clientType={CallerContext.TenantClientType}", ct);
+            var depots = await apps.GetAsync(TenantApp.Settings, "/api/v1/np/regions", ct);
 
             return Ok(new TenantSummary
             {
@@ -430,8 +433,16 @@ public class SetupController(
                     Couriers = await db.TucCouriers.AsNoTracking().CountAsync(cc => cc.Active, ct),
                     Zones = await db.ZoneNames.AsNoTracking().CountAsync(ct),
                     Automations = await db.AutomationRules.AsNoTracking().CountAsync(a => a.IsActive, ct),
-                    Services = await db.TblServices.AsNoTracking().CountAsync(ct)
-                }
+                    Services = await db.TblServices.AsNoTracking().CountAsync(ct),
+                    RateCards = await db.RateCards.AsNoTracking().CountAsync(r => r.Active != false, ct),
+                    ZoneZips = await db.ZoneZips.AsNoTracking().CountAsync(ct),
+                    ExtraCharges = await db.ExtraCharges.AsNoTracking().CountAsync(e => e.Active != false, ct),
+                    Partners = await db.TucAgents.AsNoTracking().CountAsync(ct),
+                    Roles = roles.Ok ? TenantSeed.OwnRoleCount(roles.Body) : null,
+                    Depots = depots is { Ok: true, Body: System.Text.Json.Nodes.JsonArray list } ? list.Count : null,
+                    TenantClientFile = tenantClientFile
+                },
+                SeedLooksDone = TenantSeed.LooksDone(setting, tenantClientFile)
             });
         }
         catch (UnauthorizedAccessException)
@@ -540,5 +551,6 @@ public class SetupController(
 
 public sealed record CurrentStepRequest(int Step);
 public sealed record DataRequestCreate(string Item, DateTime? DueBy);
-public sealed record ChecklistTick(bool Done);
+public sealed record ChecklistTick(bool Done, string? Note = null);
+public sealed record StepCompleteBody(string? How, string? Method, string? Note);
 public sealed record RowRef(string Kind, string Key);

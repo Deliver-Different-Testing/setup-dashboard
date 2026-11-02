@@ -15,7 +15,7 @@ const ORIGINS = [
 ]
 
 export function SchedulesStep() {
-  const { draft, setDraft, dirty, markSaved } = useDraft<ScheduleRow[]>(s => s.schedules)
+  const { draft, setDraft, dirty, markSaved, discard } = useDraft<ScheduleRow[]>(s => s.schedules)
   // Depots (tblBulkRegion) and speeds (tucJobType) are the same tables Routed Ops reads.
   const depots = useLookup('depots')
   const speeds = useLookup('speeds')
@@ -23,7 +23,7 @@ export function SchedulesStep() {
   const patch = (i: number, p: Partial<ScheduleRow>) => setDraft(d => patchAt(d, i, p))
 
   return (
-    <StepFrame step="schedules" title="Schedules" sendsTo="Routed Operations" draft={draft} dirty={dirty} onSaved={markSaved}
+    <StepFrame step="schedules" title="Schedules" sendsTo="Routed Operations" draft={draft} dirty={dirty} onDiscard={discard} onSaved={markSaved}
       intro={<>
         Created in Routed Operations &gt; Schedules (NEW). Each needs a destination depot and at least one day window. A schedule with no
         customer codes is the <b>default for every customer</b>. Client-address schedules can't be the default, so they need customer codes and

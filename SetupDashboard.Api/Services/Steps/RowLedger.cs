@@ -51,11 +51,14 @@ public sealed class RowLedger(StepState step)
                 .Select(r => r.EntityId!.Value).Distinct()
         ];
 
-    /// <summary>Sent before with no answer back. Left alone until someone checks the target app and chooses Send again.</summary>
-    public bool IsUnknown(string kind, string key)
+    /// <summary>
+    /// Not to be sent: either sent before with no answer back (left alone until someone checks the target
+    /// app and chooses Send again), or skipped because the step was done another way.
+    /// </summary>
+    public bool IsHeld(string kind, string key)
     {
         var norm = Normalise(key);
-        return step.Rows.Any(r => r.Kind == kind && Normalise(r.Key) == norm && r.Status == RowStatus.Unknown);
+        return step.Rows.Any(r => r.Kind == kind && Normalise(r.Key) == norm && r.Status is RowStatus.Unknown or RowStatus.Skipped);
     }
 
     /// <summary>Lets an unknown row be sent again, once a person has checked it isn't in the target app.</summary>

@@ -32,7 +32,7 @@ export function RatesStep() {
   const reload = useStore(s => s.reload)
   const clients = useStore(s => s.session?.clients)
   const clientCodes = (clients ?? []).map(c => c.code?.trim() ?? '').filter(Boolean)
-  const { draft, setDraft, dirty, markSaved } = useDraft<Rates>(s => s.rates)
+  const { draft, setDraft, dirty, markSaved, discard } = useDraft<Rates>(s => s.rates)
   const speeds = useLookup('speeds')
   const depots = useLookup('depots')
   const existingVehicles = useLookup('vehicle-sizes')
@@ -103,7 +103,7 @@ export function RatesStep() {
   const importHint = dirty && <MText fz="xs" c="dimmed">Save your changes to import</MText>
 
   return (
-    <StepFrame step="rates" title="Rates and zones" sendsTo="Settings" draft={draft} dirty={dirty} onSaved={() => { markSaved(); setUndo(null) }}
+    <StepFrame step="rates" title="Rates and zones" sendsTo="Settings" draft={draft} dirty={dirty} onDiscard={discard} onSaved={() => { markSaved(); setUndo(null) }}
       intro={<>
         Sent to Settings &gt; Rates &amp; Pricing in this order: vehicle sizes, zone groups and zones, fuel surcharges, then rates.
         A rate with no customer codes applies to <b>every customer</b>. That's Settings' rule, so each rate shows it.

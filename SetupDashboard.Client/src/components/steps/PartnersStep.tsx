@@ -9,12 +9,12 @@ const Col = Grid.Col
 const TOP = { borderTop: '1px solid var(--dd-outline-variant)' }
 
 export function PartnersStep() {
-  const { draft, setDraft, dirty, markSaved } = useDraft<PartnerRow[]>(s => s.partners)
+  const { draft, setDraft, dirty, markSaved, discard } = useDraft<PartnerRow[]>(s => s.partners)
   const roles = useLookup<{ id: number; name: string }[]>('partner-roles')
   const patch = (i: number, p: Partial<PartnerRow>) => setDraft(d => patchAt(d, i, p))
 
   return (
-    <StepFrame step="partners" title="Agents and network partners" sendsTo="Settings" draft={draft} dirty={dirty} onSaved={markSaved}
+    <StepFrame step="partners" title="Agents and network partners" sendsTo="Settings" draft={draft} dirty={dirty} onDiscard={discard} onSaved={markSaved}
       intro={<>
         Created in Settings &gt; Agents &amp; Network Partners. With a contact email, Settings also creates the partner's client file and a
         login, and <b>emails the contact an invite</b>. A new tenant needs at least one customer first, because Settings copies a few

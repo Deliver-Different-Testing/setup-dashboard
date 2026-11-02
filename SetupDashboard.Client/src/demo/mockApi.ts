@@ -3,7 +3,7 @@
 // required-field rules as the backend step pushers and pretends the owning app accepted
 // every complete row.
 import type {
-  ChecklistItem, LookupItem, Me, PushSummary, RowResult, Session, SessionSummary, StepKey, StepState, TrainingMember,
+  ChecklistItem, Elsewhere, LookupItem, Me, PushSummary, RowResult, Session, SessionSummary, StepKey, StepState, TenantSummary, TrainingMember,
 } from '../lib/api'
 
 export type * from '../lib/api'
@@ -287,7 +287,7 @@ function view(): Session {
 
 // ── The API surface ────────────────────────────────────────────────────────────
 
-const me: Me = { success: true, tenantId: '7', tenantCode: 'example', clientTypeId: 5, isDfAdmin: true, isUsTenant: true, name: 'Sample DFRNT staff' }
+const me: Me = { success: true, tenantId: '7', tenantCode: 'example', clientTypeId: 5, isDfAdmin: true, isTenantAdmin: false, isUsTenant: true, name: 'Sample DFRNT staff' }
 
 export const validateLogin = () => wait(me, 300)
 export const listSessions = () => wait<{ sessions: SessionSummary[] }>({
@@ -337,30 +337,44 @@ export const fulfilRequest = (_id: string, key: StepKey, requestId: string) => {
   recompute(key, false)
   return wait({ session: view() })
 }
-export const tickChecklist = (_id: string, key: StepKey, itemId: string, done: boolean) => {
+export const tickChecklist = (_id: string, key: StepKey, itemId: string, done: boolean, note?: string) => {
   const c = session.steps[key].checklist.find(x => x.id === itemId)
-  if (c) { c.doneAt = done ? new Date().toISOString() : undefined; c.doneBy = done ? me.name : undefined }
+  if (c) { c.doneAt = done ? new Date().toISOString() : undefined; c.doneBy = done ? me.name : undefined; c.note = done ? note?.trim() || undefined : undefined }
   recompute(key, false)
   return wait({ session: view() })
 }
-export const completeStep = (_id: string, key: StepKey) => {
-  const why = completeBlocker(key)
-  if (why) return Promise.reject(new ApiError(why, 409))
+export const completeStep = (_id: string, key: StepKey, elsewhere?: Elsewhere) => {
   const st = session.steps[key]
-  st.status = 'done'; st.completedAt = new Date().toISOString(); st.completedBy = me.name
+  const now = new Date().toISOString()
+  if (elsewhere) {
+    for (const r of st.requests.filter(r => !r.fulfilledAt)) { r.fulfilledAt = now; r.fulfilledBy = me.name; r.fulfilledNote = elsewhere.note.trim() }
+    for (const r of st.rows.filter(r => r.status !== 'created' && r.status !== 'skipped')) r.status = 'skipped'
+  } else {
+    const why = completeBlocker(key)
+    if (why) return Promise.reject(new ApiError(why, 409))
+  }
+  st.status = 'done'; st.completedAt = now; st.completedBy = me.name
+  st.completedHow = elsewhere ? 'elsewhere' : 'dashboard'
+  st.completedMethod = elsewhere?.method; st.completedNote = elsewhere?.note.trim()
   return wait({ session: view() })
 }
 export const reopenStep = (_id: string, key: StepKey) => {
   const st = session.steps[key]
   st.status = 'in_progress'; st.completedAt = undefined; st.completedBy = undefined
+  st.completedHow = 'dashboard'; st.completedMethod = undefined; st.completedNote = undefined
+  for (const r of st.rows.filter(r => r.status === 'skipped')) r.status = 'pending'
   recompute(key, false)
   return wait({ session: view() })
 }
 
 // Deliberately shows another tenant's details, the way a newly copied tenant database can.
-export const getTenantSummary = () => wait({
-  settings: { CompanyAddress: 'PO Box 1000, Sample Street, Auckland 1010', AdminEmail: 'helpdesk@another-tenant.example', CountryCode: '', ApplicationName: 'Mercury' },
-  counts: { Clients: 0, Team: 9, Couriers: 2, Zones: 0, Automations: 0 },
+export const getTenantSummary = () => wait<TenantSummary>({
+  settings: { CompanyAddress: 'PO Box 1000, Sample Street, Auckland 1010', AdminEmail: 'helpdesk@another-tenant.example', CountryCode: '', ApplicationName: 'Mercury', SystemName: 'Despatch Manager', Gstrate: '0' },
+  counts: {
+    team: 9, clients: 0, contacts: 9, couriers: 2, zones: 4, automations: 0, services: 3, rateCards: 1, zoneZips: 120,
+    extraCharges: 0, partners: 0, roles: 2, depots: 1, tenantClientFile: true,
+  },
+  seedLooksDone: false,
 })
 export const getTenantLogo = () => wait({ success: false, logoUrl: null })
 export const getTenantAppearance = () => wait<unknown>(null)

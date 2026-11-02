@@ -243,6 +243,7 @@ try
     builder.Services
         .AddScoped<SetupDashboard.Services.Steps.IStepPusher, SetupDashboard.Services.Steps.PartnersPusher>();
     builder.Services.AddScoped<SetupDashboard.Services.Steps.StepPushRunner>();
+    builder.Services.AddScoped<SetupDashboard.Services.ITenantAdminCheck, SetupDashboard.Services.TenantAdminCheck>();
 
     // AWS S3 for tenant logo (same pattern as Hub)
     builder.Services.AddMemoryCache();

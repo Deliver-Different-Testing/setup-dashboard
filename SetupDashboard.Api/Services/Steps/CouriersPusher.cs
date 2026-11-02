@@ -40,7 +40,7 @@ public sealed class CouriersPusher(ITenantAppClient apps) : IStepPusher
                 continue;
             }
 
-            if (ledger.IsUnknown(FleetKind, key))
+            if (ledger.IsHeld(FleetKind, key))
             {
                 continue;
             }
@@ -63,7 +63,7 @@ public sealed class CouriersPusher(ITenantAppClient apps) : IStepPusher
         foreach (var c in session.Couriers.Couriers)
         {
             var key = c.Email?.Trim() ?? string.Empty;
-            if (ledger.AlreadyCreated(CourierKind, key, out _) || ledger.IsUnknown(CourierKind, key)) { c.InitialPassword = null; continue; }
+            if (ledger.AlreadyCreated(CourierKind, key, out _) || ledger.IsHeld(CourierKind, key)) { c.InitialPassword = null; continue; }
             var row = ledger.Row(CourierKind, key.Length > 0 ? key : $"{c.FirstName} {c.SurName}".Trim() is { Length: > 0 } n ? n : "(unnamed courier)");
 
             var needs = Validate(c);

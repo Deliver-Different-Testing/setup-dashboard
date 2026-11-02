@@ -15,14 +15,14 @@ const TYPES = [{ value: 2, label: 'Master' }, { value: 1, label: 'Independent' }
 
 export function CouriersStep() {
   const reload = useStore(s => s.reload)
-  const { draft, setDraft, dirty, markSaved } = useDraft<Couriers>(s => s.couriers)
+  const { draft, setDraft, dirty, markSaved, discard } = useDraft<Couriers>(s => s.couriers)
   const depots = useLookup('depots')
   const [importing, setImporting] = useState(false)
   const set = (p: Partial<Couriers>) => setDraft(d => ({ ...d, ...p }))
   const patchCourier = (i: number, p: Partial<CourierRow>) => set({ couriers: patchAt(draft.couriers, i, p) })
 
   return (
-    <StepFrame step="couriers" title="Couriers and fleets" sendsTo="Settings" draft={draft} dirty={dirty} onSaved={markSaved}
+    <StepFrame step="couriers" title="Couriers and fleets" sendsTo="Settings" draft={draft} dirty={dirty} onDiscard={discard} onSaved={markSaved}
       intro={<>
         Vehicle fleets and couriers are created in Settings &gt; Driver List. Each courier gets a driver-app login with the initial password
         you enter here, which Settings requires. This dashboard sends the password once, then discards it and never shows it again.
