@@ -17,6 +17,7 @@ public sealed class CspTokenProvider(
     TimeProvider timeProvider) : IServiceTokenProvider
 {
     public const string HttpClientName = "csp-knowledge";
+    internal const int MaxAddresses = 8;
 
     private static readonly TimeSpan RefreshMargin = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan HalfLifeThreshold = TimeSpan.FromMinutes(10);
@@ -32,7 +33,18 @@ public sealed class CspTokenProvider(
     public async Task<string?> GetTokenAsync(string baseUrl, CancellationToken ct)
     {
         var key = baseUrl.TrimEnd('/');
-        var slot = _slots.GetOrAdd(key, _ => new Slot());
+        if (!_slots.TryGetValue(key, out var slot))
+        {
+            // A pod talks to one CSP; a bound keeps an unexpected stream of addresses from growing this forever.
+            if (_slots.Count >= MaxAddresses)
+            {
+                Warn($"More than {MaxAddresses} CSP addresses asked for; refusing a new one");
+                return null;
+            }
+
+            slot = _slots.GetOrAdd(key, _ => new Slot());
+        }
+
         if (TryGetCached(slot, out var cached))
         {
             return cached;

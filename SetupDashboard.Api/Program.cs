@@ -222,13 +222,43 @@ try
 
     // ── Auto-Mate: Claude answers from the CSP Knowledge Base ──
     // CSP is called as this app (its pod's service-account token exchanged for a CSP token), not as the person.
-    // CSP's address is the caller's tenant's, from TenantAppUrls. No redirects, no cookie jar.
+    // CSP's address is CspKnowledge:BaseUrl, else this pod's own tenant's (never the request's Host).
+    // No redirects, no cookie jar.
     var serviceAuth = builder.Configuration.GetSection(SetupDashboard.Services.Knowledge.ServiceAuthOptions.SectionName)
         .Get<SetupDashboard.Services.Knowledge.ServiceAuthOptions>() ?? new();
     builder.Services.AddSingleton(serviceAuth);
     builder.Services.AddSingleton(
-        builder.Configuration.GetSection(SetupDashboard.Services.Ai.AutoMateOptions.SectionName)
-            .Get<SetupDashboard.Services.Ai.AutoMateOptions>() ?? new());
+        builder.Configuration.GetSection(SetupDashboard.Services.Knowledge.CspKnowledgeOptions.SectionName)
+            .Get<SetupDashboard.Services.Knowledge.CspKnowledgeOptions>() ?? new());
+    var autoMateOptions = builder.Configuration.GetSection(SetupDashboard.Services.Ai.AutoMateOptions.SectionName)
+        .Get<SetupDashboard.Services.Ai.AutoMateOptions>() ?? new();
+    builder.Services.AddSingleton(autoMateOptions);
+
+    // Every question costs model tokens, so each signed-in person gets their own bucket (OWASP LLM10).
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.OnRejected = (context, _) =>
+        {
+            if (context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out var retryAfter))
+            {
+                context.HttpContext.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
+            }
+
+            return ValueTask.CompletedTask;
+        };
+        options.AddPolicy(SetupDashboard.Controllers.AutoMateController.RateLimitPolicy, http =>
+            System.Threading.RateLimiting.RateLimitPartition.GetTokenBucketLimiter(
+                SetupDashboard.Controllers.AutoMateController.RateLimitKey(http.User),
+                _ => new System.Threading.RateLimiting.TokenBucketRateLimiterOptions
+                {
+                    TokenLimit = autoMateOptions.RateLimitBurst,
+                    TokensPerPeriod = autoMateOptions.RateLimitPerMinute,
+                    ReplenishmentPeriod = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                }));
+    });
     builder.Services.AddSingleton(TimeProvider.System);
     builder.Services.AddHttpClient(SetupDashboard.Services.Knowledge.CspTokenProvider.HttpClientName)
         .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
@@ -329,6 +359,9 @@ try
     // gone. Run locally behind a local Hub so a real shared cookie is present.)
 
     app.UseAuthorization();
+
+    // After authentication, so rate-limit partitions are per person.
+    app.UseRateLimiter();
 
     app.UseStaticFiles();
 

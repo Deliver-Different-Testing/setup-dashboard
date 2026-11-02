@@ -3,15 +3,25 @@ namespace SetupDashboard.Services.Ai;
 /// <summary>A knowledge-base article the answer drew on, shown under it as a badge.</summary>
 public sealed record KbSource(Guid ArticleId, string Title, bool IsFaq);
 
-/// <summary>The articles one question's tools turned up, so the answer's sources can be told from them.</summary>
+/// <summary>
+/// The articles one question's tools turned up, so the answer's sources can be told from them, and every article
+/// offered to the model this turn: <c>get_article</c> reads only those, so access is decided by the (layer-filtered)
+/// search, never by an id the model was talked into asking for.
+/// </summary>
 public sealed class KbTurnSources
 {
     private readonly List<KbSource> _seen = [];
+    private readonly HashSet<Guid> _offered = [];
 
     public IReadOnlyList<KbSource> Seen => _seen;
 
+    public void Offer(Guid articleId) => _offered.Add(articleId);
+
+    public bool WasOffered(Guid articleId) => _offered.Contains(articleId);
+
     public void Add(Guid articleId, string title, bool isFaq)
     {
+        _offered.Add(articleId);
         if (_seen.TrueForAll(s => s.ArticleId != articleId))
         {
             _seen.Add(new KbSource(articleId, title, isFaq));

@@ -83,6 +83,20 @@ public sealed class CspTokenProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task Past_the_address_bound_a_new_address_gets_no_token_and_no_request()
+    {
+        var (provider, handler) = Build(_ => Make.Json(HttpStatusCode.OK, TokenJson()));
+        for (var i = 0; i < CspTokenProvider.MaxAddresses; i++)
+        {
+            Assert.NotNull(await provider.GetTokenAsync($"https://dfrntcrm.t{i}.deliverdifferent.com", CancellationToken.None));
+        }
+
+        Assert.Null(await provider.GetTokenAsync("https://dfrntcrm.extra.deliverdifferent.com", CancellationToken.None));
+        Assert.Equal(CspTokenProvider.MaxAddresses, handler.Requests.Count);
+        Assert.NotNull(await provider.GetTokenAsync("https://dfrntcrm.t0.deliverdifferent.com", CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Each_csp_address_has_its_own_token_and_invalidate_forces_a_refetch()
     {
         var (provider, handler) = Build(_ => Make.Json(HttpStatusCode.OK, TokenJson()));

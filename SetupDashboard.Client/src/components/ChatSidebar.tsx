@@ -8,6 +8,7 @@ import { CHAT_MESSAGES } from '../data/chatMessages'
 import classes from './ChatSidebar.module.css'
 
 const OPEN_KEY = 'setup-dashboard.chat-open'
+const MAX_HISTORY_TURNS = 12
 const readOpen = () => { try { const v = localStorage.getItem(OPEN_KEY); return v === null ? null : v === '1' } catch { return null } }
 
 export function ChatSidebar() {
@@ -50,13 +51,15 @@ export function ChatSidebar() {
   }, [chatHistory, open])
 
   // Questions are answered from the CSP Knowledge Base, streamed in as they're written. The backend keeps no
-  // conversation, so the thread so far (minus failed answers) goes with each question.
+  // conversation, so the thread so far (minus failed answers) goes with each question - the last dozen turns,
+  // as many as the server keeps.
   const sendChat = async () => {
     const text = input.trim()
     if (!text || asking) return
     const history: api.AutoMateTurn[] = chatHistory
       .filter(m => m.text && !m.error)
-      .map(m => ({ role: m.from === 'user' ? 'user' : 'assistant', content: m.text }))
+      .map((m): api.AutoMateTurn => ({ role: m.from === 'user' ? 'user' : 'assistant', content: m.text }))
+      .slice(-MAX_HISTORY_TURNS)
     const step = STEPS[currentStep]
     addChatMessage({ from: 'user', text })
     setInput('')

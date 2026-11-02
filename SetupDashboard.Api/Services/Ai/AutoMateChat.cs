@@ -26,6 +26,10 @@ public sealed class AutoMateOptions
     public int MaxPageContextChars { get; set; } = 200;
     public int GroundingTimeoutMs { get; set; } = 2000;
     public int KbToolTimeoutMs { get; set; } = 5000;
+
+    /// <summary>Questions one person can ask back to back, then <see cref="RateLimitPerMinute"/> more each minute.</summary>
+    public int RateLimitBurst { get; set; } = 5;
+    public int RateLimitPerMinute { get; set; } = 10;
 }
 
 public sealed record ChatTurn(string? Role, string? Content);
@@ -108,6 +112,10 @@ public sealed class AutoMateChat(
         {
             yield return new ChatEvent(Status: "Searching the knowledge base…");
             hits = await GroundAsync(message, ct);
+            foreach (var hit in hits)
+            {
+                kbSources.Offer(hit.ArticleId);
+            }
         }
 
         var preamble = new StringBuilder();

@@ -7,16 +7,17 @@ using SetupDashboard.Services.TenantApps;
 namespace SetupDashboard.Services.Knowledge;
 
 /// <summary>
-/// Reads the CSP Knowledge Base as this app (service token, not the person's cookie). CSP's address is the
-/// caller's tenant's, from <see cref="ITenantAppUrls"/>, so the client is per request. The token only ever goes
-/// over https; http is accepted in Development alone.
+/// Reads the CSP Knowledge Base as this app (service token, not the person's cookie). CSP's address comes from
+/// <see cref="CspKnowledgeOptions.BaseUrl"/> or this pod's own tenant domain, never from the request, so the
+/// token can't be steered by a forged Host header. The token only ever goes over https; http is accepted in
+/// Development alone. Hits outside <see cref="CspKnowledgeOptions.AllowedLayers"/> are dropped.
 /// </summary>
 public sealed class CspKnowledgeClient(
     IHttpClientFactory httpClientFactory,
     IServiceTokenProvider tokenProvider,
     CspKnowledgeCircuit circuit,
     ITenantAppUrls urls,
-    IHttpContextAccessor httpContextAccessor,
+    CspKnowledgeOptions options,
     IHostEnvironment environment) : ICspKnowledgeClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
@@ -36,7 +37,15 @@ public sealed class CspKnowledgeClient(
         }
 
         var call = await GetAsync<List<CspKbHit>>(baseUrl, $"api/v1/knowledge/search?q={Uri.EscapeDataString(query)}&limit={limit}", timeout, ct);
-        return call.Outcome == Outcome.Ok ? new CspKbSearchResult(CspKbStatus.Ok, call.Body ?? []) : CspKbSearchResult.Unavailable;
+        if (call.Outcome != Outcome.Ok)
+        {
+            return CspKbSearchResult.Unavailable;
+        }
+
+        var allowed = (call.Body ?? [])
+            .Where(h => h.Layer is { } layer && options.AllowedLayers.Contains(layer, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        return new CspKbSearchResult(CspKbStatus.Ok, allowed);
     }
 
     public async Task<CspKbArticleResult> GetArticleAsync(Guid id, TimeSpan timeout, CancellationToken ct)
@@ -57,9 +66,7 @@ public sealed class CspKnowledgeClient(
 
     private string? BaseUrl()
     {
-        var user = httpContextAccessor.HttpContext?.User;
-        var caller = user is null ? null : CallerContext.From(user);
-        var baseUrl = caller is null ? null : urls.BaseUrlForHost("csp", caller);
+        var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? urls.BaseUrlForPodDomain("csp") : options.BaseUrl.Trim();
         if (baseUrl is null || !Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri))
         {
             return null;

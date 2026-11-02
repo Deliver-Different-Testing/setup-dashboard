@@ -100,7 +100,7 @@ public sealed class GetArticleTool(ICspKnowledgeClient client, KbTurnSources sou
     private static readonly BetaTool Tool = new()
     {
         Name = "get_article",
-        Description = "Read one knowledge base article in full, including its FAQs. Use it when the lead of an article in the knowledge-base block or in search results does not give the steps.",
+        Description = "Read one knowledge base article in full, including its FAQs. Use it when the lead of an article in the knowledge-base block or in search results does not give the steps. Only articles listed in the knowledge-base block or in this question's search results can be read.",
         InputSchema = new InputSchema
         {
             Properties = new Dictionary<string, JsonElement>
@@ -119,6 +119,11 @@ public sealed class GetArticleTool(ICspKnowledgeClient client, KbTurnSources sou
         if (error is not null || !Guid.TryParse(raw, out var id))
         {
             return ToolOutput.Error(error ?? "'article_id' is required and must be the GUID shown in square brackets.");
+        }
+
+        if (!sources.WasOffered(id))
+        {
+            return ToolOutput.Error("Only articles listed in the knowledge-base block or search results can be read - search first.");
         }
 
         var result = await client.GetArticleAsync(id, TimeSpan.FromMilliseconds(options.KbToolTimeoutMs), ct);

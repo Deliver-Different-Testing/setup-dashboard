@@ -1,9 +1,11 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using DeliverDifferent.AccessControl.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
 using SetupDashboard.Services.Ai;
 
@@ -21,7 +23,12 @@ namespace SetupDashboard.Controllers;
 [Route("api/setup/automate")]
 public class AutoMateController(IAutoMateChat chat) : ControllerBase
 {
+    public const string RateLimitPolicy = "automate";
+
     private const int MaxMessageChars = 4000;
+
+    /// <summary>Room for the question plus the last dozen turns; anything bigger is refused before it is read.</summary>
+    private const int MaxRequestBytes = 256 * 1024;
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
@@ -30,7 +37,17 @@ public class AutoMateController(IAutoMateChat chat) : ControllerBase
 
     public sealed record AskRequest(string? Message, List<ChatTurn>? History, string? PageContext);
 
+    /// <summary>One rate-limit bucket per person: tenant and contact from the Hub cookie, else the signed-in name.</summary>
+    public static string RateLimitKey(ClaimsPrincipal user)
+    {
+        var tenant = user.FindFirst("CurrentTenantID")?.Value;
+        var contact = user.FindFirst("ContactID")?.Value;
+        return tenant is not null && contact is not null ? $"{tenant}:{contact}" : $"name:{user.Identity?.Name}";
+    }
+
     [HttpPost("messages")]
+    [EnableRateLimiting(RateLimitPolicy)]
+    [RequestSizeLimit(MaxRequestBytes)]
     public async Task Ask([FromBody] AskRequest req, CancellationToken ct)
     {
         Response.ContentType = "text/event-stream";

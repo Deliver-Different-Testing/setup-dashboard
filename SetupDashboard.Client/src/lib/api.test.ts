@@ -133,6 +133,13 @@ describe('Auto-Mate stream', () => {
     expect(events).toEqual([{ status: 'Searching' }, { delta: 'Zones group zips.' }, { done: true }])
   })
 
+  it('being rate limited is one friendly error frame', async () => {
+    stubStream([], { status: 429, contentType: 'text/plain' })
+    const events: api.AutoMateEvent[] = []
+    await api.askAutoMate('Hi', [], null, e => events.push(e))
+    expect(events).toEqual([{ error: expect.stringContaining('wait a minute'), done: true }])
+  })
+
   it('a stream that stops without its last frame ends with an error', async () => {
     stubStream(['data: {"delta":"Half"}\n\n'])
     const events: api.AutoMateEvent[] = []

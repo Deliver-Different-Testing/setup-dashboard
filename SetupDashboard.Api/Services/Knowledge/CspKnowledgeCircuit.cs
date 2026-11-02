@@ -12,6 +12,7 @@ namespace SetupDashboard.Services.Knowledge;
 public sealed class CspKnowledgeCircuit(TimeProvider? timeProvider = null)
 {
     internal const int TransientFailureThreshold = 3;
+    internal const int MaxAddresses = 8;
     internal static readonly TimeSpan TransientBreak = TimeSpan.FromSeconds(30);
     internal static readonly TimeSpan PermanentBreak = TimeSpan.FromMinutes(5);
 
@@ -20,7 +21,12 @@ public sealed class CspKnowledgeCircuit(TimeProvider? timeProvider = null)
 
     public bool IsOpen(string baseUrl)
     {
-        var breaker = Of(baseUrl);
+        // Past the bound a new address is treated as broken rather than given a breaker of its own.
+        if (Of(baseUrl) is not { } breaker)
+        {
+            return true;
+        }
+
         lock (breaker)
         {
             return _time.GetUtcNow() < breaker.OpenUntil;
@@ -29,7 +35,11 @@ public sealed class CspKnowledgeCircuit(TimeProvider? timeProvider = null)
 
     public void RecordSuccess(string baseUrl)
     {
-        var breaker = Of(baseUrl);
+        if (Of(baseUrl) is not { } breaker)
+        {
+            return;
+        }
+
         lock (breaker)
         {
             breaker.ConsecutiveFailures = 0;
@@ -39,7 +49,11 @@ public sealed class CspKnowledgeCircuit(TimeProvider? timeProvider = null)
 
     public void RecordFailure(string baseUrl, string reason, bool permanent)
     {
-        var breaker = Of(baseUrl);
+        if (Of(baseUrl) is not { } breaker)
+        {
+            return;
+        }
+
         TimeSpan? opened = null;
         lock (breaker)
         {
@@ -61,7 +75,17 @@ public sealed class CspKnowledgeCircuit(TimeProvider? timeProvider = null)
         }
     }
 
-    private Breaker Of(string baseUrl) => _breakers.GetOrAdd(baseUrl.TrimEnd('/'), _ => new Breaker());
+    /// <summary>The address's breaker, or null for a new address once <see cref="MaxAddresses"/> exist (a pod talks to one CSP).</summary>
+    private Breaker? Of(string baseUrl)
+    {
+        var key = baseUrl.TrimEnd('/');
+        if (_breakers.TryGetValue(key, out var breaker))
+        {
+            return breaker;
+        }
+
+        return _breakers.Count >= MaxAddresses ? null : _breakers.GetOrAdd(key, _ => new Breaker());
+    }
 
     private sealed class Breaker
     {

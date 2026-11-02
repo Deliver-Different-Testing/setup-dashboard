@@ -214,6 +214,7 @@ export async function askAutoMate(message: string, history: AutoMateTurn[], page
   }
   const html = res.headers?.get('content-type')?.includes('text/html')
   if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400) || html) return fail(SIGN_IN_EXPIRED)
+  if (res.status === 429) return fail("You're sending questions quickly - wait a minute and try again.")
   if (!res.ok || !res.body) return fail(`Auto-Mate couldn't answer (${res.status}). Try again in a moment.`)
 
   const reader = res.body.getReader()

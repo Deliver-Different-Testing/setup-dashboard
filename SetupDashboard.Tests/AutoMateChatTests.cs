@@ -187,6 +187,21 @@ public class AutoMateChatTests
     }
 
     [Fact]
+    public async Task Grounding_hits_can_be_read_with_get_article()
+    {
+        var zones = FakeKnowledge.Hit("Zones and rates");
+        _knowledge.Search = new CspKbSearchResult(CspKbStatus.Ok, [zones]);
+        _knowledge.Article = g => new CspKbArticleResult(CspKbStatus.Ok, new CspKbArticle(g, "Zones and rates", "Every zone step.", []));
+        _replies.Enqueue(ToolReply("get_article", $"{{\"article_id\":\"{zones.ArticleId}\"}}"));
+        _replies.Enqueue(TextReply("Done. Zones and rates"));
+
+        await Collect(Build(new GetArticleTool(_knowledge, _sources, new AutoMateOptions()))
+            .AskAsync(new ChatRequest("zones?", null, null), CancellationToken.None));
+
+        Assert.Contains("Every zone step.", _sent[1]["messages"]!.ToJsonString());
+    }
+
+    [Fact]
     public async Task History_is_capped_trimmed_to_start_on_a_user_turn_and_long_turns_are_cut()
     {
         _replies.Enqueue(TextReply("ok"));
@@ -303,14 +318,49 @@ public class KnowledgeBaseToolsTests
                 : new CspKbArticleResult(CspKbStatus.NotFound, null)
         };
         var tool = new GetArticleTool(knowledge, sources, new AutoMateOptions());
+        var gone = Guid.NewGuid();
+        sources.Offer(id);
+        sources.Offer(gone);
 
         var found = await tool.ExecuteAsync(Args($"{{\"article_id\":\"{id}\"}}"), CancellationToken.None);
         Assert.Contains("Full body.", found);
         Assert.Contains("Q: Why?\nA: Because.", found);
         Assert.Equal("Team roles", Assert.Single(sources.Seen).Title);
 
-        Assert.Contains("No knowledge base article", await tool.ExecuteAsync(Args($"{{\"article_id\":\"{Guid.NewGuid()}\"}}"), CancellationToken.None));
+        Assert.Contains("No knowledge base article", await tool.ExecuteAsync(Args($"{{\"article_id\":\"{gone}\"}}"), CancellationToken.None));
         Assert.True(ToolOutput.IsError(await tool.ExecuteAsync(Args("{\"article_id\":\"nope\"}"), CancellationToken.None)));
+    }
+
+    [Fact]
+    public async Task Get_article_refuses_an_id_not_offered_this_turn_without_asking_csp()
+    {
+        var asked = false;
+        var knowledge = new FakeKnowledge { Article = _ => { asked = true; return CspKbArticleResult.Unavailable; } };
+        var tool = new GetArticleTool(knowledge, new KbTurnSources(), new AutoMateOptions());
+
+        var result = await tool.ExecuteAsync(Args($"{{\"article_id\":\"{Guid.NewGuid()}\"}}"), CancellationToken.None);
+
+        Assert.True(ToolOutput.IsError(result));
+        Assert.Contains("search first", result);
+        Assert.False(asked);
+    }
+
+    [Fact]
+    public async Task Search_results_can_then_be_read()
+    {
+        var hit = FakeKnowledge.Hit("Zones");
+        var sources = new KbTurnSources();
+        var knowledge = new FakeKnowledge
+        {
+            Search = new CspKbSearchResult(CspKbStatus.Ok, [hit]),
+            Article = g => new CspKbArticleResult(CspKbStatus.Ok, new CspKbArticle(g, "Zones", "Zone body.", []))
+        };
+        await new SearchKnowledgeBaseTool(knowledge, sources, new AutoMateOptions()).ExecuteAsync(Args("{\"query\":\"zones\"}"), CancellationToken.None);
+
+        var read = await new GetArticleTool(knowledge, sources, new AutoMateOptions())
+            .ExecuteAsync(Args($"{{\"article_id\":\"{hit.ArticleId}\"}}"), CancellationToken.None);
+
+        Assert.Contains("Zone body.", read);
     }
 
     [Fact]
@@ -318,5 +368,15 @@ public class KnowledgeBaseToolsTests
     {
         Assert.Equal(6001, KbText.Article(new string('a', 7000)).Length);
         Assert.Equal("a  b", KbText.Clean("a<>b"));
+    }
+}
+
+public class AutoMateRateLimitTests
+{
+    [Fact]
+    public void Each_person_has_their_own_bucket()
+    {
+        Assert.Equal("7:42", SetupDashboard.Controllers.AutoMateController.RateLimitKey(Make.User()));
+        Assert.Equal("8:42", SetupDashboard.Controllers.AutoMateController.RateLimitKey(Make.User(tenantId: 8)));
     }
 }
