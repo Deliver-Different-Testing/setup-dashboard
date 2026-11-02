@@ -51,15 +51,12 @@ interface State {
   openElsewhere: (step: StepKey, initial?: Partial<Elsewhere>) => void
   closeElsewhere: () => void
 
-  // Auto-Mate sidebar: scripted step intros; typed questions are answered by CSP
+  // Auto-Mate sidebar: scripted step intros; typed questions are answered from the CSP Knowledge Base
   chatHistory: ChatMessage[]
   shownChatSteps: Set<number>
-  /** CSP's chat session, so follow-up questions keep their context. */
-  autoMateSessionId: string | null
   addChatMessage: (m: ChatMessage) => void
   /** By index: a step intro can land after the answer that is still streaming. */
   patchChatMessage: (index: number, patch: (m: ChatMessage) => ChatMessage) => void
-  setAutoMateSessionId: (id: string) => void
   markChatStepShown: (i: number) => void
 
   init: () => Promise<void>
@@ -145,10 +142,8 @@ export const useStore = create<State>((set, get) => {
 
     chatHistory: [],
     shownChatSteps: new Set(),
-    autoMateSessionId: null,
     addChatMessage: m => set(s => ({ chatHistory: [...s.chatHistory, m] })),
     patchChatMessage: (index, patch) => set(s => ({ chatHistory: s.chatHistory.map((m, i) => i === index ? patch(m) : m) })),
-    setAutoMateSessionId: id => set({ autoMateSessionId: id }),
     markChatStepShown: i => set(s => ({ shownChatSteps: new Set(s.shownChatSteps).add(i) })),
 
     init: async () => {

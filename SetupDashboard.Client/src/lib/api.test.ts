@@ -122,32 +122,40 @@ describe('Auto-Mate stream', () => {
   })
 
   it('asks this app, not CSP, and hands over each frame as it arrives, even when split across chunks', async () => {
-    const fetch = stubStream(['data: {"sessionId":"s1","status":"Searching"}\n\ndata: {"delta":"Zones ', 'group zips."}\n\n', 'data: {"done":true}\n\n'])
+    const fetch = stubStream(['data: {"status":"Searching"}\n\ndata: {"delta":"Zones ', 'group zips."}\n\n', 'data: {"done":true}\n\n'])
     const events: api.AutoMateEvent[] = []
-    await api.askAutoMate('What is a zone?', 's0', e => events.push(e))
+    const history: api.AutoMateTurn[] = [{ role: 'assistant', content: 'Welcome' }, { role: 'user', content: 'Hi' }]
+    await api.askAutoMate('What is a zone?', history, 'Setup step: Rates and zones', e => events.push(e))
     const [url, init] = fetch.mock.calls[0]
     expect(url).toBe('/api/setup/automate/messages')
     expect(init.credentials).toBe('include')
-    expect(JSON.parse(init.body)).toEqual({ message: 'What is a zone?', sessionId: 's0' })
-    expect(events).toEqual([{ sessionId: 's1', status: 'Searching' }, { delta: 'Zones group zips.' }, { done: true }])
+    expect(JSON.parse(init.body)).toEqual({ message: 'What is a zone?', history, pageContext: 'Setup step: Rates and zones' })
+    expect(events).toEqual([{ status: 'Searching' }, { delta: 'Zones group zips.' }, { done: true }])
+  })
+
+  it('being rate limited is one friendly error frame', async () => {
+    stubStream([], { status: 429, contentType: 'text/plain' })
+    const events: api.AutoMateEvent[] = []
+    await api.askAutoMate('Hi', [], null, e => events.push(e))
+    expect(events).toEqual([{ error: expect.stringContaining('wait a minute'), done: true }])
   })
 
   it('a stream that stops without its last frame ends with an error', async () => {
     stubStream(['data: {"delta":"Half"}\n\n'])
     const events: api.AutoMateEvent[] = []
-    await api.askAutoMate('Hi', null, e => events.push(e))
+    await api.askAutoMate('Hi', [], null, e => events.push(e))
     expect(events.at(-1)).toMatchObject({ done: true, error: expect.stringContaining('cut off') })
   })
 
   it('an expired sign-in or a failed request is one error frame, never a throw', async () => {
     stubStream([], { contentType: 'text/html' })
     const events: api.AutoMateEvent[] = []
-    await api.askAutoMate('Hi', null, e => events.push(e))
+    await api.askAutoMate('Hi', [], null, e => events.push(e))
     expect(events).toEqual([{ error: expect.stringContaining('sign-in has expired'), done: true }])
 
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')))
     const more: api.AutoMateEvent[] = []
-    await api.askAutoMate('Hi', null, e => more.push(e))
+    await api.askAutoMate('Hi', [], null, e => more.push(e))
     expect(more).toEqual([{ error: expect.stringContaining("couldn't reach"), done: true }])
   })
 })

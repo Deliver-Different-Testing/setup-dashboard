@@ -2,18 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 import { ActionIcon, Avatar, Box, Flex, Group, Indicator, Stack, Text as MText, TextInput, Tooltip } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { PanelLeftClose, SendHorizontal } from 'lucide-react'
-import { useStore } from '../store'
+import { STEPS, useStore } from '../store'
 import * as api from '../lib/api'
 import { CHAT_MESSAGES } from '../data/chatMessages'
 import classes from './ChatSidebar.module.css'
 
 const OPEN_KEY = 'setup-dashboard.chat-open'
+const MAX_HISTORY_TURNS = 12
 const readOpen = () => { try { const v = localStorage.getItem(OPEN_KEY); return v === null ? null : v === '1' } catch { return null } }
 
 export function ChatSidebar() {
   const {
     currentStep, chatHistory, addChatMessage, patchChatMessage, shownChatSteps, markChatStepShown,
-    autoMateSessionId, setAutoMateSessionId,
   } = useStore()
   const [input, setInput] = useState('')
   const [asking, setAsking] = useState(false)
@@ -50,17 +50,23 @@ export function ChatSidebar() {
     }
   }, [chatHistory, open])
 
-  // Questions are answered from the Knowledge Base by the Customer Success Platform, streamed in as they're written.
+  // Questions are answered from the CSP Knowledge Base, streamed in as they're written. The backend keeps no
+  // conversation, so the thread so far (minus failed answers) goes with each question - the last dozen turns,
+  // as many as the server keeps.
   const sendChat = async () => {
     const text = input.trim()
     if (!text || asking) return
+    const history: api.AutoMateTurn[] = chatHistory
+      .filter(m => m.text && !m.error)
+      .map((m): api.AutoMateTurn => ({ role: m.from === 'user' ? 'user' : 'assistant', content: m.text }))
+      .slice(-MAX_HISTORY_TURNS)
+    const step = STEPS[currentStep]
     addChatMessage({ from: 'user', text })
     setInput('')
     setAsking(true)
     addChatMessage({ from: 'bot', text: '', status: 'Thinking…' })
     const index = useStore.getState().chatHistory.length - 1
-    await api.askAutoMate(text, autoMateSessionId, e => {
-      if (e.sessionId) setAutoMateSessionId(e.sessionId)
+    await api.askAutoMate(text, history, step ? `Setup step: ${step.title}` : null, e => {
       if (e.status) patchChatMessage(index, m => ({ ...m, status: e.status }))
       if (e.delta) patchChatMessage(index, m => ({ ...m, text: m.text + e.delta, status: undefined }))
       if (e.error) patchChatMessage(index, m => ({ ...m, text: m.text ? `${m.text}\n\n${e.error}` : e.error!, status: undefined, error: true }))
