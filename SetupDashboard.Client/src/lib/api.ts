@@ -177,11 +177,13 @@ export const completeChallenge = (id: string, userEmail: string, challengeId: st
   request(`/setup/session/${id}/training/complete-challenge`, { method: 'POST', body: json({ userEmail, challengeId, xpEarned }) })
 
 // ── Auto-Mate ────────────────────────────────────────────────────────────────
-// Answers come from the Customer Success Platform's Knowledge Base, through this app's backend
-// (which forwards the Hub cookie). The answer streams as Server-Sent Events: `data: {json}` frames.
+// Answers come from Claude, grounded in the Customer Success Platform's Knowledge Base, through this app's
+// backend. Nothing is kept server-side, so each question carries the conversation so far. The answer streams
+// as Server-Sent Events: `data: {json}` frames.
 
 export interface AutoMateSource { articleId: string; title: string; isFaq: boolean }
-export interface AutoMateEvent { sessionId?: string; delta?: string; status?: string; error?: string; done?: boolean; sources?: AutoMateSource[] }
+export interface AutoMateTurn { role: 'user' | 'assistant'; content: string }
+export interface AutoMateEvent { delta?: string; status?: string; error?: string; done?: boolean; sources?: AutoMateSource[] }
 
 /** Complete frames out of buffered stream text; `rest` is the partial frame still arriving. */
 export function parseSseFrames(buffer: string): { events: AutoMateEvent[]; rest: string } {
@@ -197,14 +199,14 @@ export function parseSseFrames(buffer: string): { events: AutoMateEvent[]; rest:
 }
 
 /** Never throws: every failure arrives as a final `{ error, done: true }` event. */
-export async function askAutoMate(message: string, sessionId: string | null, onEvent: (e: AutoMateEvent) => void, signal?: AbortSignal) {
+export async function askAutoMate(message: string, history: AutoMateTurn[], pageContext: string | null, onEvent: (e: AutoMateEvent) => void, signal?: AbortSignal) {
   const fail = (error: string) => onEvent({ error, done: true })
   let res: Response
   try {
     res = await fetch(`${BASE_URL}/setup/automate/messages`, {
       method: 'POST', credentials: 'include', redirect: 'manual', signal,
       headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-      body: json({ message, sessionId }),
+      body: json({ message, history, pageContext }),
     })
   } catch {
     if (!signal?.aborted) fail("Auto-Mate couldn't reach the server. Check your connection and try again.")
@@ -212,6 +214,7 @@ export async function askAutoMate(message: string, sessionId: string | null, onE
   }
   const html = res.headers?.get('content-type')?.includes('text/html')
   if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400) || html) return fail(SIGN_IN_EXPIRED)
+  if (res.status === 429) return fail("You're sending questions quickly - wait a minute and try again.")
   if (!res.ok || !res.body) return fail(`Auto-Mate couldn't answer (${res.status}). Try again in a moment.`)
 
   const reader = res.body.getReader()

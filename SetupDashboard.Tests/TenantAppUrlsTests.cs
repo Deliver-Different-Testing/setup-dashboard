@@ -97,4 +97,22 @@ public class TenantAppUrlsTests
     public void Another_tenants_host_is_refused_when_the_pod_has_a_tenant_domain()
         => Assert.Null(Urls("setupdashboard.medical.staging.deliverdifferent.com", new Dictionary<string, string?> { ["Domain"] = ".cheetah.staging.deliverdifferent.com" })
             .BaseUrl(TenantApp.Settings, Make.Caller()));
+
+    [Theory]
+    [InlineData(".cheetah.staging.deliverdifferent.com")]
+    [InlineData("cheetah.staging.deliverdifferent.com")]
+    public void The_pod_domain_address_ignores_the_request_host(string domain)
+        => Assert.Equal("https://dfrntcrm.cheetah.staging.deliverdifferent.com",
+            Urls("setupdashboard.evil.cheetah.staging.deliverdifferent.com", new Dictionary<string, string?> { ["Domain"] = domain })
+                .BaseUrlForPodDomain("Csp"));
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("localhost")]
+    [InlineData(".deliverdifferent.com")]
+    [InlineData(".example.com")]
+    [InlineData(".local.deliverdifferent.com")]
+    public void No_pod_domain_address_unless_the_pod_is_one_tenants(string domain)
+        => Assert.Null(Urls("setupdashboard.cheetah.staging.deliverdifferent.com", new Dictionary<string, string?> { ["Domain"] = domain })
+            .BaseUrlForPodDomain("Csp"));
 }

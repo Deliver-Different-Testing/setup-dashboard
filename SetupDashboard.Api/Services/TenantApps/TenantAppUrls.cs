@@ -7,6 +7,12 @@ public interface ITenantAppUrls
 
     /// <summary>Same rules for any app on the <c>TenantApps:Hosts</c> list (AdminManager, Hub, Csp...), by name.</summary>
     string? BaseUrlForHost(string app, CallerContext caller);
+
+    /// <summary>
+    /// An app on this pod's own tenant, from the pod's cookie <c>Domain</c> alone: never from the request, so it is
+    /// safe for calls that carry this app's own credentials. Null when the pod's Domain isn't one tenant's.
+    /// </summary>
+    string? BaseUrlForPodDomain(string app);
 }
 
 /// <summary>
@@ -27,11 +33,15 @@ public sealed class TenantAppUrls(IConfiguration configuration, IHttpContextAcce
 
     public string? BaseUrl(TenantApp app, CallerContext caller) => BaseUrlForHost(app.ToString(), caller);
 
-    public string? BaseUrlForHost(string app, CallerContext caller)
+    public string? BaseUrlForHost(string app, CallerContext caller) => Build(app, TenantDomain());
+
+    public string? BaseUrlForPodDomain(string app) => Build(app, PodDomain());
+
+    private string? Build(string app, string? domain)
     {
         var entry = configuration.GetSection("TenantApps:Hosts").GetChildren()
             .FirstOrDefault(e => e.Key.Equals(app, StringComparison.OrdinalIgnoreCase));
-        if (string.IsNullOrWhiteSpace(entry?.Value) || TenantDomain() is not { } domain)
+        if (string.IsNullOrWhiteSpace(entry?.Value) || domain is null)
         {
             return null;
         }
@@ -73,15 +83,32 @@ public sealed class TenantAppUrls(IConfiguration configuration, IHttpContextAcce
 
         var domain = string.Join('.', labels.Skip(1));
         // A pod is one tenant: its cookie Domain (e.g. .cheetah.staging.deliverdifferent.com) keeps calls on that tenant.
-        var cookieDomain = Clean(configuration["Domain"] ?? Environment.GetEnvironmentVariable("Domain") ?? string.Empty);
+        var cookieDomain = CookieDomain();
         if (cookieDomain.Length > 0 && cookieDomain != "localhost" && domain != cookieDomain && !Under(domain, cookieDomain))
         {
             return null;
         }
 
-        // A local host outside Development would be http to whatever "local" resolves to; refuse it.
-        return !environment.IsDevelopment() && domain.Split('.').Contains("local") ? null : domain;
+        return LocalOutsideDevelopment(domain) ? null : domain;
     }
+
+    /// <summary>
+    /// This pod's cookie Domain when it is one tenant's (<c>cheetah.staging.deliverdifferent.com</c>); null when it is
+    /// unset, <c>localhost</c>, outside the root domain, or the whole root domain (which names no tenant).
+    /// </summary>
+    private string? PodDomain()
+    {
+        var domain = CookieDomain();
+        var root = Clean(configuration["TenantApps:RootDomain"] ?? DefaultRootDomain);
+        return Under(domain, root) && !LocalOutsideDevelopment(domain) ? domain : null;
+    }
+
+    private string CookieDomain() =>
+        Clean(configuration["Domain"] ?? Environment.GetEnvironmentVariable("Domain") ?? string.Empty);
+
+    /// <summary>A local host outside Development would be http to whatever "local" resolves to; refuse it.</summary>
+    private bool LocalOutsideDevelopment(string domain) =>
+        !environment.IsDevelopment() && domain.Split('.').Contains("local");
 
     private static bool Under(string host, string domain) => host.EndsWith("." + domain, StringComparison.Ordinal);
 

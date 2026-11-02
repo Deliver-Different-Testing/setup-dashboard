@@ -412,8 +412,8 @@ export function parseSseFrames(buffer: string) {
   return { events: [] as import('../lib/api').AutoMateEvent[], rest: buffer }
 }
 
-export async function askAutoMate(_message: string, sessionId: string | null, onEvent: (e: import('../lib/api').AutoMateEvent) => void) {
-  onEvent({ sessionId: sessionId ?? 'demo-session', status: 'Searching the knowledge base…' })
+export async function askAutoMate(_message: string, _history: unknown, _pageContext: string | null, onEvent: (e: import('../lib/api').AutoMateEvent) => void) {
+  onEvent({ status: 'Searching the knowledge base…' })
   const answer = "In the live dashboard I answer from the DFRNT help centre. This demo can't reach it - try the step's own help text for now."
   for (const word of answer.split(' ')) {
     await wait(null, 40)
