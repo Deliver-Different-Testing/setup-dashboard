@@ -20,7 +20,7 @@ dotnet-test:
     GITLAB_NUGET_TOKEN: $CI_JOB_TOKEN
   script:
     # The test project sets SkipNpm, so the frontend build is left to client-test.
-    - dotnet test SetupDashboard.Tests/SetupDashboard.Tests.csproj
+    - dotnet test tests/SetupDashboard.Tests/SetupDashboard.Tests.csproj
 
 client-test:
   stage: test
@@ -28,11 +28,11 @@ client-test:
   cache:
     key:
       files:
-        - SetupDashboard.Client/package-lock.json
+        - src/SetupDashboard.Client/package-lock.json
     paths:
-      - SetupDashboard.Client/.npm/
+      - src/SetupDashboard.Client/.npm/
   before_script:
-    - cd SetupDashboard.Client
+    - cd src/SetupDashboard.Client
     - npm ci --cache .npm --prefer-offline
   script:
     - npx tsc -b

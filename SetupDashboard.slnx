@@ -4,20 +4,31 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Folder Name="/Solution Items/">
-    <File Path="HANDOVER.md" />
-    <File Path="IMPLEMENTATION.md" />
-    <File Path="MIGRATION-MAPPING.md" />
-    <File Path="PLANNING.md" />
-    <File Path="README.md" />
+  <Folder Name="/build/">
+    <File Path=".dockerignore" />
+    <File Path=".gitlab-ci.yml" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="Dockerfile" />
+    <File Path="global.json" />
+    <File Path="nuget.config" />
   </Folder>
-  <Folder Name="/Solution Items/docs/">
+  <Folder Name="/docs/">
+    <File Path="README.md" />
+    <File Path="docs/HANDOVER.md" />
+    <File Path="docs/IMPLEMENTATION.md" />
+    <File Path="docs/MIGRATION-MAPPING.md" />
+    <File Path="docs/PLANNING.md" />
     <File Path="docs/setup-guide.md" />
   </Folder>
-  <Project Path="SetupDashboard.Api/SetupDashboard.Api.csproj" />
-  <Project Path="SetupDashboard.Client/SetupDashboard.Client.esproj">
-    <Platform Project="AnyCPU" />
-    <Build />
-  </Project>
-  <Project Path="SetupDashboard.Tests/SetupDashboard.Tests.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/SetupDashboard.Api/SetupDashboard.Api.csproj" />
+    <Project Path="src/SetupDashboard.Client/SetupDashboard.Client.esproj">
+      <Platform Project="AnyCPU" />
+      <Build />
+    </Project>
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SetupDashboard.Tests/SetupDashboard.Tests.csproj" />
+  </Folder>
 </Solution>

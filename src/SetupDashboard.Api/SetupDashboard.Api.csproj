@@ -1,0 +1,78 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>SetupDashboard</RootNamespace>
+    <SpaRoot>..\SetupDashboard.Client\</SpaRoot>
+    <SpaProxyServerUrl>http://localhost:5173</SpaProxyServerUrl>
+    <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Existing -->
+    <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="CsvHelper" />
+    <PackageReference Include="ClosedXML" />
+    <PackageReference Include="ExcelDataReader" />
+    <PackageReference Include="ExcelDataReader.DataSet" />
+    <PackageReference Include="Anthropic" />
+    <PackageReference Include="FuzzySharp" />
+    <PackageReference Include="Microsoft.AspNetCore.SpaProxy" />
+
+    <!-- Entity Framework Core -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+
+    <!-- Redis distributed cache -->
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
+
+    <!-- Health checks (Microsoft.Extensions.Diagnostics.HealthChecks is implicit on net10) -->
+    <PackageReference Include="AspNetCore.HealthChecks.SqlServer" />
+
+    <!-- Data Protection (shared cookie auth) -->
+    <PackageReference Include="Amazon.AspNetCore.DataProtection.SSM" />
+
+    <!-- Logging -->
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Settings.Configuration" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+
+    <!-- Access Control switch (hub-tile-setup-dashboard) via [RequireFeature].
+         Private feed, see nuget.config. -->
+    <PackageReference Include="DeliverDifferent.AccessControl" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SetupDashboard.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="efpt.config.json.user" />
+  </ItemGroup>
+
+  <!-- Frontend: building the Client project runs npm install + npm run build,
+       which writes wwwroot/setup-dashboard/. SkipNpm=true leaves it out. -->
+  <ItemGroup Condition="'$(SkipNpm)' != 'true'">
+    <ProjectReference Include="..\SetupDashboard.Client\SetupDashboard.Client.esproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!-- Publish: include the frontend the Client build just wrote (it isn't in
+       the static web assets computed before the build). -->
+  <Target Name="PublishSpa" AfterTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <DistFiles Include="wwwroot\setup-dashboard\**" />
+      <ResolvedFileToPublish Include="@(DistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>wwwroot\setup-dashboard\%(DistFiles.RecursiveDir)%(DistFiles.Filename)%(DistFiles.Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+</Project>
