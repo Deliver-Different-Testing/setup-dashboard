@@ -80,7 +80,7 @@ export function ChatSidebar() {
       <Flex component="aside" aria-label="Auto-Mate" direction="column" align="center" w={56} miw={56} py="sm"
         bg="var(--dd-surface-container)" style={{ borderRight: '1px solid var(--dd-outline-variant)' }}>
         <Tooltip label={unread ? 'Open Auto-Mate - new message' : 'Open Auto-Mate'} position="right">
-          <Indicator disabled={!unread} color="grape" size={10} offset={4} withBorder>
+          <Indicator disabled={!unread} size={10} offset={4} withBorder>
             <ActionIcon variant="subtle" size={44} radius="xl" onClick={() => setOpen(true)}
               aria-label={unread ? 'Open Auto-Mate, new message' : 'Open Auto-Mate'} aria-expanded={false}>
               <Avatar src={`${import.meta.env.BASE_URL}auto-mate-icon-light.png`} alt="" size={36} />
@@ -135,8 +135,7 @@ export function ChatSidebar() {
             placeholder="Ask a setup question"
             aria-label="Message Auto-Mate"
           />
-          {/* Auto-Mate is an AI surface: the grape accent, not the brand cyan. */}
-          <ActionIcon onClick={sendChat} loading={asking} color="grape" size="input-sm" aria-label="Send message">
+          <ActionIcon onClick={sendChat} loading={asking} size="input-sm" aria-label="Send message">
             <SendHorizontal size={16} strokeWidth={1.5} />
           </ActionIcon>
         </Group>

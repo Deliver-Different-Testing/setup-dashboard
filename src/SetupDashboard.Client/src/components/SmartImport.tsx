@@ -38,8 +38,7 @@ interface Props {
 const STEPS = ['Upload', 'Detect', 'Map', 'Preview and import']
 
 function ConfidenceBadge({ value, source }: { value: number; source?: 'ai' }) {
-  // AI surfaces use the grape accent, not the brand cyan.
-  if (source === 'ai') return <Badge variant="light" color="grape" tt="none" fw={600}>AI suggestion - check it</Badge>
+  if (source === 'ai') return <Badge variant="light" tt="none" fw={600}>AI suggestion - check it</Badge>
   const color = value >= 80 ? 'green' : value >= 50 ? 'yellow' : 'red'
   return <Badge variant="light" color={color} tt="none" fw={600}>{value}%</Badge>
 }
