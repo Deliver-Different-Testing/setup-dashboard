@@ -220,15 +220,35 @@ try
             { AllowAutoRedirect = false, UseCookies = false });
     builder.Services.AddSingleton<SetupDashboard.Services.TenantApps.ITenantAppUrls, SetupDashboard.Services.TenantApps.TenantAppUrls>();
 
-    // ── Auto-Mate: questions go to the Customer Success Platform, as the signed-in person ──
-    // Same rules as the tenant apps (no redirects, no cookie jar). The timeout covers until CSP starts
-    // answering; the streamed answer itself isn't cut off by it.
-    builder.Services.AddHttpClient(SetupDashboard.Services.TenantApps.AutoMateClient.HttpClientName,
-            c => { c.Timeout = TimeSpan.FromSeconds(60); })
+    // ── Auto-Mate: Claude answers from the CSP Knowledge Base ──
+    // CSP is called as this app (its pod's service-account token exchanged for a CSP token), not as the person.
+    // CSP's address is the caller's tenant's, from TenantAppUrls. No redirects, no cookie jar.
+    var serviceAuth = builder.Configuration.GetSection(SetupDashboard.Services.Knowledge.ServiceAuthOptions.SectionName)
+        .Get<SetupDashboard.Services.Knowledge.ServiceAuthOptions>() ?? new();
+    builder.Services.AddSingleton(serviceAuth);
+    builder.Services.AddSingleton(
+        builder.Configuration.GetSection(SetupDashboard.Services.Ai.AutoMateOptions.SectionName)
+            .Get<SetupDashboard.Services.Ai.AutoMateOptions>() ?? new());
+    builder.Services.AddSingleton(TimeProvider.System);
+    builder.Services.AddHttpClient(SetupDashboard.Services.Knowledge.CspTokenProvider.HttpClientName)
         .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             { AllowAutoRedirect = false, UseCookies = false });
-    builder.Services
-        .AddScoped<SetupDashboard.Services.TenantApps.IAutoMateClient, SetupDashboard.Services.TenantApps.AutoMateClient>();
+    builder.Services.AddSingleton<SetupDashboard.Services.Knowledge.IServiceTokenProvider, SetupDashboard.Services.Knowledge.CspTokenProvider>();
+    builder.Services.AddSingleton<SetupDashboard.Services.Knowledge.CspKnowledgeCircuit>();
+    builder.Services.AddScoped<SetupDashboard.Services.Knowledge.ICspKnowledgeClient, SetupDashboard.Services.Knowledge.CspKnowledgeClient>();
+    builder.Services.AddScoped<SetupDashboard.Services.Ai.KbTurnSources>();
+    builder.Services.AddScoped<SetupDashboard.Services.Ai.IAutoMateTool, SetupDashboard.Services.Ai.SearchKnowledgeBaseTool>();
+    builder.Services.AddScoped<SetupDashboard.Services.Ai.IAutoMateTool, SetupDashboard.Services.Ai.GetArticleTool>();
+    if (!string.IsNullOrWhiteSpace(anthropicKey))
+    {
+        builder.Services.AddScoped<SetupDashboard.Services.Ai.IAutoMateChat, SetupDashboard.Services.Ai.AutoMateChat>();
+    }
+    else
+    {
+        Log.Information("ANTHROPIC_API_KEY not set - Auto-Mate is off");
+        builder.Services.AddScoped<SetupDashboard.Services.Ai.IAutoMateChat, SetupDashboard.Services.Ai.NoAutoMateChat>();
+    }
+
     builder.Services
         .AddScoped<SetupDashboard.Services.TenantApps.ITenantAppClient,
             SetupDashboard.Services.TenantApps.TenantAppClient>();
