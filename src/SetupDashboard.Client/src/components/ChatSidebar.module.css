@@ -8,7 +8,7 @@
 }
 
 .bot {
-  background: var(--mantine-color-grape-light);
+  background: var(--mantine-primary-color-light);
   color: var(--mantine-color-text);
   border-radius: 16px 16px 16px 4px;
 }
