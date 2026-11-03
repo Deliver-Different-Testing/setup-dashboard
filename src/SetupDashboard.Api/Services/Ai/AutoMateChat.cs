@@ -331,7 +331,12 @@ public sealed class AutoMateChat(
             }
 
             state.Current = StartBlock(blockStart.ContentBlock);
-            return state.Current is ToolUseAccumulator ? new ChatEvent(Status: "Checking the help articles…") : null;
+            return state.Current switch
+            {
+                ToolUseAccumulator => new ChatEvent(Status: "Checking the help articles…"),
+                ThinkingAccumulator or RedactedThinkingAccumulator => new ChatEvent(Status: "Thinking…"),
+                _ => null
+            };
         }
 
         if (rawEvent.TryPickContentBlockDelta(out var delta))

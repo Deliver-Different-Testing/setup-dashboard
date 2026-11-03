@@ -168,6 +168,30 @@ public class AutoMateChatTests
     }
 
     [Fact]
+    public async Task A_thinking_block_says_thinking_once()
+    {
+        // Current models stream their thinking as empty text, then a signature.
+        _knowledge.IsConfigured = false;
+        _replies.Enqueue(
+            Sse("message_start", new { type = "message_start", message = new { id = "m", type = "message", role = "assistant", content = Array.Empty<object>(), model = "claude-sonnet-5-5", stop_reason = (string?)null, stop_sequence = (string?)null, usage = new { input_tokens = 1, output_tokens = 1 } } })
+            + Sse("content_block_start", new { type = "content_block_start", index = 0, content_block = new { type = "thinking", thinking = "", signature = "" } })
+            + Sse("content_block_delta", new { type = "content_block_delta", index = 0, delta = new { type = "thinking_delta", thinking = "" } })
+            + Sse("content_block_delta", new { type = "content_block_delta", index = 0, delta = new { type = "thinking_delta", thinking = "" } })
+            + Sse("content_block_delta", new { type = "content_block_delta", index = 0, delta = new { type = "signature_delta", signature = "sig" } })
+            + Sse("content_block_stop", new { type = "content_block_stop", index = 0 })
+            + Sse("content_block_start", new { type = "content_block_start", index = 1, content_block = new { type = "text", text = "" } })
+            + Sse("content_block_delta", new { type = "content_block_delta", index = 1, delta = new { type = "text_delta", text = "Hi." } })
+            + Sse("content_block_stop", new { type = "content_block_stop", index = 1 })
+            + Sse("message_delta", new { type = "message_delta", delta = new { stop_reason = "end_turn", stop_sequence = (string?)null }, usage = new { output_tokens = 5 } })
+            + Sse("message_stop", new { type = "message_stop" }));
+
+        var events = await Collect(Build().AskAsync(new ChatRequest("zones?", null, null), CancellationToken.None));
+
+        Assert.Equal("Thinking…", Assert.Single(events, e => e.Status != null).Status);
+        Assert.Equal("Hi.", events.Single(e => e.Delta != null).Delta);
+    }
+
+    [Fact]
     public async Task A_tool_call_runs_the_tool_and_its_article_can_be_cited()
     {
         var article = FakeKnowledge.Hit("Courier setup");
