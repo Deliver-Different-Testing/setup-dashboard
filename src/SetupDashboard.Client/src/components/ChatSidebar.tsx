@@ -116,7 +116,8 @@ export function ChatSidebar() {
           <Group key={i} gap={8} align="flex-end" wrap="nowrap">
             <Avatar src={`${import.meta.env.BASE_URL}auto-mate-icon-light.png`} alt="Auto-Mate" size={28} style={{ flexShrink: 0 }} />
             <div className={`${classes.bubble} ${classes.bot}`} aria-live={m.status ? 'polite' : undefined}>
-              {m.text || <MText span size="sm" c="dimmed" fs="italic">{m.status}</MText>}
+              {m.text}
+              {m.status && <MText size="sm" c="dimmed" fs="italic">{m.status}</MText>}
             </div>
           </Group>
         ) : (
