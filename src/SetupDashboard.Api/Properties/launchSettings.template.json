@@ -18,8 +18,7 @@
         "SQLCredentials": "user id=<sql-user>;password=<sql-password>",
         "PublicPath": "http://hub.local.deliverdifferent.com:51532/Account/login",
         "RedisConfig": "<redis-host>:<port>,password=<redis-password>",
-        "Domain": "local.deliverdifferent.com",
-        "ANTHROPIC_API_KEY": "<anthropic-api-key - dfrntcrm launchSettings AutoMate__Anthropic__ApiKey>"
+        "Domain": "local.deliverdifferent.com"
       }
     },
     "SetupDashboard.Api": {
@@ -34,8 +33,7 @@
         "SQLCredentials": "user id=<sql-user>;password=<sql-password>",
         "PublicPath": "http://hub.local.deliverdifferent.com:51532/Account/login",
         "RedisConfig": "<redis-host>:<port>,password=<redis-password>",
-        "Domain": "local.deliverdifferent.com",
-        "ANTHROPIC_API_KEY": "<anthropic-api-key - dfrntcrm launchSettings AutoMate__Anthropic__ApiKey>"
+        "Domain": "local.deliverdifferent.com"
       }
     }
   }

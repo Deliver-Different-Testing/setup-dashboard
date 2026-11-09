@@ -45,13 +45,13 @@ public interface IAutoMateChat
     IAsyncEnumerable<ChatEvent> AskAsync(ChatRequest request, CancellationToken ct);
 }
 
-/// <summary>Used when no Anthropic API key is configured.</summary>
+/// <summary>Used when Claude isn't connected (no workload identity federation or identity token).</summary>
 public sealed class NoAutoMateChat : IAutoMateChat
 {
     public async IAsyncEnumerable<ChatEvent> AskAsync(ChatRequest request, [EnumeratorCancellation] CancellationToken ct)
     {
         await Task.CompletedTask;
-        yield return new ChatEvent(Error: "Auto-Mate isn't switched on for this deployment yet. Ask DFRNT to turn it on.", Done: true);
+        yield return new ChatEvent(Error: AnthropicClientFactory.NotConnectedMessage, Done: true);
     }
 }
 
@@ -308,10 +308,16 @@ public sealed class AutoMateChat(
 
     private static ChatEvent DescribeFailure(Exception ex, string model)
     {
+        if (AnthropicClientFactory.IsNotConnected(ex))
+        {
+            Log.Warning(ex, "Claude isn't connected ({Model})", model);
+            return new ChatEvent(Error: AnthropicClientFactory.NotConnectedMessage, Done: true);
+        }
+
         Log.Error(ex, "Claude API error ({Model})", model);
         var message = ex switch
         {
-            AnthropicUnauthorizedException or AnthropicForbiddenException or AnthropicNotFoundException =>
+            AnthropicForbiddenException or AnthropicNotFoundException =>
                 "Auto-Mate isn't set up correctly. Contact DFRNT support.",
             AnthropicRateLimitException => "Auto-Mate is busy right now. Try again in a minute.",
             AnthropicBadRequestException => "Auto-Mate couldn't process that. Try rephrasing your question.",

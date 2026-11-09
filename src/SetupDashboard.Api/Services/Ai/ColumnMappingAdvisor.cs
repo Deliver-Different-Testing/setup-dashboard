@@ -11,7 +11,7 @@ namespace SetupDashboard.Services.Ai;
 /// <summary>A file column the name match couldn't place, with a few masked values from it.</summary>
 public sealed record ColumnSample(string Column, IReadOnlyList<string> Values);
 
-/// <summary>Used when no Anthropic API key is configured: Smart Import runs on the name match alone.</summary>
+/// <summary>Used when Claude isn't connected: Smart Import runs on the name match alone.</summary>
 public sealed class NoColumnMappingAdvisor : IColumnMappingAdvisor
 {
     public Task<IReadOnlyDictionary<string, string>> SuggestAsync(string entityType, IReadOnlyList<ColumnSample> columns,
@@ -73,6 +73,10 @@ public sealed class ClaudeColumnMappingAdvisor(AnthropicClient client) : IColumn
             var text = string.Concat(response.Content.Select(b => b.Value).OfType<BetaTextBlock>().Select(t => t.Text));
             return ParseSuggestions(text, columnNames, fieldNames);
         }
+        catch (Exception ex) when (AnthropicClientFactory.IsNotConnected(ex))
+        {
+            Log.Warning(ex, "Claude isn't connected; column mapping uses the name match only");
+        }
         catch (AnthropicRateLimitException ex)
         {
             Log.Warning(ex, "Column mapping rate limited; using the name match only");
@@ -87,7 +91,7 @@ public sealed class ClaudeColumnMappingAdvisor(AnthropicClient client) : IColumn
         }
         catch (AnthropicApiException ex)
         {
-            // 400/401/403/404: the request or the key is wrong, and retrying won't help.
+            // 400/403/404: the request or the federation rule is wrong, and retrying won't help.
             Log.Error(ex, "Column mapping request rejected; using the name match only");
         }
 
