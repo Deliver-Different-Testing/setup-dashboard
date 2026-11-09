@@ -102,7 +102,17 @@ extraVolumes:
             audience: csp
             expirationSeconds: 600
             path: csp-token
+  - name: anthropic-token
+    projected:
+      sources:
+        - serviceAccountToken:
+            audience: https://api.anthropic.com
+            expirationSeconds: 600
+            path: token
 extraVolumeMounts:
   - name: dfrnt-csp-token
     mountPath: /var/run/secrets/dfrnt
+    readOnly: true
+  - name: anthropic-token
+    mountPath: /var/run/secrets/anthropic.com
     readOnly: true

@@ -246,8 +246,8 @@ public class AutoMateChatTests
     [Fact]
     public async Task The_ai_service_failing_is_one_error_frame()
     {
-        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)
-            { Content = new StringContent("{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"bad\"}}") });
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden)
+            { Content = new StringContent("{\"type\":\"error\",\"error\":{\"type\":\"permission_error\",\"message\":\"bad\"}}") });
         var client = new AnthropicClient { HttpClient = new HttpClient(handler), ApiKey = "test", MaxRetries = 0 };
         var sut = new AutoMateChat(client, [], new AutoMateOptions(), _knowledge, _sources);
 
@@ -258,13 +258,45 @@ public class AutoMateChatTests
     }
 
     [Fact]
-    public async Task Without_an_api_key_the_answer_is_a_single_friendly_error()
+    public async Task A_rejected_credential_says_it_is_not_connected()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)
+            { Content = new StringContent("{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"bad\"}}") });
+        var client = new AnthropicClient { HttpClient = new HttpClient(handler), ApiKey = "test", MaxRetries = 0 };
+        var sut = new AutoMateChat(client, [], new AutoMateOptions(), _knowledge, _sources);
+
+        var events = await Collect(sut.AskAsync(new ChatRequest("zones?", null, null), CancellationToken.None));
+
+        Assert.Equal(AnthropicClientFactory.NotConnectedMessage, events.Last().Error);
+        Assert.True(events.Last().Done);
+    }
+
+    [Fact]
+    public async Task A_missing_identity_token_says_it_is_not_connected()
+    {
+        var client = AnthropicClientFactory.Create(new AnthropicFederationOptions
+        {
+            RuleId = "fdrl_test",
+            OrganizationId = "00000000-0000-0000-0000-000000000001",
+            ServiceAccountId = "svac_test",
+            IdentityTokenFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
+        }, 0, new HttpClient(new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK))));
+        var sut = new AutoMateChat(client, [], new AutoMateOptions(), _knowledge, _sources);
+
+        var events = await Collect(sut.AskAsync(new ChatRequest("zones?", null, null), CancellationToken.None));
+
+        Assert.Equal(AnthropicClientFactory.NotConnectedMessage, events.Last().Error);
+        Assert.True(events.Last().Done);
+    }
+
+    [Fact]
+    public async Task When_claude_is_not_connected_the_answer_is_a_single_friendly_error()
     {
         var events = await Collect(new NoAutoMateChat().AskAsync(new ChatRequest("hi", null, null), CancellationToken.None));
 
         var only = Assert.Single(events);
         Assert.True(only.Done);
-        Assert.Contains("isn't switched on", only.Error);
+        Assert.Equal(AnthropicClientFactory.NotConnectedMessage, only.Error);
     }
 
     [Theory]

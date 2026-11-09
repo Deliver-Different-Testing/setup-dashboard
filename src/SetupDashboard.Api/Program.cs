@@ -195,16 +195,19 @@ try
     builder.Services.AddSingleton<ISessionStore, DistributedSessionStore>();
 
     // ── Smart Import column suggestions (Claude) ──
-    // Off unless ANTHROPIC_API_KEY is set; without it the import runs on the name match alone.
-    var anthropicKey = builder.Configuration["ANTHROPIC_API_KEY"];
-    if (!string.IsNullOrWhiteSpace(anthropicKey))
+    // Claude is reached through workload identity federation. Without a mounted identity token (local runs) the
+    // import runs on the name match alone and Auto-Mate says it isn't connected.
+    var anthropicFederation = builder.Configuration.GetSection(SetupDashboard.Services.Ai.AnthropicFederationOptions.SectionName)
+        .Get<SetupDashboard.Services.Ai.AnthropicFederationOptions>() ?? new();
+    var claudeConnected = anthropicFederation.IsConnected;
+    if (claudeConnected)
     {
-        builder.Services.AddSingleton(new Anthropic.AnthropicClient { ApiKey = anthropicKey, MaxRetries = 1 });
+        builder.Services.AddSingleton(SetupDashboard.Services.Ai.AnthropicClientFactory.Create(anthropicFederation, maxRetries: 1));
         builder.Services.AddSingleton<IColumnMappingAdvisor, SetupDashboard.Services.Ai.ClaudeColumnMappingAdvisor>();
     }
     else
     {
-        Log.Information("ANTHROPIC_API_KEY not set - Smart Import column suggestions are off");
+        Log.Warning("Claude isn't connected (no workload identity federation or identity token) - Smart Import column suggestions and Auto-Mate are off");
         builder.Services.AddSingleton<IColumnMappingAdvisor, SetupDashboard.Services.Ai.NoColumnMappingAdvisor>();
     }
 
@@ -269,13 +272,12 @@ try
     builder.Services.AddScoped<SetupDashboard.Services.Ai.KbTurnSources>();
     builder.Services.AddScoped<SetupDashboard.Services.Ai.IAutoMateTool, SetupDashboard.Services.Ai.SearchKnowledgeBaseTool>();
     builder.Services.AddScoped<SetupDashboard.Services.Ai.IAutoMateTool, SetupDashboard.Services.Ai.GetArticleTool>();
-    if (!string.IsNullOrWhiteSpace(anthropicKey))
+    if (claudeConnected)
     {
         builder.Services.AddScoped<SetupDashboard.Services.Ai.IAutoMateChat, SetupDashboard.Services.Ai.AutoMateChat>();
     }
     else
     {
-        Log.Information("ANTHROPIC_API_KEY not set - Auto-Mate is off");
         builder.Services.AddScoped<SetupDashboard.Services.Ai.IAutoMateChat, SetupDashboard.Services.Ai.NoAutoMateChat>();
     }
 
