@@ -8,8 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Frontend
-SetupDashboard.Client/node_modules/
-SetupDashboard.Client/dist/
+src/SetupDashboard.Client/node_modules/
+src/SetupDashboard.Client/dist/
 *.local
 
 # Editor directories and files
@@ -29,16 +29,16 @@ Thumbs.db
 .claude/
 
 # .NET
-SetupDashboard.Api/bin/
-SetupDashboard.Api/obj/
-SetupDashboard.Api/.env
-SetupDashboard.Api/wwwroot/setup-dashboard/
+src/SetupDashboard.Api/bin/
+src/SetupDashboard.Api/obj/
+src/SetupDashboard.Api/.env
+src/SetupDashboard.Api/wwwroot/setup-dashboard/
 
 # Local-only settings (contains dev SQL/Redis credentials)
-SetupDashboard.Api/Properties/launchSettings.json
+src/SetupDashboard.Api/Properties/launchSettings.json
 
 # SQLite data
-SetupDashboard.Api/data/
+src/SetupDashboard.Api/data/
 
 # build output for every project
 [Bb]in/

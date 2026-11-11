@@ -14,13 +14,13 @@ RUN apt-get install -y nodejs
 # into an image layer.
 ARG GITLAB_NUGET_USERNAME
 ARG GITLAB_NUGET_TOKEN
-COPY nuget.config Directory.Packages.props ./
-COPY SetupDashboard.Api/SetupDashboard.Api.csproj SetupDashboard.Api/
-COPY SetupDashboard.Client/SetupDashboard.Client.esproj SetupDashboard.Client/
-RUN GITLAB_NUGET_USERNAME=${GITLAB_NUGET_USERNAME} GITLAB_NUGET_TOKEN=${GITLAB_NUGET_TOKEN} dotnet restore SetupDashboard.Api/SetupDashboard.Api.csproj
+COPY nuget.config Directory.Build.props Directory.Packages.props global.json ./
+COPY src/SetupDashboard.Api/SetupDashboard.Api.csproj src/SetupDashboard.Api/
+COPY src/SetupDashboard.Client/SetupDashboard.Client.esproj src/SetupDashboard.Client/
+RUN GITLAB_NUGET_USERNAME=${GITLAB_NUGET_USERNAME} GITLAB_NUGET_TOKEN=${GITLAB_NUGET_TOKEN} dotnet restore src/SetupDashboard.Api/SetupDashboard.Api.csproj
 
 COPY . ./
-RUN dotnet publish SetupDashboard.Api/SetupDashboard.Api.csproj -c Release -o /publish
+RUN dotnet publish src/SetupDashboard.Api/SetupDashboard.Api.csproj -c Release -o /publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 COPY --from=build-env /publish /app

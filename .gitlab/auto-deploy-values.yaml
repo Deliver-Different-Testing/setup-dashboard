@@ -93,3 +93,26 @@ tolerations:
     operator: Equal
     value: staging
     effect: NoSchedule
+# Auto-Mate: a short-lived service-account token (audience csp) the app exchanges for a CSP Knowledge API token.
+extraVolumes:
+  - name: dfrnt-csp-token
+    projected:
+      sources:
+        - serviceAccountToken:
+            audience: csp
+            expirationSeconds: 600
+            path: csp-token
+  - name: anthropic-token
+    projected:
+      sources:
+        - serviceAccountToken:
+            audience: https://api.anthropic.com
+            expirationSeconds: 600
+            path: token
+extraVolumeMounts:
+  - name: dfrnt-csp-token
+    mountPath: /var/run/secrets/dfrnt
+    readOnly: true
+  - name: anthropic-token
+    mountPath: /var/run/secrets/anthropic.com
+    readOnly: true

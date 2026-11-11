@@ -24,11 +24,15 @@ The primary contact is the person who books jobs. Settings creates their booking
 
 ## Other booking contacts
 
-Add extra contacts under the customer. Each needs a first name or surname and an email. They get no sign-in unless you tick "Sign-in + invite" on the contact.
+Add extra contacts under the customer. Each needs a first name or surname and an email. They get no sign-in unless you tick "Email a sign-in invite to this contact".
 
 ## Apply to all
 
-"Invoice schedule for all", "Payment term for all" and "Invite every primary contact when sent" set the value on every customer row at once.
+Under "Set for every customer", choose an invoice schedule, a payment term or both and press Apply. "Only where empty" (the default) leaves customers that already have a value; "Replace all" overwrites them. "Confirm all invites" ticks the invite box on every customer. The most recent of these, or of removing a customer or contact, can be undone until you save.
+
+## Finding customers that need details
+
+Each customer shows "Ready" or how many fields are still to fill, and the line under its name lists them. These are the same checks Settings makes when you send. Use the search box and the "Need details" filter to work through a long list.
 
 ## First customer on a brand-new tenant
 

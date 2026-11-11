@@ -1,0 +1,85 @@
+/* Zone-to-zone rate matrix: rows are where a job starts, columns where it ends. */
+
+.matrix {
+  border-collapse: separate;
+  border-spacing: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.axis {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--dd-surface-container);
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  padding: 4px 8px 4px 0;
+}
+
+.head {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  padding: 4px;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 84px;
+  min-height: 52px;
+  padding: 6px 8px;
+  border-radius: var(--mantine-radius-sm);
+  border: 1px solid var(--mantine-primary-color-light-hover);
+  background: var(--mantine-primary-color-light);
+  line-height: 1.25;
+}
+
+.cell:hover {
+  border-color: var(--mantine-primary-color-filled);
+}
+
+.cell:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+
+/* No rate yet: an open slot, not a value. */
+.empty {
+  background: transparent;
+  border-color: var(--dd-outline-variant);
+  border-style: dashed;
+  color: var(--mantine-color-dimmed);
+}
+
+/* An open slot for jobs that start and end in the same zone. */
+.same.empty {
+  background: var(--dd-surface);
+}
+
+.incomplete {
+  border-color: var(--mantine-color-orange-filled);
+}
+
+.conflict {
+  border-color: var(--mantine-color-orange-filled);
+  background: var(--mantine-color-yellow-light);
+  color: var(--mantine-color-orange-text);
+  font-weight: 600;
+}
+
+.charge {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+.driver {
+  font-size: 11px;
+  color: var(--mantine-color-dimmed);
+}
