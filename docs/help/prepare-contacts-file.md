@@ -6,7 +6,7 @@ audience: [admin]
 tags: [contacts file, booking contacts, customer users, csv template, client code, import contacts, data preparation]
 ---
 
-A contacts file has one row per extra booking contact, attached to a customer by Client Code. Required: Client Code, First Name, Email. Optional: Last Name, Mobile, Job Title. Import customers first and save, then Import contacts; a row whose Client Code matches no customer on the step is reported and skipped. Contacts loaded this way have no sign-in until you tick "Sign-in + invite" on each one.
+A contacts file has one row per extra booking contact, attached to a customer by Client Code. Required: Client Code, First Name, Email. Optional: Last Name, Mobile, Job Title. Import customers first and save, then Import contacts; a row whose Client Code matches no customer on the step is reported and skipped. Contacts loaded this way have no sign-in until you tick "Email a sign-in invite to this contact" on each one.
 
 ## Column reference
 

@@ -21,8 +21,8 @@ Vehicle sizes, zones, rates, schedules, fleets: no people involved, no email.
 
 ## Extra booking contacts
 
-Other contacts on a customer are created without a sign-in unless you tick "Sign-in + invite" on that contact.
+Other contacts on a customer are created without a sign-in unless you tick "Email a sign-in invite to this contact" on that contact.
 
 ## Inviting everyone at once
 
-On the Customers step, "Invite every primary contact when sent" ticks the box on all rows. Use it only when you've checked the contact emails are right: each one receives a real email.
+On the Customers step, "Confirm all invites" ticks the box on every customer. Use it only when you've checked the contact emails are right: each one receives a real email.
